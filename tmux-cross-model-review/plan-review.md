@@ -27,7 +27,8 @@ Plan review has two halves: alignment with the spec and execution completeness.
 Half A - Alignment with spec
   A1 - Coverage: every spec goal mapped to a concrete plan task?
   A2 - Faithfulness: plan implements the spec's direction?
-  A3 - Scope drift: plan adds work the spec did not ask for?
+  A3 - Boundary (hard constraint): plan introduces state, machinery, or
+       behavior the spec did not call for?
 
 Half B - Execution completeness
   B1 - Logic gaps: ordering, error handling, helper semantics, early stops
@@ -60,9 +61,25 @@ source/spec/helper/git files.
 A1 - Coverage: Does every spec goal map to one or more concrete tasks?
 A2 - Faithfulness: Does the plan implement the spec's chosen direction, or has
      it silently substituted a different approach?
-A3 - Scope drift: Does the plan add work the spec did not ask for?
+A3 - Boundary: Does the plan add work the spec did not ask for? See the
+     boundary rule below.
 
-If the plan diverges from the spec, the divergence itself is the issue. Spec wins.
+If the plan diverges from the spec's direction, the divergence itself is the
+issue.
+
+=== SPEC BOUNDARY RULE (hard constraint) ===
+
+The plan must not introduce new state, persisted records, config knobs,
+scheduling semantics, or externally visible behavior that the spec did not
+call for. Implementation detail -- task breakdown, file paths, step ordering,
+test organization -- is not a boundary violation; anything that would appear
+in the runtime or operations view is.
+
+If a spec goal cannot be implemented without machinery the spec never
+described, do NOT specify the machinery and do NOT demand the author invent
+it. Report it as [BOUNDARY-CONFLICT]: cite the exact spec sentence that forces
+the machinery and the machinery it would require. Resolution belongs to the
+user, not to this review loop.
 
 === HALF B: EXECUTION COMPLETENESS ===
 
@@ -91,7 +108,7 @@ section it traces back to.
 === OUTPUT ===
 
 For each issue >= 70 confidence: ISSUE format.
-Tag each finding with [ALIGN-A1..A3] or [EXEC-B1..B4].
+Tag each finding with [ALIGN-A1..A3], [EXEC-B1..B4], or [BOUNDARY-CONFLICT].
 Location format: "Task N, Step M" or "Section: <name>".
 If both halves are clean: "LGTM: <one sentence on alignment + one on execution>".
 ```
@@ -105,6 +122,10 @@ unavailable.
 
 The primary driver modifies the plan file after VERIFY, EVALUATE, CLASSIFY, and
 PREMISE-CHECK.
+
+A [BOUNDARY-CONFLICT] finding is never ACCEPT/REJECT material and must not be
+resolved by editing the plan. It goes through Exception 2 (Boundary-Conflict
+Escalation) in `SKILL.md`.
 
 ## Review Loop Gate
 

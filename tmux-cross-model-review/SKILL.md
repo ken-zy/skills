@@ -64,7 +64,8 @@ Required user-visible progress before the final report:
 - phase announcements, such as "Starting Phase 2: Plan Review"
 - round progress, such as "Round 2: 1 issue found, 1 accepted"
 - CEO Decisions made inline by Codex
-- User-Premise Conflict Escalation, the one exception below
+- the two escalation exceptions below (User-Premise Conflict, Boundary
+  Conflict)
 
 Phase transitions are automatic:
 
@@ -73,9 +74,11 @@ Full pipeline: design-review.md -> plan-review.md -> execution.md -> code-review
 Design-only:   design-review.md -> report.md
 ```
 
-## The ONE Exception -- User-Premise Conflict Escalation
+## The Two Exceptions -- Escalations That Pause the Flow
 
-There is exactly one situation that pauses the autonomous flow:
+Exactly two situations pause the autonomous flow.
+
+### Exception 1 -- User-Premise Conflict Escalation
 
 ```text
 TRIGGER:
@@ -88,7 +91,22 @@ Pause, state the conflicting user decision, state the false premise, cite the
 evidence, offer concrete options, and wait for the user.
 ```
 
-This is an escalation, not a confirmation prompt. After the user chooses, record
+### Exception 2 -- Boundary-Conflict Escalation
+
+```text
+TRIGGER:
+- A reviewer reports [BOUNDARY-CONFLICT]: an upstream goal (spec goal in plan
+  review, plan task in code review) cannot be implemented without state or
+  machinery the upstream artifact never described.
+
+ACTION:
+Pause, cite the upstream sentence that forces the machinery, describe the
+machinery it would require, offer the two resolutions -- amend the upstream
+artifact to include the machinery, or narrow the upstream promise so the
+machinery becomes unnecessary -- and wait for the user.
+```
+
+These are escalations, not confirmation prompts. After the user chooses, record
 the result as `user-override` in the issue tracker and resume the pipeline from
 the paused point.
 
@@ -336,7 +354,7 @@ For each Claude Code issue at confidence `>= 70`:
    or user-premise conflict.
 4. PREMISE-CHECK: would accepting it overturn an explicit user decision or the
    factual premise behind that decision?
-   - yes -> escalate via The ONE Exception before applying any fix
+   - yes -> escalate via Exception 1 before applying any fix
    - no -> continue
 5. UPDATE the issue tracker.
 6. ACCEPT or REJECT.
@@ -388,7 +406,7 @@ force a CEO Decision.
 For each disagreement:
 
 1. PRE-CHECK: if resolving it would overturn the user's explicit decision or the
-   factual premise behind it, escalate via The ONE Exception.
+   factual premise behind it, escalate via Exception 1.
 2. Summarize Codex's argument and evidence.
 3. Summarize Claude Code's argument and evidence.
 4. Decide which outcome serves the project long term.
@@ -420,11 +438,18 @@ rounds.
 
 Before modifying an artifact for an accepted issue, ask:
 
-1. What is the fundamental requirement this issue points to?
-2. Does the fix address that requirement directly?
-3. Would Claude Code likely find a flaw in the approximation next round?
+1. Can this issue be dissolved by narrowing the requirement or shrinking the
+   input set, instead of adding mechanism? If the narrowing changes an
+   upstream artifact (spec or plan), that is Exception 2 -- escalate. Prefer
+   narrowing over mechanism whenever both resolve the issue.
+2. What is the fundamental requirement this issue points to?
+3. Does the fix address that requirement directly?
+4. Would Claude Code likely find a flaw in the approximation next round?
 
-If the answer to the third question is "maybe", go deeper before re-dispatch.
+If the answer to the fourth question is "maybe", go deeper before re-dispatch
+-- but only within the upstream artifact's boundary. If going deeper would
+introduce state or machinery the upstream artifact never described, stop and
+escalate via Exception 2 instead.
 
 ### Tmux Helper Failure Handling
 
@@ -446,6 +471,6 @@ Review failure is not LGTM.
 | "acceptEdits should be enough" | No. `acceptEdits is invalid` for code review because Bash may prompt. |
 | "Reviewer found it, so fix it" | VERIFY, EVALUATE, CLASSIFY, PREMISE-CHECK first. |
 | "I fixed it, move on" | No. Accepted modifications require Round 2+. |
-| "Should I ask whether to continue?" | No. Phase transitions are automatic except The ONE Exception. |
+| "Should I ask whether to continue?" | No. Phase transitions are automatic except the two escalation exceptions. |
 | "Review failed, but probably fine" | No. Review failure is not LGTM. |
 | "Pane scrollback has the answer" | No. Read the helper-designated result file. |

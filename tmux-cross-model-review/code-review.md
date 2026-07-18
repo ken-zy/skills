@@ -49,7 +49,8 @@ logic, and vulnerabilities/data safety.
 Half A - Alignment with plan
   A1 - Coverage: every plan task has corresponding code in the diff?
   A2 - Drift: implementation substituted a different approach?
-  A3 - Scope creep: files/features/abstractions not authorized by the plan?
+  A3 - Boundary (hard constraint): code adds state, tables, endpoints, config,
+       or behavior the plan did not authorize?
   A4 - Plan-inherited bugs: faithful code implements a flawed plan step?
 
 Half B - Code logic
@@ -89,8 +90,23 @@ source/spec/helper/git files.
 
 A1 - Coverage: Does every task/step in the plan have corresponding code?
 A2 - Drift: Did the implementation silently substitute a different approach?
-A3 - Scope creep: Does the change include unauthorized files, abstractions, or features?
+A3 - Boundary: Does the change include unauthorized files, abstractions, or
+     features? See the boundary rule below.
 A4 - Plan-inherited bugs: Does faithful code implement a flawed plan step?
+
+=== PLAN BOUNDARY RULE (hard constraint) ===
+
+The change must not add new tables, endpoints, config knobs, persisted state,
+or externally visible behavior that the plan did not authorize. Internal
+implementation detail -- helper functions, refactors within changed files,
+test organization -- is not a boundary violation; anything that would appear
+in the runtime or operations view is.
+
+If a plan task cannot be implemented without machinery the plan never
+described, do NOT specify the machinery and do NOT demand the author invent
+it. Report it as [BOUNDARY-CONFLICT]: cite the exact plan step that forces the
+machinery and the machinery it would require. Resolution belongs to the user,
+not to this review loop.
 
 === HALF B: CODE LOGIC ===
 
@@ -119,7 +135,8 @@ C4 - Observability gaps that would hide a future failure.
 === OUTPUT ===
 
 For each issue >= 70 confidence: ISSUE format.
-Tag findings with [ALIGN-A1..A4], [LOGIC-B1..B4], or [VULN-C1..C4].
+Tag findings with [ALIGN-A1..A4], [LOGIC-B1..B4], [VULN-C1..C4], or
+[BOUNDARY-CONFLICT].
 Location format: "file:line".
 If no substantive issues: "LGTM: faithful to plan, logic sound, no exploitable
 surface found in <one-line scope statement>".
@@ -137,6 +154,10 @@ unavailable.
 
 The primary driver modifies code, commits one fix per accepted issue, and
 pushes. Commit format: `fix(scope): <description>`.
+
+A [BOUNDARY-CONFLICT] finding is never ACCEPT/REJECT material and must not be
+resolved by editing code. It goes through Exception 2 (Boundary-Conflict
+Escalation) in `SKILL.md`.
 
 ## Review Loop
 
