@@ -29,9 +29,10 @@ operations such as signing transactions or transferring funds. If a task
 requires wallet keys, skip that specific task, note it in the report, and
 continue with independent tasks.
 
-The ONE Exception from `SKILL.md` still applies: if accepting a reviewer finding
-would overturn the user's explicit decision or the factual premise behind it,
-pause and escalate before applying the fix.
+The two escalation exceptions from `SKILL.md` still apply: if accepting a
+reviewer finding would overturn the user's explicit decision or the factual
+premise behind it, pause and escalate per Exception 1; if work cannot proceed
+without state or machinery the plan never described, escalate per Exception 2.
 
 ## Pre-Execution Checks
 
@@ -57,7 +58,7 @@ When invoking execution helpers from this skill:
 - skip execution-choice prompts
 - skip review-checkpoint prompts
 - do not ask the user for confirmation between tasks
-- make context-based decisions autonomously unless the ONE Exception fires
+- make context-based decisions autonomously unless an escalation exception fires
 
 ## Post-Execution
 
