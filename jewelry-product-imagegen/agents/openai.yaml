@@ -1,0 +1,4 @@
+interface:
+  display_name: "Jewelry Product ImageGen"
+  short_description: "Batch-generate jewelry ecommerce model photos"
+  default_prompt: "Use $jewelry-product-imagegen to batch-generate the remaining jewelry product images."

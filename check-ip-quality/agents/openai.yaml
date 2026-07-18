@@ -1,0 +1,4 @@
+interface:
+  display_name: "Check IP Quality"
+  short_description: "Evaluate IP reputation and proxy risk"
+  default_prompt: "Use $check-ip-quality to evaluate the quality of this IP address."

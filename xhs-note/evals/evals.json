@@ -1,0 +1,43 @@
+{
+  "skill_name": "xhs-note",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "在 /Users/jdy/Downloads/电商生图实战 里，对当前商品开始生图。不要先写死 9 张图位，先根据小红书高赞结构制定一套图位策略。",
+      "expected_output": "A Chinese plan that reads the repo rules, identifies the current product, proposes Xiaohongshu exploration before slot decisions, persists the structure evidence to research/xhs-structure.md, maps discovered structures to a 9+ image note plan with market-derived/product-required/fallback labels, and includes an independent Pre style-positioning image before formal candidate generation.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我有一个新的饰品产品目录，想做小红书图文笔记。帮我制定生图流程，重点是高赞结构迁移，不要直接套旧产品模板。",
+      "expected_output": "A reusable ecommerce image workflow that starts with product positioning and Xiaohongshu structure discovery, persists the structure map, then creates a flexible image-slot map, an independent Pre style-positioning baseline whose candidates are retained locally, and formal candidate generation with score-driven continuation.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "检查这个电商生图计划有没有问题：它直接安排了封面、细节、静物、氛围图共 9 张，但还没看小红书，也没说明每张图为什么适合这个商品。",
+      "expected_output": "A skeptical Chinese review that flags the fixed 9-slot plan as premature, requires Xiaohongshu structure exploration and product mapping, requires a separate Pre style-positioning baseline before formal candidate generation, prevents Pre from being used for product fidelity, and preserves the repo rule that final still needs at least 9 qualified images.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "小红书暂时搜不了。请在 /Users/jdy/Downloads/电商生图实战 里继续给当前商品制定生图流程，可以参考 shared/model-library/styles 里的风格资料，但不要假装这些就是小红书高赞证据。",
+      "expected_output": "A Chinese workflow that records Xiaohongshu blockage, reads relevant shared/model-library/styles files as style-library fallback, labels affected slots as style-library-derived or fallback rather than market-derived, persists the fallback basis to research/xhs-structure.md, and still keeps product refs, Pre, and formal candidate-generation boundaries intact.",
+      "files": [
+        "/Users/jdy/Downloads/电商生图实战/shared/model-library/styles"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "帮我检查这个生图迭代设计：第一次先看整体，第二次再加产品图修商品，第三次最后精修。我的要求是第一张候选图也必须有真实产品图，而且每张候选图都先评分；如果当前候选图已经合格，就不要继续生成。",
+      "expected_output": "A Chinese correction that states the first formal candidate must include product refs for all visible components, every formal candidate must be scored before deciding the next action, and follow-up candidates are optional corrections that should be skipped whenever the current candidate reaches the final threshold.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "每一张图都要先有 Pre 风格基线，再按候选图质量独立推进。保存的时候也要按具体图位分类，不要所有候选图都堆在一起，后面会分不清是哪张图。",
+      "expected_output": "A Chinese workflow update that gives every planned image a stable slot id, scores candidate decisions independently per slot, saves candidates directly under drafts/<slot-id>/ with continuous suffixes such as _01/_02/_03 and no generation-stage labels in paths, and keeps final/review mappings traceable to the slot.",
+      "files": []
+    }
+  ]
+}

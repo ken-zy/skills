@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+
+# wechat-publisher build artifacts
+wechat-publisher/node_modules/
+wechat-publisher/bun.lock
+
+# wechat-publisher credential locations — never commit
+.jdy_writer/
+EXTEND.md
+
+# x-publisher build artifacts
+x-publisher/node_modules/
+x-publisher/bun.lock

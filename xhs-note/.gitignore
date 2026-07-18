@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local scratch
+.claude-local/
+tmp/

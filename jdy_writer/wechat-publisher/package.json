@@ -1,0 +1,11 @@
+{
+  "name": "jdy-writer-wechat-publisher",
+  "private": true,
+  "type": "module",
+  "description": "Internal WeChat Official Account publisher for jdy_writer skill (API mode only). Forked and stripped from baoyu-post-to-wechat.",
+  "dependencies": {
+    "@jsquash/webp": "^1.5.0",
+    "baoyu-md": "file:./vendor/baoyu-md",
+    "jimp": "^1.6.0"
+  }
+}

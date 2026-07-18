@@ -1,0 +1,28 @@
+{
+  "mp.weixin.qq.com": {
+    "startLevel": 2,
+    "cdpActions": ["waitForSelector:#js_content,.rich_media_content:4500", "removeOverlays:.js_wechat_qrcode,.wx_tips,.rich_media_global_msg", "autoScroll"],
+    "cleaners": ["wechat"]
+  },
+  "*.zhihu.com": {
+    "startLevel": 2,
+    "cleaners": ["zhihu"]
+  },
+  "*.xiaohongshu.com": {
+    "startLevel": 2,
+    "cdpActions": ["expandContent"],
+    "cleaners": ["xiaohongshu"]
+  },
+  "*.youtube.com": {
+    "adapter": "youtube",
+    "aliases": ["youtu.be"]
+  },
+  "x.com": {
+    "adapter": "x-twitter",
+    "aliases": ["twitter.com"]
+  },
+  "wx.zsxq.com": {
+    "adapter": "zsxq",
+    "aliases": ["t.zsxq.com", "articles.zsxq.com"]
+  }
+}
