@@ -162,6 +162,9 @@ assert_contains report.md "CEO"
 assert_contains report.md "self-checked"
 assert_contains report.md "unreviewed"
 assert_contains report.md "Escalations"
+assert_contains report.md "Escalations (Exceptions 1-2)"
+assert_contains report.md "boundary conflict"
+assert_absent report.md "Overturned decision / false premise"
 assert_contains report.md "Final Status"
 
 printf 'PASS: skill phase file structure\n'

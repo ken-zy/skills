@@ -24,7 +24,7 @@ Include only phases that actually ran.
 | Code Review (Claude Code) | N rounds, accepted M, rejected K |
 | Primary safety net / Codex safety net | No issues / N issues found, M fixed |
 | CEO decisions | N |
-| Escalations | N |
+| Escalations (Exceptions 1-2) | N |
 
 ## Design Review
 ### Round 1
@@ -49,9 +49,10 @@ Include only phases that actually ran.
 |---|-------|-------|----------------|----------------------|---------|----------|-----------|
 | <n> | <phase> | <issue> | <summary> | <summary> | <ACCEPT/REJECT/COMPROMISE> | self-checked / unreviewed | <rationale> |
 
-## Escalations
-| # | Phase | Overturned decision / false premise | Evidence | User's choice |
-|---|-------|-------------------------------------|----------|---------------|
+## Escalations (Exceptions 1-2)
+| # | Phase | Trigger (overturned decision / false premise / boundary conflict) | Evidence | User's choice |
+|---|-------|-------------------------------------------------------------------|----------|---------------|
+(Include this section only when a user-premise or boundary-conflict escalation fired.)
 
 ## Final Status
 <Complete / Complete with unresolved items>
