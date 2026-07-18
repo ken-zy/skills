@@ -60,16 +60,17 @@ autonomous flow — it is part of it.
 
 ```
 TRIGGER:
-- A reviewer reports [BOUNDARY-CONFLICT]: an upstream goal (spec goal in plan
-  review, plan task in code review) cannot be implemented without state or
-  machinery the upstream artifact never described.
+- A reviewer or primary driver identifies [BOUNDARY-CONFLICT]: an upstream goal
+  (spec goal during plan review, plan task during execution or code review)
+  cannot be implemented without state or machinery the upstream artifact never
+  described.
 
 ACTION: PAUSE and surface the conflict to the user. Cite the upstream sentence
 that forces the machinery, describe the machinery it would require, and offer
 the two resolutions — amend the upstream artifact to include the machinery, or
 narrow the upstream promise so the machinery becomes unnecessary. Do NOT
-resolve it inside the review loop, and do NOT let the author invent the
-machinery to satisfy the reviewer.
+resolve it unilaterally inside the review or execution flow, and do NOT invent
+the machinery merely to satisfy the upstream promise.
 ```
 
 **These are escalations, not confirmation prompts.** The difference is content:

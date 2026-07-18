@@ -95,9 +95,10 @@ evidence, offer concrete options, and wait for the user.
 
 ```text
 TRIGGER:
-- A reviewer reports [BOUNDARY-CONFLICT]: an upstream goal (spec goal in plan
-  review, plan task in code review) cannot be implemented without state or
-  machinery the upstream artifact never described.
+- A reviewer or primary driver identifies [BOUNDARY-CONFLICT]: an upstream goal
+  (spec goal during plan review, plan task during execution or code review)
+  cannot be implemented without state or machinery the upstream artifact never
+  described.
 
 ACTION:
 Pause, cite the upstream sentence that forces the machinery, describe the
