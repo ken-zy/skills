@@ -16,10 +16,11 @@ If a task involves wallet keys, skip that specific task and note it in the repor
 
 **NEVER stop and ask the user** — make skip decisions autonomously and continue.
 
-**ONE Exception (SKILL.md):** the wallet-key skip is not the only allowed pause. If, during
-execution, an ACCEPTED finding would overturn the user's explicit decision / its factual
-premise, PAUSE and escalate per "The ONE Exception". This is a required interruption, not a
-forbidden one — it does not contradict the "never stop and ask" rule above.
+**Escalation Exceptions (SKILL.md):** the wallet-key skip is not the only allowed pause. If,
+during execution, an ACCEPTED finding would overturn the user's explicit decision / its
+factual premise, PAUSE and escalate per Exception 1; if work cannot proceed without state or
+machinery the plan never described, escalate per Exception 2. These are required
+interruptions, not forbidden ones — they do not contradict the "never stop and ask" rule above.
 
 ## Pre-Execution Checks
 

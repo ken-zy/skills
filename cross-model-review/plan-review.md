@@ -12,7 +12,8 @@ without surprises).
 Half A — Alignment with spec (priority)
   A1 — Coverage: Every spec goal mapped to a concrete plan task?
   A2 — Faithfulness: Plan implements spec's direction, or silently substituted?
-  A3 — Scope drift: Plan adds work the spec did not ask for?
+  A3 — Boundary (hard constraint): Plan introduces state, machinery, or
+       behavior the spec did not call for?
 
 Half B — Execution completeness
   B1 — Logic gaps: Race conditions, ordering, error handling, sort direction,
@@ -49,11 +50,26 @@ A1 — Coverage: Does every goal / requirement stated in the spec map to one or
 A2 — Faithfulness: Does the plan implement the spec's chosen direction, or has
      it silently substituted a different approach? (e.g. spec says "event-driven",
      plan introduces polling — that's drift.)
-A3 — Scope drift: Does the plan add work the spec did not ask for? Flag every
-     extra task / abstraction / configuration knob with no spec basis.
+A3 — Boundary: Does the plan add work the spec did not ask for? Flag every
+     extra task / abstraction / configuration knob with no spec basis. See the
+     boundary rule below.
 
-If the plan diverges from the spec, the divergence itself is the issue —
-not whether the divergence is "technically better". Spec wins.
+If the plan diverges from the spec's direction, the divergence itself is the
+issue — not whether the divergence is "technically better".
+
+=== SPEC BOUNDARY RULE (hard constraint) ===
+
+The plan must not introduce new state, persisted records, config knobs,
+scheduling semantics, or externally visible behavior that the spec did not
+call for. Implementation detail — task breakdown, file paths, step ordering,
+test organization — is not a boundary violation; anything that would appear
+in the runtime or operations view is.
+
+If a spec goal cannot be implemented without machinery the spec never
+described, do NOT specify the machinery and do NOT demand the author invent
+it. Report it as [BOUNDARY-CONFLICT]: cite the exact spec sentence that forces
+the machinery and the machinery it would require. Resolution belongs to the
+user, not to this review loop.
 
 === HALF B: EXECUTION COMPLETENESS ===
 
@@ -86,8 +102,9 @@ and cite the spec line it traces back to.
 === OUTPUT ===
 
 For each issue >= 70 confidence: ISSUE format.
-Tag each finding with `[ALIGN-A1..A3]` or `[EXEC-B1..B4]` so the author can
-tell whether the issue is "you drifted from the spec" or "you'll trip in execution".
+Tag each finding with `[ALIGN-A1..A3]`, `[EXEC-B1..B4]`, or `[BOUNDARY-CONFLICT]`
+so the author can tell whether the issue is "you drifted from the spec",
+"you'll trip in execution", or "the spec itself forces out-of-scope machinery".
 Location format: "Task N, Step M" (plan) or "Section: <name>" (spec coverage gap).
 If both halves are clean: "LGTM: <one sentence on alignment + one on execution>".
 ```
@@ -97,6 +114,10 @@ If both halves are clean: "LGTM: <one sentence on alignment + one on execution>"
 ## ACCEPT Action
 
 Modify the plan file.
+
+A `[BOUNDARY-CONFLICT]` finding is never ACCEPT/REJECT material and must not be
+resolved by editing the plan. It goes through Exception 2 (Boundary-Conflict
+Escalation) in SKILL.md.
 
 ## Review Loop Gate — HARD REQUIREMENT
 

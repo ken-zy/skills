@@ -26,15 +26,18 @@ The ONLY user-visible output before the final report is:
 - Phase announcements: "Starting Phase N: <name>"
 - Round progress: "Round N: N issues found, N accepted"
 - CEO Decisions (inline, no user input needed)
-- User-Premise Conflict Escalation — the ONE Exception below, the SOLE pause that
-  awaits user input (substantive, not an empty "may I continue?")
+- the two escalation Exceptions below (User-Premise Conflict, Boundary
+  Conflict) — the ONLY pauses that await user input (substantive, not an
+  empty "may I continue?")
 ```
 
-**User is NOT in the loop until the final report.** CEO Decisions are made by Claude, not escalated to the user. Phase transitions happen automatically. If you catch yourself about to ask the user anything, STOP — that is a bug in your execution. (The single, narrow carve-out is "The ONE Exception" immediately below — read it before concluding you may interrupt.)
+**User is NOT in the loop until the final report.** CEO Decisions are made by Claude, not escalated to the user. Phase transitions happen automatically. If you catch yourself about to ask the user anything, STOP — that is a bug in your execution. (The narrow carve-outs are the two Exceptions immediately below — read them before concluding you may interrupt.)
 
-### The ONE Exception — User-Premise Conflict Escalation
+### The Two Exceptions — Escalations That Pause the Flow
 
-There is exactly one situation that overrides the no-interruption rule:
+Exactly two situations override the no-interruption rule.
+
+#### Exception 1 — User-Premise Conflict Escalation
 
 ```
 TRIGGER (all must hold):
@@ -53,7 +56,23 @@ human partner's prior decisions: Stop and discuss with your human partner first"
 which this skill lists as REQUIRED BACKGROUND. It is **not** a violation of the
 autonomous flow — it is part of it.
 
-**This is an escalation, not a confirmation prompt.** The difference is content:
+#### Exception 2 — Boundary-Conflict Escalation
+
+```
+TRIGGER:
+- A reviewer reports [BOUNDARY-CONFLICT]: an upstream goal (spec goal in plan
+  review, plan task in code review) cannot be implemented without state or
+  machinery the upstream artifact never described.
+
+ACTION: PAUSE and surface the conflict to the user. Cite the upstream sentence
+that forces the machinery, describe the machinery it would require, and offer
+the two resolutions — amend the upstream artifact to include the machinery, or
+narrow the upstream promise so the machinery becomes unnecessary. Do NOT
+resolve it inside the review loop, and do NOT let the author invent the
+machinery to satisfy the reviewer.
+```
+
+**These are escalations, not confirmation prompts.** The difference is content:
 
 ```
 FORBIDDEN (empty, pauses for no reason):    "要不要我继续？" / "进入下一阶段吗？"
@@ -67,7 +86,7 @@ options. Then wait.
 
 **After the user responds:** apply their chosen option, record it in the issue tracker
 (status `user-override`) and in the final report's escalation section, then RESUME the
-pipeline from the paused point. Do NOT ask anything further — the single pause is now
+pipeline from the paused point. Do NOT ask anything further — this pause is now
 closed and full autonomy resumes. Everything OUTSIDE this trigger runs fully autonomously
 throughout.
 
@@ -298,7 +317,7 @@ Orchestration maintains a lightweight issue tracker across rounds within each ph
 - Claude populates this during the CLASSIFY step — does NOT require Codex to output structured JSON
 - The tracker is always included in Claude's context
 - Serves as stable reference for: termination checks ("same issue unresolved 2 rounds"), CEO decisions, and report generation
-- Status values: `open`, `accepted`, `rejected`, `ceo-accepted`, `ceo-rejected`, `ceo-compromised`, `user-override` (set when a ONE Exception escalation was resolved by the user)
+- Status values: `open`, `accepted`, `rejected`, `ceo-accepted`, `ceo-rejected`, `ceo-compromised`, `user-override` (set when an escalation Exception was resolved by the user)
 
 ### Response Protocol
 **REQUIRED BACKGROUND:** superpowers:receiving-code-review
@@ -315,7 +334,7 @@ For each issue confidence >= 70:
 3. CLASSIFY — Is this a bug, or an intentional design choice?
 4. PREMISE-CHECK — Would accepting this overturn a decision the USER made
                    explicitly, or invalidate its factual premise?
-                   → YES: escalate per "The ONE Exception" (AUTONOMOUS FLOW section)
+                   → YES: escalate per Exception 1 (AUTONOMOUS FLOW section)
                           BEFORE applying any fix. Do not silently accept.
                    → NO: continue.
 5. UPDATE issue tracker with [dimension, location, summary, verdict, confidence]
@@ -373,7 +392,7 @@ such stale re-raises (satisfying the "same issues 2 consecutive rounds" terminat
 For each disagreement:
 0. PRE-CHECK: Does resolving this overturn a decision the USER made explicitly,
    or invalidate its factual premise?
-   → YES: do NOT self-decide. Escalate per "The ONE Exception" above. CEO authority
+   → YES: do NOT self-decide. Escalate per Exception 1 above. CEO authority
           covers Claude-vs-reviewer disputes, NOT vetoing the user's own decisions.
    → NO: proceed with CEO self-decision below.
 1. Claude's argument + evidence
@@ -387,7 +406,7 @@ Write: <!-- CEO Decision: [verdict]. [rationale] -->
 
 CEO does NOT default to either side.
 
-**Post-CEO verification:** If a CEO verdict (ACCEPT or COMPROMISE) produces artifact modifications, Claude performs a lightweight self-check: read the diff, verify no contradictions or regressions against existing accepted fixes. Single-pass — NOT a full review loop. Problems found → fix inline (a regression fix that would itself overturn the user's explicit decision / its premise is still subject to PREMISE-CHECK → escalate per "The ONE Exception", do not silently apply). Unverified CEO changes flagged as `unreviewed` in report.
+**Post-CEO verification:** If a CEO verdict (ACCEPT or COMPROMISE) produces artifact modifications, Claude performs a lightweight self-check: read the diff, verify no contradictions or regressions against existing accepted fixes. Single-pass — NOT a full review loop. Problems found → fix inline (a regression fix that would itself overturn the user's explicit decision / its premise is still subject to PREMISE-CHECK → escalate per Exception 1, do not silently apply). Unverified CEO changes flagged as `unreviewed` in report.
 If verdict is REJECT and no artifact modifications were made → skip verification entirely.
 
 ### Phase Transition Checks
@@ -411,11 +430,17 @@ GOOD: Round 2: identify the fundamental requirement (dedicated per-platform time
 ```
 
 Before modifying the plan for an ACCEPTED issue, ask yourself:
-1. What is the FUNDAMENTAL requirement this issue points to?
-2. Is my fix addressing that requirement directly, or is it an approximation?
-3. Will the reviewer likely find a flaw in my approximation next round?
+1. Can this issue be DISSOLVED by narrowing the requirement or shrinking the
+   input set, instead of adding mechanism? If the narrowing changes an
+   upstream artifact (spec or plan), that is Exception 2 — escalate. Prefer
+   narrowing over mechanism whenever both resolve the issue.
+2. What is the FUNDAMENTAL requirement this issue points to?
+3. Is my fix addressing that requirement directly, or is it an approximation?
+4. Will the reviewer likely find a flaw in my approximation next round?
 
-If the answer to #3 is "maybe", go deeper NOW.
+If the answer to #4 is "maybe", go deeper NOW — but only within the upstream
+artifact's boundary. If going deeper would introduce state or machinery the
+upstream artifact never described, stop and escalate per Exception 2 instead.
 
 ---
 
@@ -447,7 +472,7 @@ Rationale for probe-then-recover: companion failures may be transient (auth refr
 | "Reviewer found issue, fix immediately" | VERIFY first. Reviewer can't run code. |
 | "Batch all fixes in one commit" | One commit per fix. Non-negotiable. |
 | "Should I continue to the next phase?" | YES. ALWAYS. Automatic transition. Never ask. |
-| "Let me check with the user first" | NO — UNLESS an ACCEPTED finding overturns the user's explicit decision / its factual premise (the ONE Exception). Then escalate. Otherwise: not in the loop until final report. |
+| "Let me check with the user first" | NO — UNLESS an ACCEPTED finding overturns the user's explicit decision / its factual premise (Exception 1), or a [BOUNDARY-CONFLICT] is reported (Exception 2). Then escalate. Otherwise: not in the loop until final report. |
 | "Accept all reviewer feedback" | VERIFY → EVALUATE → then decide. |
 | "Too many rounds, skip review" | Max 5 rounds, CEO decides. Never skip. |
 | "No CLI → skip review" | Subagent fallback. Never skip entirely. |

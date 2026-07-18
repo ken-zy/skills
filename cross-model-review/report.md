@@ -18,7 +18,7 @@ After all executed phases complete, output this structured report to terminal:
 | Code Review (Codex) | N rounds, accepted M, rejected K |
 | Code Review (Claude) | N issues found / No issues |
 | CEO decisions | N (if any) |
-| Escalations (ONE Exception) | N (if any) |
+| Escalations (Exceptions 1-2) | N (if any) |
 
 ## Design Review
 ### Round 1
@@ -41,9 +41,9 @@ After all executed phases complete, output this structured report to terminal:
 | # | Phase | Issue | Claude Argument | Reviewer Argument | Verdict | Verified | Rationale |
 (only if CEO decisions were made. Verified = ✓ self-checked / ⚠ unreviewed)
 
-## Escalations (ONE Exception)
-| # | Phase | Overturned decision / false premise | Evidence | User's choice |
-(only if a user-premise escalation fired — the pipeline paused and the user decided)
+## Escalations (Exceptions 1-2)
+| # | Phase | Trigger (overturned decision / false premise / boundary conflict) | Evidence | User's choice |
+(only if a user-premise or boundary-conflict escalation fired — the pipeline paused and the user decided)
 
 ## Final Status
 <Complete / Complete with unresolved items>
