@@ -331,15 +331,21 @@ a safety-net finding could silently veto a user's explicit decision through the 
 For each issue confidence >= 70:
 ```
 1. VERIFY   — Check actual artifact. Confirm issue is real.
-2. EVALUATE — Technically correct for THIS project?
-3. CLASSIFY — Is this a bug, or an intentional design choice?
-4. PREMISE-CHECK — Would accepting this overturn a decision the USER made
+2. BOUNDARY-CHECK — If verification shows the issue is a [BOUNDARY-CONFLICT],
+                    whether tagged by the reviewer or identified by the primary
+                    driver, UPDATE the issue tracker, escalate via Exception 2,
+                    and STOP processing this issue. Never ACCEPT or REJECT a
+                    confirmed [BOUNDARY-CONFLICT]. If the claim is not confirmed,
+                    continue with the normal protocol below.
+3. EVALUATE — Technically correct for THIS project?
+4. CLASSIFY — Is this a bug, or an intentional design choice?
+5. PREMISE-CHECK — Would accepting this overturn a decision the USER made
                    explicitly, or invalidate its factual premise?
                    → YES: escalate per Exception 1 (AUTONOMOUS FLOW section)
                           BEFORE applying any fix. Do not silently accept.
                    → NO: continue.
-5. UPDATE issue tracker with [dimension, location, summary, verdict, confidence]
-6. ACCEPT / REJECT
+6. UPDATE issue tracker with [dimension, location, summary, verdict, confidence]
+7. ACCEPT / REJECT
 ```
 **NEVER blindly accept.** Reviewers can't run code.
 

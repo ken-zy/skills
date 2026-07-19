@@ -350,15 +350,20 @@ The tracker is included in Round N prompts and in the final report.
 For each Claude Code issue at confidence `>= 70`:
 
 1. VERIFY against the actual current artifact.
-2. EVALUATE whether the issue is technically correct for this project.
-3. CLASSIFY as bug, missing requirement, intentional tradeoff, false positive,
+2. BOUNDARY-CHECK: if verification shows the issue is a [BOUNDARY-CONFLICT] --
+   whether tagged by the reviewer or identified by the primary driver -- UPDATE
+   the issue tracker, escalate via Exception 2, and stop processing this issue.
+   Never ACCEPT or REJECT a confirmed [BOUNDARY-CONFLICT]. If the boundary claim
+   is not confirmed, continue with the normal protocol below.
+3. EVALUATE whether the issue is technically correct for this project.
+4. CLASSIFY as bug, missing requirement, intentional tradeoff, false positive,
    or user-premise conflict.
-4. PREMISE-CHECK: would accepting it overturn an explicit user decision or the
+5. PREMISE-CHECK: would accepting it overturn an explicit user decision or the
    factual premise behind that decision?
    - yes -> escalate via Exception 1 before applying any fix
    - no -> continue
-5. UPDATE the issue tracker.
-6. ACCEPT or REJECT.
+6. UPDATE the issue tracker.
+7. ACCEPT or REJECT.
 
 Never blindly accept reviewer feedback. The external reviewer cannot be the
 final authority over primary-owned changes.
