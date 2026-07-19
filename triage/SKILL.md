@@ -14,7 +14,9 @@ verification is (review depth). Money-involvement is one input to cost, never
 the tier criterion itself.
 
 Authority: predict-v2 issue #72, comment 5013575156 (2026-07-19), confirmed
-pair-by-pair by jdy. On conflict, that comment wins.
+pair-by-pair by jdy. One later ruling supersedes that comment: micro-tier work
+uses the standard GitHub PR flow, not a local no-PR merge. On every other
+conflict, that comment wins.
 
 ## Mode dispatch
 
@@ -104,7 +106,7 @@ Before touching any code, as the first part of the reply, in Chinese:
 ```
 
 Effect by tier:
-- 微: announce, then self-merge locally per chains.md — zero confirmation.
+- 微: announce, then open a PR per chains.md; jdy confirms once at merge.
 - 轻 / 中: announce and start immediately; jdy can re-judge at any time.
 - 重: announce and STOP — the announcement merges into the chain's first
   confirmation point (重·简 batch confirm / 重·繁 grilling).
@@ -135,7 +137,8 @@ jdy's explicit confirmation is final, no re-litigation.
    confirm; the root-cause fix is a new requirement, triaged separately.
 7. **Deployment is tier-independent**: always per-instance authorization from
    jdy. Heavy tiers additionally owe the post-deploy acceptance loop.
-8. **Document ladder**: 微 0 (commit-message tag) · 轻 0 (one PR line) ·
+8. **Document ladder**: 微 0 (commit-message tag; PR is merge control only) ·
+   轻 0 (one PR line) ·
    中 half-page + decision-log line · 重·简 0 docs (PR + decision-log line) ·
    重·繁 amendment + plan. No tier produces more.
 9. **TDD exception (all tiers)**: when test scaffolding clearly costs more

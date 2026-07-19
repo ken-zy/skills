@@ -8,10 +8,10 @@ profile, record decisions in the PR description and say so.
 
 1. Branch, edit.
 2. Self-review the diff.
-3. `/merge-to-main` local merge (no-PR path: rebase origin/main ->
-   merge --no-ff -> push -> delete branch). **No PR, no confirmation.**
+3. `/merge-check`, open a GitHub PR, jdy merges. **Never merge locally or push
+   directly to main.**
 
-jdy appears 0 times. Tag the commit message with 微档 for audit. Safety =
+jdy appears once, at merge. Tag the commit message with 微档 for audit. Safety =
 criterion (zero behavior change) + red line (text turns out operational ->
 upgrade immediately) + `git revert` restores fully.
 

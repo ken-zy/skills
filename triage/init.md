@@ -4,9 +4,10 @@ Produces `<repo root>/.claude/triage-profile.md`, the project binding for the
 four questions. Run once per repository, or re-run when the project's module
 layout / danger surfaces change materially.
 
-The init itself is a requirement: it edits agent behavior specs, so it is at
-least 轻档 — announce it, and every profile section needs jdy's confirmation
-before writing the file.
+The init itself is a jdy-specified 中档 task: it writes an agent-behavior
+binding and makes project-specific boundary choices that jdy must confirm
+before the file is written. Announce 中档 and silently scan Q4 as required for
+all jdy-specified tiers; a Q4 conflict upgrades the task to heavy.
 
 ## Flow
 
@@ -16,18 +17,31 @@ before writing the file.
    skills, target hosts), existing conventions (decision log location,
    design-doc directory). Budget: minutes, greps and ls only.
 2. **Draft the profile** using the template below, citing evidence for each
-   anchor (path, table name, doc line).
+   anchor (path, table name, doc line). For any non-obvious binding, list the
+   feasible alternatives and their tradeoffs.
 3. **Confirm with jdy section by section** — batch the questions, grilling
-   style. jdy's answers are the authority; the survey is only the draft.
-4. **Write the profile** to `.claude/triage-profile.md` and deliver it via the
-   tier the init itself was judged into (usually 轻: PR, jdy merges).
+   style (appearance 1). jdy's answers are the authority; the survey is only
+   the draft.
+4. **Write the profile** to `.claude/triage-profile.md`. The profile itself is
+   the medium tier's half-page design product; do not create another design
+   document for init.
+5. Run `/tdd` and `/verify`; when the universal TDD exception applies, declare
+   it in the PR and use `/verify` as the backstop.
+6. Run one `/code-review` round. Fixes require another `/verify`.
+7. Run `/merge-check`, open a GitHub PR, and let jdy merge (appearance 2).
+8. Add one decision-log line pointing to the PR. If no decision log exists,
+   record the decision in the PR description and say so.
+
+Products: confirmed triage profile + decision-log line. Review cap: 2 rounds,
+then escalate under `SKILL.md` universal rule 3.
 
 ## Profile template
 
 ```markdown
 # Triage Profile — <project name>
 
-Authority: /triage skill. Rules: predict-v2 issue #72 comment 5013575156.
+Authority: /triage skill, including its later micro-tier GitHub PR ruling.
+Baseline: predict-v2 issue #72 comment 5013575156.
 Confirmed by jdy: <date>.
 
 ## Q3 anchors — blast radius
