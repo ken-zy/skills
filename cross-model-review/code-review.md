@@ -36,7 +36,8 @@ confidence in the change, not validate it.
 Half A — Alignment with plan (do this FIRST)
   A1 — Coverage: Every plan task has corresponding code in the diff?
   A2 — Drift: Implementation silently substituted a different approach?
-  A3 — Scope creep: Files / abstractions / features the plan did not authorize?
+  A3 — Boundary (hard constraint): Code adds state, tables, endpoints, config,
+       or behavior the plan did not authorize?
   A4 — Plan-inherited bugs: Code faithfully implements a plan step, but the
        step's logic itself is flawed (wrong sort, wrong helper semantics,
        wrong early-stop)? Don't let "but the plan said so" excuse a real bug.
@@ -83,12 +84,27 @@ A1 — Coverage: Does every task / step in the plan have corresponding code in
 A2 — Drift: Did the implementation silently substitute a different approach
      from what the plan specified? (different data flow, different algorithm,
      different module boundary) — the plan wins unless drift is documented.
-A3 — Scope creep: Does the PR change files / add abstractions / introduce
-     features the plan did not authorize? Flag every unauthorized change.
+A3 — Boundary: Does the PR change files / add abstractions / introduce
+     features the plan did not authorize? Flag every unauthorized change. See
+     the boundary rule below.
 A4 — Plan-inherited bugs: The plan itself may be wrong. If the code faithfully
      implements a plan step but the step's logic is flawed (wrong sort order,
      wrong helper semantics, wrong early-stop), call it out — do not let
      "but the plan said so" excuse a real bug.
+
+=== PLAN BOUNDARY RULE (hard constraint) ===
+
+The change must not add new tables, endpoints, config knobs, persisted state,
+or externally visible behavior that the plan did not authorize. Internal
+implementation detail — helper functions, refactors within changed files,
+test organization — is not a boundary violation; anything that would appear
+in the runtime or operations view is.
+
+If a plan task cannot be implemented without machinery the plan never
+described, do NOT specify the machinery and do NOT demand the author invent
+it. Report it as [BOUNDARY-CONFLICT]: cite the exact plan step that forces the
+machinery and the machinery it would require. Resolution belongs to the user,
+not to this review loop.
 
 === HALF B: CODE LOGIC ===
 
@@ -119,7 +135,8 @@ C4 — Observability gaps that would HIDE a future failure (silent catches,
 === OUTPUT ===
 
 For each issue >= 70 confidence: ISSUE format.
-Tag each finding with `[ALIGN-A1..A4]`, `[LOGIC-B1..B4]`, or `[VULN-C1..C4]`.
+Tag each finding with `[ALIGN-A1..A4]`, `[LOGIC-B1..B4]`, `[VULN-C1..C4]`, or
+`[BOUNDARY-CONFLICT]`.
 Location format: "file:line".
 If no substantive issues: say so directly — "LGTM: faithful to plan, logic
 sound, no exploitable surface found in <one-line scope statement>".
@@ -133,6 +150,10 @@ sound, no exploitable surface found in <one-line scope statement>".
 Modify code → **one commit per fix** → push. Commit format: `fix(scope): <description>`
 
 Each fix is a separate commit. Do NOT batch.
+
+A `[BOUNDARY-CONFLICT]` finding is never ACCEPT/REJECT material and must not be
+resolved by editing code. It goes through Exception 2 (Boundary-Conflict
+Escalation) in SKILL.md.
 
 ## Review Loop — SAME RULES AS PLAN REVIEW
 
@@ -170,7 +191,7 @@ patterns that Codex misses. Together they provide defense in depth.
 A safety-net fix is NOT exempt from the user-premise carve-out.
 - If a finding (confidence >= 70) passes PREMISE-CHECK: fix it (one commit per fix), push
 - If PREMISE-CHECK trips (the fix would overturn the user's explicit decision / its premise):
-  escalate per "The ONE Exception" (SKILL.md) — do NOT silently apply
+  escalate per Exception 1 (SKILL.md) — do NOT silently apply
 - If no issues: proceed to report
 
 **Diff self-check:** After Safety Net fixes are committed, Claude reads the combined diff of all Safety Net commits (`git diff <pre-safety-net-sha>..HEAD`) and verifies no new issues were introduced. Single-pass check, not a review loop. Regressions found → fix inline and commit. Report notes Safety Net modifications as `self-checked`.

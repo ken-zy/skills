@@ -29,8 +29,12 @@ Codex findings are evidence, not authority. For each Codex issue with
 confidence `>= 70`, run:
 
 ```text
-VERIFY -> EVALUATE -> CLASSIFY -> PREMISE-CHECK -> UPDATE -> ACCEPT/REJECT
+VERIFY -> BOUNDARY-CHECK
+  confirmed boundary conflict -> UPDATE -> Exception 2 -> STOP
+  not a boundary conflict      -> EVALUATE -> CLASSIFY -> PREMISE-CHECK -> UPDATE -> ACCEPT/REJECT
 ```
+
+Never ACCEPT or REJECT a confirmed boundary conflict.
 
 ## Required Codex Reviewer Pane
 
@@ -122,17 +126,25 @@ No same-dialog review may replace the tmux reviewer pane.
 `codex review`, `codex exec`, subagents, hidden processes, and local-only review
 may not replace the tmux reviewer pane.
 
-## User-Premise Conflict
+## The Two Escalation Exceptions
 
-The only user pause is a user-premise conflict escalation.
+Only the two escalation exceptions defined in `SKILL.md` may pause the flow.
 
-If accepting a Codex finding would overturn an explicit user decision or
-invalidate that decision's factual premise, pause before applying the fix and
-state:
+For Exception 1 (User-Premise Conflict), if accepting a Codex finding would
+overturn an explicit user decision or invalidate that decision's factual
+premise, pause before applying the fix and state:
 
 - the explicit user decision
 - the factual premise now believed false
 - the evidence
 - concrete options
+
+For Exception 2 (Boundary-Conflict), if Codex reports or Claude Code identifies
+that an upstream goal cannot be implemented without state or machinery the
+upstream artifact never described, pause and state:
+
+- the upstream sentence that forces the machinery
+- the state or machinery that would be required
+- the choice between amending the upstream artifact and narrowing its promise
 
 After the user chooses, record `user-override` in the issue tracker and resume.

@@ -28,11 +28,14 @@ P1 - Problem framing: Right problem? Real need, or solution-in-search-of-problem
 P2 - Directional soundness: Approach fundamentally viable, or structurally flawed?
 P3 - Missing alternatives: Obviously better direction not considered?
 P4 - Scope sanity (YAGNI): Gold-plating beyond what the stated problem needs?
+P5 - Promise audit: casual promise sentences that bind downstream phases to
+     machinery the stated problem does not require?
 ```
 
 Out of scope for this phase: specific signatures, field names, retry counts,
 timeouts, minor edge cases, style, wording, section order, and anything that
-belongs in plan or code review.
+belongs in plan or code review. Promise sentences are NOT out of scope: a
+sentence that reads like a detail but promises semantics is direction (see P5).
 
 ## Prompt Template
 
@@ -58,6 +61,13 @@ P3 - Missing alternatives: Is there an obviously better direction that was not
      considered? State it concretely.
 P4 - Scope sanity (YAGNI): Does the spec include features/flexibility that the
      stated problem does NOT require?
+P5 - Promise audit: Every promise sentence in this spec becomes a HARD
+     requirement downstream -- plan review will force the plan to implement it
+     mechanically. Flag any sentence that casually promises scheduling,
+     fairness, carry-over, retry, or bookkeeping semantics the stated problem
+     does not require. Recommend deleting or narrowing the promise, never
+     specifying it further. A promise sentence is direction, not detail, even
+     when it is one clause long.
 
 === WHAT TO IGNORE ===
 
@@ -78,7 +88,7 @@ invites it.
 === OUTPUT ===
 
 For each directional issue: ISSUE format with confidence scoring.
-Tag each finding with [P1], [P2], [P3], or [P4].
+Tag each finding with [P1], [P2], [P3], [P4], or [P5].
 Location format: "Section: <section name>".
 If the direction is sound: "LGTM: <one-sentence justification of the direction>".
 
