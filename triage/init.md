@@ -7,7 +7,8 @@ layout / danger surfaces change materially.
 The init itself is a jdy-specified 中档 task: it writes an agent-behavior
 binding and makes project-specific boundary choices that jdy must confirm
 before the file is written. Announce 中档 and silently scan Q4 as required for
-all jdy-specified tiers; a Q4 conflict upgrades the task to heavy.
+all jdy-specified tiers. If the scan finds a Q4 conflict, report the hit and
+wait for jdy's final tier ruling; do not write the file before confirmation.
 
 ## Flow
 
