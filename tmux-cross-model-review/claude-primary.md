@@ -29,8 +29,12 @@ Codex findings are evidence, not authority. For each Codex issue with
 confidence `>= 70`, run:
 
 ```text
-VERIFY -> EVALUATE -> CLASSIFY -> PREMISE-CHECK -> UPDATE -> ACCEPT/REJECT
+VERIFY -> BOUNDARY-CHECK
+  confirmed boundary conflict -> UPDATE -> Exception 2 -> STOP
+  not a boundary conflict      -> EVALUATE -> CLASSIFY -> PREMISE-CHECK -> UPDATE -> ACCEPT/REJECT
 ```
+
+Never ACCEPT or REJECT a confirmed boundary conflict.
 
 ## Required Codex Reviewer Pane
 
