@@ -343,7 +343,8 @@ For each issue confidence >= 70:
                     confirmed [BOUNDARY-CONFLICT]. If the claim is not confirmed,
                     continue with the normal protocol below.
 3. EVALUATE — Technically correct for THIS project?
-4. CLASSIFY — Is this a bug, or an intentional design choice?
+4. CLASSIFY — Is this a bug, a missing requirement, an intentional tradeoff,
+                a false positive, or a user-premise conflict?
 5. PREMISE-CHECK — Would accepting this overturn a decision the USER made
                    explicitly, or invalidate its factual premise?
                    → YES: escalate per Exception 1 (AUTONOMOUS FLOW section)
