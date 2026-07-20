@@ -395,7 +395,9 @@ file requires it.
 
 Fast-REJECT rule: if Claude Code re-raises an already rejected issue without new
 concrete evidence, Codex rejects it immediately. A stale re-raise alone does not
-force a CEO Decision.
+force a CEO Decision. CEO fires only when all remaining open issues in the round
+are such stale re-raises, which satisfies the "same issues repeated for two
+consecutive rounds" termination condition.
 
 ### Termination
 

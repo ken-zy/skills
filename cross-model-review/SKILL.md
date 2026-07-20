@@ -227,7 +227,7 @@ template** — Codex will literally read `<SPEC_FILE_PATH>` as a path.
 |-------------|---------------|---------|-----------------------|
 | `<SPEC_FILE_PATH>` | `docs/superpowers/specs/*${topic}*.md` (most recently modified if multiple) | Phase 1 (design), Phase 2 (plan) | `N/A` — Phase 2 skips Half A and notes "no spec available" |
 | `<PLAN_FILE_PATH>` | `docs/superpowers/plans/*${topic}*.md` (most recently modified if multiple) | Phase 2 (plan), Phase 4 (code) | `N/A` — Phase 4 skips Half A and notes "no plan available" |
-| `<CONVENTION_FILE>` | "AGENTS.md (project root)" for codex backend; "CLAUDE.md (project root)" for subagent | All phases | Hard error — convention file is required |
+| `<CONVENTION_FILE>` | "AGENTS.md (project root)" for codex backend; "CLAUDE.md (project root)" for subagent | All phases | Inject `no convention file available` (see Convention File Rule) |
 
 `${topic}` comes from the branch name extracted in Step 2 (e.g.
 `feat/scheduler-optimization` → `scheduler-optimization`). Use the same topic
@@ -286,6 +286,11 @@ External (codex) → "Read AGENTS.md (project root)"
 Subagent               → "Read CLAUDE.md (project root)"
 ```
 
+If the convention file is absent, inject and record `no convention file
+available`. The review may proceed without a convention file, but the final
+report must preserve that fact instead of presenting the round as
+convention-aware.
+
 ### Confidence Filtering
 
 Scale (unchanged):
@@ -338,7 +343,8 @@ For each issue confidence >= 70:
                     confirmed [BOUNDARY-CONFLICT]. If the claim is not confirmed,
                     continue with the normal protocol below.
 3. EVALUATE — Technically correct for THIS project?
-4. CLASSIFY — Is this a bug, or an intentional design choice?
+4. CLASSIFY — Is this a bug, a missing requirement, an intentional tradeoff,
+              a false positive, or a user-premise conflict?
 5. PREMISE-CHECK — Would accepting this overturn a decision the USER made
                    explicitly, or invalidate its factual premise?
                    → YES: escalate per Exception 1 (AUTONOMOUS FLOW section)
@@ -372,6 +378,7 @@ REJECTED: [issue summary] — Reasoning: [rebuttal with code evidence]
 Re-evaluate REJECTED issues. Withdraw if pushback is sound.
 If you still disagree, update confidence and provide additional evidence.
 Also check whether ACCEPTED modifications introduced new problems.
+Only report issues with confidence >= 70.
 ```
 
 **Fast-REJECT rule (Claude-side, applied when processing the response):**

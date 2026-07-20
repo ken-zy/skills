@@ -60,6 +60,10 @@ for dimension in [D1, D2, D3, D4, D5]:
 # Collect results, merge, deduplicate, apply confidence threshold
 ```
 
+If CLAUDE.md is absent, replace the conventions line with `no convention file
+available` (see SKILL.md Convention File Rule); the round is then not
+convention-aware and the report must record that.
+
 ## Early-Stop Optimization
 
 Dimensions that return LGTM in a round are excluded from subsequent rounds:

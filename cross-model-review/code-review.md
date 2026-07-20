@@ -142,7 +142,7 @@ If no substantive issues: say so directly — "LGTM: faithful to plan, logic
 sound, no exploitable surface found in <one-line scope statement>".
 ```
 
-`<CONVENTION_FILE>` = "AGENTS.md (project root)" for external backends, "CLAUDE.md (project root)" for subagent.
+`<CONVENTION_FILE>` = "AGENTS.md (project root)" for external backends, "CLAUDE.md (project root)" for subagent. If the convention file is absent, it resolves to `no convention file available`, and the reviewer must state that convention context was unavailable.
 `<PLAN_FILE_PATH>` = the plan file under `docs/superpowers/plans/` that this PR implements, or `N/A` if no plan exists (e.g. PR created without going through Phase 2).
 
 ## ACCEPT Action

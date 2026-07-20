@@ -109,7 +109,7 @@ Location format: "Task N, Step M" (plan) or "Section: <name>" (spec coverage gap
 If both halves are clean: "LGTM: <one sentence on alignment + one on execution>".
 ```
 
-`<CONVENTION_FILE>` = "AGENTS.md (project root)" for external backends, "CLAUDE.md (project root)" for subagent.
+`<CONVENTION_FILE>` = "AGENTS.md (project root)" for external backends, "CLAUDE.md (project root)" for subagent. If the convention file is absent, it resolves to `no convention file available`, and the reviewer must state that convention context was unavailable.
 
 ## ACCEPT Action
 

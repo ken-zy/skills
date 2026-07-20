@@ -49,9 +49,10 @@ IF mixed                        → subagent-driven-development for parallel gro
 ## Post-Execution: Prepare for Code Review
 
 After all tasks complete:
-1. **Rebase on latest main**: `git fetch origin && git rebase origin/main`
-2. **Push**: `git push -u origin <branch>` (or `--force-with-lease` if already pushed)
-3. PR creation happens automatically in Phase 4 Step 0.
+1. **Run the plan's verification commands** (tests, lint, build — whatever the plan specifies).
+2. **Rebase on latest main**: `git fetch origin && git rebase origin/main`
+3. **Push**: `git push -u origin <branch>` (or `--force-with-lease` if already pushed)
+4. PR creation happens automatically in Phase 4 Step 0.
 
 ## Next Phase — AUTOMATIC, DO NOT ASK USER
 

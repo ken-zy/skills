@@ -79,7 +79,7 @@ If you find yourself writing "consider adding X for robustness", DELETE it —
 that is not directional, that is over-design.
 ```
 
-`<CONVENTION_FILE>` = "AGENTS.md (project root)" for external backends, "CLAUDE.md (project root)" for subagent.
+`<CONVENTION_FILE>` = "AGENTS.md (project root)" for external backends, "CLAUDE.md (project root)" for subagent. If the convention file is absent, it resolves to `no convention file available`, and the reviewer must state that convention context was unavailable.
 
 ## ACCEPT Action
 
