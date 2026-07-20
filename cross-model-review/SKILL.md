@@ -227,7 +227,7 @@ template** — Codex will literally read `<SPEC_FILE_PATH>` as a path.
 |-------------|---------------|---------|-----------------------|
 | `<SPEC_FILE_PATH>` | `docs/superpowers/specs/*${topic}*.md` (most recently modified if multiple) | Phase 1 (design), Phase 2 (plan) | `N/A` — Phase 2 skips Half A and notes "no spec available" |
 | `<PLAN_FILE_PATH>` | `docs/superpowers/plans/*${topic}*.md` (most recently modified if multiple) | Phase 2 (plan), Phase 4 (code) | `N/A` — Phase 4 skips Half A and notes "no plan available" |
-| `<CONVENTION_FILE>` | "AGENTS.md (project root)" for codex backend; "CLAUDE.md (project root)" for subagent | All phases | Hard error — convention file is required |
+| `<CONVENTION_FILE>` | "AGENTS.md (project root)" for codex backend; "CLAUDE.md (project root)" for subagent | All phases | Inject `no convention file available` — review proceeds, but the round must be recorded as NOT convention-aware (see Convention File Rule) |
 
 `${topic}` comes from the branch name extracted in Step 2 (e.g.
 `feat/scheduler-optimization` → `scheduler-optimization`). Use the same topic
@@ -285,6 +285,11 @@ Called via Bash tool (not slash commands), so orchestration is not subject to `c
 External (codex) → "Read AGENTS.md (project root)"
 Subagent               → "Read CLAUDE.md (project root)"
 ```
+
+If the convention file is absent, inject and record `no convention file
+available`. The review may proceed without a convention file, but the final
+report must preserve that fact instead of presenting the round as
+convention-aware.
 
 ### Confidence Filtering
 
