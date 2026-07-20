@@ -378,6 +378,7 @@ REJECTED: [issue summary] — Reasoning: [rebuttal with code evidence]
 Re-evaluate REJECTED issues. Withdraw if pushback is sound.
 If you still disagree, update confidence and provide additional evidence.
 Also check whether ACCEPTED modifications introduced new problems.
+Only report issues with confidence >= 70.
 ```
 
 **Fast-REJECT rule (Claude-side, applied when processing the response):**
