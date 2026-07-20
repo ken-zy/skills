@@ -227,7 +227,7 @@ template** — Codex will literally read `<SPEC_FILE_PATH>` as a path.
 |-------------|---------------|---------|-----------------------|
 | `<SPEC_FILE_PATH>` | `docs/superpowers/specs/*${topic}*.md` (most recently modified if multiple) | Phase 1 (design), Phase 2 (plan) | `N/A` — Phase 2 skips Half A and notes "no spec available" |
 | `<PLAN_FILE_PATH>` | `docs/superpowers/plans/*${topic}*.md` (most recently modified if multiple) | Phase 2 (plan), Phase 4 (code) | `N/A` — Phase 4 skips Half A and notes "no plan available" |
-| `<CONVENTION_FILE>` | "AGENTS.md (project root)" for codex backend; "CLAUDE.md (project root)" for subagent | All phases | Inject `no convention file available` — review proceeds, but the round must be recorded as NOT convention-aware (see Convention File Rule) |
+| `<CONVENTION_FILE>` | "AGENTS.md (project root)" for codex backend; "CLAUDE.md (project root)" for subagent | All phases | Inject `no convention file available` (see Convention File Rule) |
 
 `${topic}` comes from the branch name extracted in Step 2 (e.g.
 `feat/scheduler-optimization` → `scheduler-optimization`). Use the same topic
@@ -344,7 +344,7 @@ For each issue confidence >= 70:
                     continue with the normal protocol below.
 3. EVALUATE — Technically correct for THIS project?
 4. CLASSIFY — Is this a bug, a missing requirement, an intentional tradeoff,
-                a false positive, or a user-premise conflict?
+              a false positive, or a user-premise conflict?
 5. PREMISE-CHECK — Would accepting this overturn a decision the USER made
                    explicitly, or invalidate its factual premise?
                    → YES: escalate per Exception 1 (AUTONOMOUS FLOW section)
