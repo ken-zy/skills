@@ -1,6 +1,6 @@
 # Triage Init — one-time project question-setting
 
-Produces `<repo root>/.claude/triage-profile.md`, the project binding for the
+Produces `<repo root>/.agents/triage-profile.md`, the project binding for the
 four questions. Run once per repository, or re-run when the project's module
 layout / danger surfaces change materially.
 
@@ -23,7 +23,7 @@ wait for jdy's final tier ruling; do not write the file before confirmation.
 3. **Confirm with jdy section by section** — batch the questions, grilling
    style (appearance 1). jdy's answers are the authority; the survey is only
    the draft.
-4. **Write the profile** to `.claude/triage-profile.md`. The profile itself is
+4. **Write the profile** to `.agents/triage-profile.md`. The profile itself is
    the medium tier's half-page design product; do not create another design
    document for init.
 5. Run `/tdd` and `/verify`; when the universal TDD exception applies, declare
