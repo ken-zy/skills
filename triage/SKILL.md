@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Use when jdy proposes any new requirement, feature, bugfix, hotfix, or change request — before writing any code, plan, or design doc — to decide how much process the task deserves. Also use when starting work in a repository that has no triage profile (.claude/triage-profile.md), or when unsure whether a task needs design review, cross-model review, or just a quick PR.
+description: Use when jdy proposes any new requirement, feature, bugfix, hotfix, or change request — before writing any code, plan, or design doc — to decide how much process the task deserves. Also use when starting work in a repository that has no triage profile (.agents/triage-profile.md), or when unsure whether a task needs design review, cross-model review, or just a quick PR.
 ---
 
 # Triage
@@ -25,7 +25,7 @@ conflict, that comment wins.
 /triage       -> judge mode (implicit whenever a new requirement arrives)
 ```
 
-Judge mode reads the project profile at `<repo root>/.claude/triage-profile.md`.
+Judge mode reads the project profile at `<repo root>/.agents/triage-profile.md`.
 Missing profile does NOT block: judge with the [default] anchors below and
 append to the announcement: 本项目未初始化 triage profile，建议先跑 /triage init。
 
