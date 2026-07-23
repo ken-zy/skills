@@ -5,14 +5,14 @@ description: Deploy and maintain the predict-v2 repository on its dedicated AWS 
 
 # predict-v2 deployment
 
-Deploy `predict-v2` to its dedicated ARM64 EC2 host through the repository's current production runbook. Keep the default deployment money-safe: `preflight` environment, control plane plus the tailnet-only frontend, and worker hold enabled.
+Deploy `predict-v2` to its dedicated ARM64 EC2 host through the repository's live production runbook. This skill is the intent and safety router; it deliberately does not duplicate executable Git, SSH, or Compose deployment commands. Keeping one command source prevents a stale skill from silently undoing reviewed runbook changes.
 
 ## 1. Resolve intent before acting
 
 Classify the request before running remote commands:
 
 - A question such as “服务器如何部署” asks for an explanation. Read the live documents and explain the process without modifying GitHub or the server.
-- An instruction such as “开始部署” or “执行部署” authorizes the normal no-money deployment workflow described below.
+- An instruction such as “开始部署” or “执行部署” authorizes only the normal no-money deployment workflow in the live runbook and the operation sheet selected by the ROADMAP.
 - Enabling `worker-host`, setting `V2_WORKER_HOLD=0`, changing to `V2_ENVIRONMENT=production`, or performing a real trade requires separate, explicit approval from jdy. A general deployment instruction is not sufficient.
 - If the requested target, commit, environment, or money boundary is ambiguous, stop and ask jdy to confirm it.
 
@@ -20,7 +20,7 @@ Never use `/Users/jdy/Documents/skills/predict/skills/deploy/SKILL.md` for this 
 
 ## 2. Re-open the live sources of truth
 
-Locate the checkout. Prefer the current Git root when it is `predict-v2`; otherwise use `/Users/jdy/Documents/predict-v2` if it exists.
+Locate the checkout. Prefer the current Git root when it is `predict-v2`; otherwise use `/Users/jdy/Code/predict-v2` if it exists.
 
 Before every deployment, read these live files rather than relying on commands copied into this skill:
 
@@ -28,10 +28,21 @@ Before every deployment, read these live files rather than relying on commands c
 2. `docs/design/ROADMAP.md` — current phase, blockers, and permitted next step.
 3. `docs/operations/2026-07-14-single-host-production-compose-runbook.md` — authoritative EC2 and Compose procedure.
 4. `deploy/docker-compose.prod.yml` — actual services, profiles, dependencies, ports, and defaults.
+5. The reviewed operation sheet named by the current ROADMAP step — the exact target-capture, deployment, and acceptance sequence for that operation.
 
-If these files disagree with this skill, stop and report the drift. The repository documents win; update this skill only after jdy approves the new deployment contract.
+The live runbook and reviewed operation sheet are the only executable deployment command sources. Do not reconstruct a deployment sequence from memory or from an older conversation. If the repository files disagree with one another, stop and report the conflict. If they disagree with this skill, the repository documents win; update this skill only after jdy approves the new deployment contract.
 
-## 3. Non-negotiable safety boundary
+## 3. Command-source and release boundary
+
+- Capture the target dynamically from the reviewed remote branch exactly once per deployment round. Never write a release commit into this skill or a reusable operation sheet.
+- Require a clean local worktree, an immutable full target SHA on `origin/main`, required GitHub checks, and a ROADMAP state that permits the requested action.
+- Require the EC2 checkout to be clean and fast-forwardable to the captured target. A dirty checkout, detached target, non-fast-forward update, or SHA mismatch is a blocker; never reset or overwrite it automatically.
+- The production Compose contract has one Python runtime build owner. Build and service switching are separate phases; all required target images must exist before any running service is recreated.
+- Classify control-plane and frontend independently from their running image tags. Both already at target means zero build; both off target permits the reviewed new-target path; a mixed state is a blocker before checkout or build.
+- A missing target image under a no-build switch is a deployment failure. Never restore a combined build-and-up path as an improvised fallback.
+- The two repository PRs for a deployment-contract change must both be merged before deployment when the live ROADMAP or operation sheet says they are coupled.
+
+## 4. Non-negotiable safety boundary
 
 - Connect only through `ssh predict-v2`; the remote checkout is `~/predict-v2`.
 - Never read `.env`, `.env.production`, or secret values.
@@ -47,147 +58,27 @@ If these files disagree with this skill, stop and report the drift. The reposito
 - Keep `V2_ENVIRONMENT=preflight`. Keep `worker-host` stopped.
 - No real-money canary is allowed until the live ROADMAP/runbook gates are satisfied, including off-host backup and restore validation where required.
 
-## 4. Local release preflight
+- Agents never run the 1Password CLI (`op`), locally or through SSH. If the live runbook requires a 1Password step, stop and instruct jdy to execute that exact step personally in Terminal.app outside tmux. 1Password SSH Agent use through `ssh predict-v2` remains allowed.
+- An EC2 reboot clears `/run`. Confirm `/run` is still tmpfs and only verify the required runtime-secret files by existence, non-empty size, owner, and mode. If a file is missing, stop for the jdy-only live-runbook procedure; do not materialize it yourself.
+- The default no-money deployment must not materialize wallet credentials because `worker-host` remains off.
 
-Run read-only checks first:
+## 5. Required post-deployment evidence
 
-```bash
-git status --short --branch
-git branch --show-current
-git fetch origin
-git rev-parse HEAD
-git rev-parse origin/main
-```
+Use the bounded, non-secret checks from the live runbook and operation sheet. Do not substitute broad log dumps or environment inspection. A successful no-money deployment must prove:
 
-Require all of the following before server deployment:
+- remote checkout equals the captured target SHA and remains clean;
+- control-plane and frontend both run the exact captured target image tags;
+- control-plane health succeeds;
+- frontend is bound only to the Tailscale IPv4, `/` returns 200, and `/api/internal/x` returns 403;
+- PostgreSQL has no host-published port;
+- `worker-host` is not running and no wallet credential was materialized;
+- expected registry cardinality and operation-specific residue checks pass.
 
-1. The local worktree is clean.
-2. The target is an immutable full commit SHA.
-3. The target commit is present on `origin/main`.
-4. The GitHub checks required by the repository are green for that commit.
-5. The ROADMAP permits the requested deployment stage.
-
-Normal repository policy delivers changes through a reviewed GitHub PR. If local `main` is ahead of `origin/main`, do not silently push it. Stop and ask jdy whether to finish the normal PR flow or grant a specific direct-push exception.
-
-Use `gh` to verify the commit and checks without exposing credentials. Do not report success based only on a local test run when the target is not yet on GitHub.
-
-## 5. Verify server GitHub read access
-
-The server should use a repository-scoped, read-only Deploy Key. Verify access without printing private key material:
-
-```bash
-ssh predict-v2 '
-  set -eu
-  cd "$HOME/predict-v2"
-  git ls-remote origin HEAD >/dev/null
-'
-```
-
-If access fails, stop before deployment. Recommend or configure a read-only Deploy Key only when jdy explicitly authorizes the GitHub-permission change. Do not copy a personal GitHub private key to EC2 and do not enable persistent SSH agent forwarding.
-
-For this server, the repository-local SSH command should select its dedicated key:
-
-```text
-~/.ssh/predict-v2-github-deploy
-```
-
-The GitHub repository entry must show `read-only`. Do not enable “Allow write access”. One Deploy Key belongs to one repository.
-
-## 6. Update the remote checkout safely
-
-After deployment is authorized and the target commit is on `origin/main`:
-
-```bash
-ssh predict-v2 '
-  set -euo pipefail
-  cd "$HOME/predict-v2"
-  test -z "$(git status --porcelain)"
-  git fetch origin
-  git checkout main
-  git pull --ff-only origin main
-  git rev-parse --verify HEAD
-'
-```
-
-Require the resulting remote SHA to equal the approved target SHA. A dirty remote checkout, non-fast-forward update, detached target, or SHA mismatch is a blocker; do not reset or overwrite it automatically.
-
-## 7. Check runtime-secret files without reading values
-
-An EC2 reboot clears `/run`. Before Compose starts, confirm `/run` is still `tmpfs` and all files required by the live runbook exist, are non-empty, and have the expected owner/mode.
-
-Do not display file contents. If any file is missing, rematerialize it from 1Password using the exact `send_secret` procedure in the live runbook. Treat any failed or empty pipe as a deployment failure.
-
-The default control-plane deployment does not require materializing or mounting wallet credentials because `worker-host` remains off.
-
-## 8. Deploy the no-money control plane and frontend
-
-Use the remote Git commit as the immutable image tag and follow the live Compose dependency graph. Deploy `control-plane` first, then `frontend`:
-
-```bash
-ssh predict-v2 <<'REMOTE'
-set -euo pipefail
-cd "$HOME/predict-v2"
-
-export V2_IMAGE_TAG="$(git rev-parse --verify HEAD)"
-export V2_RUNTIME_SECRETS_DIR=/run/predict-v2/runtime-secrets
-export V2_ENVIRONMENT=preflight
-export V2_FRONTEND_BIND_IP="$(tailscale ip -4)"
-
-docker compose -f deploy/docker-compose.prod.yml config --quiet
-docker compose -f deploy/docker-compose.prod.yml \
-  up -d --build --wait control-plane
-docker compose -f deploy/docker-compose.prod.yml \
-  up -d --build --wait frontend
-REMOTE
-```
-
-Do not pass `--profile host`. Compose may run forward migration and database bootstrap through declared dependencies. Do not add a downgrade step.
-
-Nginx resolves the `backend` upstream once at startup. Recreating `frontend` after the `control-plane` rebuild (the order above) refreshes that resolution; whenever `control-plane` is recreated without recreating `frontend`, run `docker compose -f deploy/docker-compose.prod.yml restart frontend` afterwards, per the runbook's Nginx note.
-
-## 9. Verify deployment with evidence
-
-Run bounded checks that do not expose runtime secrets:
-
-```bash
-ssh predict-v2 <<'REMOTE'
-set -euo pipefail
-cd "$HOME/predict-v2"
-
-# Compose interpolates the whole file before any command, even read-only
-# ones like `ps`, so the required variables must be exported here too.
-export V2_IMAGE_TAG="$(git rev-parse --verify HEAD)"
-export V2_RUNTIME_SECRETS_DIR=/run/predict-v2/runtime-secrets
-
-docker compose -f deploy/docker-compose.prod.yml ps
-curl --fail --silent http://127.0.0.1:8000/health
-
-test -z "$(
-  docker compose -f deploy/docker-compose.prod.yml \
-    port postgres 5432 2>/dev/null || true
-)"
-
-if docker compose -f deploy/docker-compose.prod.yml \
-  ps --status running --services | grep -qx worker-host; then
-  echo "ERROR: worker-host is unexpectedly running"
-  exit 1
-fi
-
-sudo ss -ltn "sport = :80"
-ts_ip="$(tailscale ip -4)"
-curl -s -o /dev/null -w 'frontend /: %{http_code}\n' "http://$ts_ip/"
-curl -s -o /dev/null -w 'frontend /api/internal/x: %{http_code}\n' \
-  "http://$ts_ip/api/internal/x"
-
-git rev-parse --verify HEAD
-REMOTE
-```
-
-For a worker-off preflight, HTTP 200 with JSON `status=degraded` can be expected because worker heartbeats are intentionally absent. Port 80 must appear bound only to the Tailscale IPv4 (never `0.0.0.0`), `/` must return 200, and `/api/internal/x` must return 403. A failed HTTP request, unhealthy container, database error, exposed PostgreSQL port, publicly bound frontend port, running worker, or SHA mismatch is a deployment failure.
+For a worker-off preflight, an application-level degraded status caused only by intentionally absent worker heartbeats may be expected when the live runbook says so. Any failed HTTP request, unhealthy container, database error, exposed PostgreSQL port, publicly bound frontend port, running worker, image-tag mismatch, checkout mismatch, or secret-file gate failure stops the deployment.
 
 Do not broadly dump logs into the conversation. If diagnosis requires logs, keep the time and line range bounded and prevent URLs, credentials, headers, or secret values from entering the transcript.
 
-## 10. Failure and rollback handling
+## 6. Failure and rollback handling
 
 - Stop at the first failed gate and report the exact failed command and non-secret evidence.
 - Do not improvise a destructive rollback, reset a dirty checkout, delete volumes, or reverse migrations.
@@ -195,7 +86,7 @@ Do not broadly dump logs into the conversation. If diagnosis requires logs, keep
 - Before rollback, inspect whether the failed release applied a forward migration and whether the previous application image is schema-compatible.
 - Present a rollback plan to jdy and obtain approval before changing the remote checkout or recreating services with an earlier image.
 
-## 11. Report format
+## 7. Report format
 
 Conclude with:
 
