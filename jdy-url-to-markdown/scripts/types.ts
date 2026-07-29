@@ -21,6 +21,10 @@ export interface QualityResult {
   };
 }
 
+export interface QualityOptions {
+  singleParagraphMinChars?: number;
+}
+
 export interface SiteRule {
   startLevel?: number;
   adapter?: string;
@@ -28,6 +32,7 @@ export interface SiteRule {
   cdpActions?: string[];
   cleaners?: string[];
   contentSelector?: string;
+  quality?: QualityOptions;
 }
 
 export type SiteRules = Record<string, SiteRule>;

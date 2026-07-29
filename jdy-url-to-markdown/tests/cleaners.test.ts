@@ -14,6 +14,11 @@ describe("wechat cleaner", () => {
     expect(clean(md)).toBe("Article content.");
   });
 
+  test("removes reward footer when the author label is garbled", () => {
+    const md = "Article content.\n\n**微信扫一扫赞赏作��**喜欢作者\n\n正在加载...";
+    expect(clean(md)).toBe("Article content.");
+  });
+
   test("removes duplicate title", () => {
     const md = "# My Title\n\nMy Title\n\nActual content starts here with enough words.";
     expect(clean(md)).not.toMatch(/^# My Title\n\nMy Title/);

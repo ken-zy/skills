@@ -4,8 +4,11 @@ function wechat(markdown: string): string {
   let md = markdown;
   const previewIdx = md.indexOf("预览时标签不可点");
   if (previewIdx !== -1) md = md.slice(0, previewIdx).trimEnd();
-  const rewardIdx = md.indexOf("微信扫一扫赞赏作者");
-  if (rewardIdx !== -1) md = md.slice(0, rewardIdx).trimEnd();
+  const rewardIdx = md.indexOf("微信扫一扫赞赏");
+  if (rewardIdx !== -1) {
+    const rewardLineIdx = md.lastIndexOf("\n", rewardIdx);
+    md = md.slice(0, rewardLineIdx === -1 ? rewardIdx : rewardLineIdx).trimEnd();
+  }
 
   const lines = md.split("\n");
   if (lines[0]?.startsWith("# ")) {

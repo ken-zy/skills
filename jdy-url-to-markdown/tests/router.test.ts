@@ -7,6 +7,7 @@ describe("matchSiteRule", () => {
     expect(rule).not.toBeNull();
     expect(rule!.startLevel).toBe(1);
     expect(rule!.contentSelector).toBe("#js_content, .rich_media_content");
+    expect(rule!.quality?.singleParagraphMinChars).toBe(600);
     expect(rule!.cleaners).toEqual(["wechat"]);
   });
 

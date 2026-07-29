@@ -48,10 +48,10 @@ If EXTEND.md not found, use defaults. No blocking setup flow required.
     # Save to specific path
     ${CMD} <url> -o /path/to/output.md
 
-    # Force CDP (alias, reserved for future login-wait mode)
+    # Force CDP and poll until the quality check passes or timeout expires
     ${CMD} <url> --wait
 
-    # Custom timeout
+    # Custom page-load and --wait timeout
     ${CMD} <url> --timeout 60000
 
 ## How It Works

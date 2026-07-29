@@ -1,4 +1,4 @@
-import type { QualityResult } from "./types";
+import type { QualityOptions, QualityResult } from "./types";
 
 const ANTI_SCRAPING_MARKERS = [
   /access denied/i,
@@ -7,6 +7,7 @@ const ANTI_SCRAPING_MARKERS = [
   /captcha/i,
   /just a moment/i,
   /checking your browser/i,
+  /微信扫一扫可打开此内容/,
 ];
 
 const LOGIN_WALL_MARKERS = [
@@ -49,7 +50,7 @@ function isUsefulParagraph(line: string): boolean {
   return words.length >= 8;
 }
 
-export function qualityCheck(markdown: string): QualityResult {
+export function qualityCheck(markdown: string, options: QualityOptions = {}): QualityResult {
   const plainText = stripMarkdownMarkers(markdown);
   const charCount = plainText.length;
 
@@ -73,6 +74,13 @@ export function qualityCheck(markdown: string): QualityResult {
   const usefulParagraphs = lines.filter(isUsefulParagraph).length;
 
   if (usefulParagraphs < 2) {
+    if (
+      usefulParagraphs === 1
+      && options.singleParagraphMinChars !== undefined
+      && charCount >= options.singleParagraphMinChars
+    ) {
+      return { pass: true, stats: { charCount, usefulParagraphs } };
+    }
     return { pass: false, reason: `insufficient useful paragraphs: ${usefulParagraphs} (min 2)`, stats: { charCount, usefulParagraphs } };
   }
 

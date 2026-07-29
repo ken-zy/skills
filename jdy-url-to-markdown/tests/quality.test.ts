@@ -30,6 +30,30 @@ describe("qualityCheck", () => {
     expect(result.reason).toContain("anti-scraping");
   });
 
+  test("rejects WeChat mini-program shell pages", () => {
+    const markdown = [
+      "# 还没想好创业做什么？YC刚刚给了13个答案",
+      "",
+      "知道了",
+      "",
+      "微信扫一扫",
+      "使用小程序",
+      "",
+      "取消 允许",
+      "",
+      "取消 允许",
+      "",
+      "取消 允许",
+      "",
+      "微信扫一扫可打开此内容，使用完整服务",
+      "",
+      "视频 小程序 赞，轻点两下取消赞 在看，轻点两下取消在看 分享 留言 收藏 听过。这里没有文章正文，只有微信客户端引导和页面交互控件。",
+    ].join("\n");
+    const result = qualityCheck(markdown);
+    expect(result.pass).toBe(false);
+    expect(result.reason).toContain("anti-scraping");
+  });
+
   test("fails for login wall markers", () => {
     const markdown = "# Welcome\n\n请登录后查看完整内容。\n\n更多精彩内容等你来看。请登录以继续访问本站的全部文章和资源，注册会员可以享受更多权益。本平台提供海量优质内容，登录后即可无限浏览所有文章和视频资源。立即免费注册，开启阅读之旅，探索无限精彩内容吧。";
     const result = qualityCheck(markdown);
@@ -64,6 +88,14 @@ describe("qualityCheck", () => {
     const result = qualityCheck(markdown);
     expect(result.pass).toBe(false);
     expect(result.reason).toContain("paragraph");
+  });
+
+  test("allows long single-block content when the site opts in", () => {
+    const paragraph = "这是微信编辑器生成的一整块正文，视觉上包含多个内容区段，但转换后没有空行分隔。".repeat(30);
+    const result = qualityCheck(`# 微信文章\n\n${paragraph}`, {
+      singleParagraphMinChars: 600,
+    });
+    expect(result.pass).toBe(true);
   });
 
   test("counts Chinese characters correctly for useful paragraph", () => {
