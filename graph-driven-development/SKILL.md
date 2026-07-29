@@ -1,6 +1,6 @@
 ---
 name: graph-driven-development
-description: Coordinate complex software development through a fixed, auditable multi-agent graph with Codex as the only repository writer, external models optionally authoring implementation candidates, deterministic test gates, independent read-only review, evidence-based finding verification, and bounded rework. Use when the user explicitly requests Graph collaboration or multiple agents/models, wants ChatGPT Pro, Grok, or Claude to generate code for Codex to apply, requires named models or multiple reviewers to participate, or asks for a risky cross-module change involving state machines, permissions, authentication, concurrency, migrations, or external side effects. Do not use for small single-file edits, explanation-only work, diagnosis-only work, or an ordinary one-shot code review.
+description: Coordinate complex software development through a fixed, auditable multi-agent graph with Codex as the only repository writer, all external-model interaction routed through the Codex built-in Browser, external models optionally authoring implementation candidates, deterministic test gates, independent read-only review, evidence-based finding verification, and bounded rework. Use when the user explicitly requests Graph collaboration or multiple agents/models, wants ChatGPT Pro, Grok, or Claude to generate code for Codex to apply, requires named models or multiple reviewers to participate, or asks for a risky cross-module change involving state machines, permissions, authentication, concurrency, migrations, or external side effects. Do not use for small single-file edits, explanation-only work, diagnosis-only work, or an ordinary one-shot code review.
 ---
 
 # Graph-Driven Development
@@ -51,6 +51,16 @@ Choose a backend at runtime:
 5. Record the backend, model when visible, role, task type, session ID, and selection reason.
 
 Do not hardcode subscriptions, live availability, or a permanent model ranking. Apply the bounded fallback rules when a preferred backend is unavailable.
+
+## Require the Codex built-in Browser
+
+Route every interaction with ChatGPT Pro, Grok, Claude, or any other external model through the Codex built-in Browser using `browser:control-in-app-browser`. Treat this as a hard requirement, not a preference.
+
+- Do not use the user's Chrome, OpenCLI, Playwright, a terminal browser wrapper, a direct HTTP API, or a model CLI as a substitute.
+- Before assigning an external backend, verify that the Codex built-in Browser is available and that the required authenticated model session is usable.
+- When a preferred external backend is unavailable through the Codex built-in Browser, apply the bounded backend fallback rules only to another backend usable through the same Browser.
+- When a required external backend is unavailable through the Codex built-in Browser, enter `WAITING_HUMAN`. Never weaken or bypass this Browser requirement.
+- Keep each Reviewer and Arbiter in the fresh, independent conversation required by N4, and record its backend, visible model, role, task type, conversation ID, and Browser session evidence.
 
 ## Maintain the task state
 
