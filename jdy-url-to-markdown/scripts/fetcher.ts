@@ -30,7 +30,7 @@ export async function fetchAndParse(url: string, options: FetchOptions): Promise
 
       if (response.ok) {
         const html = await response.text();
-        const result = parse(html, url, cleaners);
+        const result = parse(html, url, cleaners, rule.contentSelector);
         const qc = qualityCheck(result.markdown);
 
         if (qc.pass) {
@@ -52,7 +52,7 @@ export async function fetchAndParse(url: string, options: FetchOptions): Promise
 
   console.error("[L2] Falling through to CDP...");
   const html = await cdpFetch(url, rule, timeout);
-  const result = parse(html, url, cleaners);
+  const result = parse(html, url, cleaners, rule.contentSelector);
   const qc = qualityCheck(result.markdown);
 
   if (qc.pass) {

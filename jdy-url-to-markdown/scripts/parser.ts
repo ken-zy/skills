@@ -61,28 +61,45 @@ function extractMetadata(doc: any, url: string): Metadata {
   return { url, title, author, published, site_name, description };
 }
 
-export function parse(html: string, url: string, cleaners?: Cleaner[]): ParseResult {
+export function parse(
+  html: string,
+  url: string,
+  cleaners?: Cleaner[],
+  contentSelector?: string,
+): ParseResult {
   const { document } = parseHTML(html);
   const metadata = extractMetadata(document, url);
 
   const { document: readDoc } = parseHTML(html);
-  const reader = new Readability(readDoc as any, {
-    charThreshold: 120,
-    nbTopCandidates: 10,
-  });
-  const article = reader.parse();
-
   const td = createTurndown();
   let markdown: string;
-  if (article?.content) {
-    markdown = td.turndown(article.content);
-    // Readability sometimes strips the <h1> title; prepend it if missing
-    const titleText = article.title?.trim() || metadata.title;
-    if (titleText && !markdown.includes(titleText)) {
-      markdown = `# ${titleText}\n\n${markdown}`;
+
+  const selectedContent = contentSelector
+    ? readDoc.querySelector(contentSelector)
+    : null;
+
+  if (selectedContent?.textContent?.trim()) {
+    markdown = td.turndown(selectedContent.innerHTML);
+    if (metadata.title && !markdown.includes(metadata.title)) {
+      markdown = `# ${metadata.title}\n\n${markdown}`;
     }
   } else {
-    markdown = td.turndown(html);
+    const reader = new Readability(readDoc as any, {
+      charThreshold: 120,
+      nbTopCandidates: 10,
+    });
+    const article = reader.parse();
+
+    if (article?.content) {
+      markdown = td.turndown(article.content);
+      // Readability sometimes strips the <h1> title; prepend it if missing
+      const titleText = article.title?.trim() || metadata.title;
+      if (titleText && !markdown.includes(titleText)) {
+        markdown = `# ${titleText}\n\n${markdown}`;
+      }
+    } else {
+      markdown = td.turndown(html);
+    }
   }
 
   if (cleaners) {

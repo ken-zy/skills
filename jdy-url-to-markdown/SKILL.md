@@ -1,7 +1,6 @@
 ---
 name: jdy-url-to-markdown
-description: Fetch any URL and convert to markdown using Chrome CDP. Supports two-level fetch (local -> CDP), site-specific cleanup (WeChat, Zhihu, Xiaohongshu), YouTube transcripts, and X/Twitter threads. Use when user wants to save a webpage as markdown.
-version: 0.1.0
+description: Fetch URLs and convert them to markdown using local HTTP or Chrome CDP. Supports site-specific cleanup for WeChat, Zhihu, and Xiaohongshu, plus YouTube transcripts and X/Twitter threads. Use when the user asks to read, extract, archive, or save a webpage or article.
 metadata:
   openclaw:
     requires:

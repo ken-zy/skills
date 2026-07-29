@@ -5,7 +5,8 @@ describe("matchSiteRule", () => {
   test("exact match: mp.weixin.qq.com", () => {
     const rule = matchSiteRule("https://mp.weixin.qq.com/s/abc123");
     expect(rule).not.toBeNull();
-    expect(rule!.startLevel).toBe(2);
+    expect(rule!.startLevel).toBe(1);
+    expect(rule!.contentSelector).toBe("#js_content, .rich_media_content");
     expect(rule!.cleaners).toEqual(["wechat"]);
   });
 

@@ -47,4 +47,41 @@ describe("parse", () => {
     const result = parse(html, "https://example.com/article", [(md) => md.replace(/Final paragraph.*/, "CLEANED")]);
     expect(result.markdown).toContain("CLEANED");
   });
+
+  test("uses a configured content selector before Readability", () => {
+    const selectedContent = "这是微信正文第一段，用来验证站点专用正文选择器能够绕过通用 Readability 的错误判断。";
+    const competingContent = "这是页面外围的推荐内容，不属于需要保存的文章正文。".repeat(40);
+    const wechatHtml = `<html>
+      <head><meta property="og:title" content="微信测试文章"></head>
+      <body>
+        <article><p>${competingContent}</p></article>
+        <section id="js_content" class="rich_media_content">
+          <p>${selectedContent}</p>
+          <p>这是微信正文第二段，确保转换结果包含多个可用段落并可以通过内容质量检查。</p>
+        </section>
+      </body>
+    </html>`;
+
+    const result = parse(
+      wechatHtml,
+      "https://mp.weixin.qq.com/s/test",
+      undefined,
+      "#js_content, .rich_media_content",
+    );
+
+    expect(result.markdown).toContain(selectedContent);
+    expect(result.markdown).not.toContain("页面外围的推荐内容");
+  });
+
+  test("falls back to Readability when the configured selector is missing", () => {
+    const result = parse(
+      html,
+      "https://example.com/article",
+      undefined,
+      "#missing-content",
+    );
+
+    expect(result.markdown).toContain("first paragraph");
+    expect(result.markdown).toContain("Section Two");
+  });
 });

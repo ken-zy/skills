@@ -27,6 +27,7 @@ export interface SiteRule {
   aliases?: string[];
   cdpActions?: string[];
   cleaners?: string[];
+  contentSelector?: string;
 }
 
 export type SiteRules = Record<string, SiteRule>;
