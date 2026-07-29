@@ -1,0 +1,4 @@
+interface:
+  display_name: "Graph-Driven Development"
+  short_description: "以固定多 Agent Graph 驱动复杂开发与独立审查"
+  default_prompt: "Use $graph-driven-development to coordinate this complex development task through a fixed, auditable multi-agent graph."
