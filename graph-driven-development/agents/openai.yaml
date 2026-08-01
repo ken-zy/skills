@@ -1,4 +1,4 @@
 interface:
   display_name: "Graph-Driven Development"
-  short_description: "以固定多 Agent Graph 驱动复杂开发与独立审查"
-  default_prompt: "Use $graph-driven-development to coordinate this complex development task through a fixed, auditable multi-agent graph."
+  short_description: "用 ChatGPT Pro 与 Grok 网页版驱动 worktree 开发、审查和 PR 交付"
+  default_prompt: "Use $graph-driven-development with only ChatGPT Pro web and Grok web through the Codex built-in Browser, preflight an isolated task worktree, verify real artifacts and repository-derived tests, coordinate independent review, require pull-request CI, and clean up the worktree after verified merge."
