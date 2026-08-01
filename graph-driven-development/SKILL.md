@@ -1,6 +1,6 @@
 ---
 name: graph-driven-development
-description: Coordinate complex software development in an isolated task worktree through a fixed, auditable multi-agent graph with Codex as the only repository writer and ChatGPT Pro web plus Grok web as the only cognitive backends, both accessed exclusively through the Codex built-in Browser. Includes checkpoint commits after verified implementation steps, deterministic test gates, independent read-only review, evidence-based finding verification, bounded rework, final branch push and pull-request creation, and post-merge worktree cleanup. Use when the user explicitly requests Graph collaboration or multiple agents/models, wants ChatGPT Pro or Grok to generate code for Codex to apply, requires named models or multiple reviewers to participate, or asks for a risky cross-module change involving state machines, permissions, authentication, concurrency, migrations, or external side effects. Do not use for small single-file edits, explanation-only work, diagnosis-only work, or an ordinary one-shot code review.
+description: Coordinate complex software development in an isolated, preflighted task worktree through a fixed auditable graph. Keep Codex as the only repository writer and use only ChatGPT Pro web plus Grok web through the Codex built-in Browser for cognitive roles. Enforce verified checkpoint commits, repository-derived test gates, real artifact validation, independent read-only review, bounded rework, required pull-request CI, and post-merge worktree cleanup. Use when the user requests Graph or multiple models, wants ChatGPT Pro or Grok to author candidates, requires named reviewers, or asks for a risky cross-module change involving state machines, permissions, authentication, concurrency, migrations, or external side effects. Do not use for small single-file edits, explanation-only work, diagnosis-only work, or an ordinary one-shot code review.
 ---
 
 # Graph-Driven Development
@@ -9,6 +9,7 @@ Use one fixed V1 cognitive graph inside an isolated delivery lifecycle:
 
 ```text
 CREATE_TASK_WORKTREE
+→ WORKTREE_PREFLIGHT
 → (TASK_CONTRACT
    → ADVISE_AND_FREEZE_PLAN
    → IMPLEMENT
@@ -19,6 +20,7 @@ CREATE_TASK_WORKTREE
 → READY_FOR_DELIVERY
 → PUSH_BRANCH
 → OPEN_PULL_REQUEST
+→ VERIFY_REQUIRED_CI
 → WAIT_FOR_MERGE
 → CLEANUP_TASK_WORKTREE
 → DELIVERED
@@ -50,6 +52,18 @@ Before N0, create a dedicated branch and linked worktree for every new task.
 5. Record the repository root, source checkout, task worktree path, branch, base ref, and base commit before implementation.
 
 Enter `WAITING_HUMAN` rather than guessing when the base branch, remote, safe worktree location, or ownership of existing changes is ambiguous.
+
+## Preflight the task worktree
+
+Before N0, prove that the new worktree can execute the repository's development and verification workflow.
+
+1. Read the repository's authoritative development, dependency, test, build, and CI configuration.
+2. Verify the required runtimes, package managers, repository scripts, and test-infrastructure entrypoints exist in the task worktree.
+3. Detect virtual environments, shebangs, activation scripts, generated config, or cached tool paths that still point to another checkout. Do not reuse a path-bound environment as evidence that the task worktree is ready.
+4. Resolve and record the exact worktree-local command prefix, environment bootstrap, runtime versions, and CI source files that later frozen commands will use.
+5. Perform only bounded startup checks at this stage. Do not run the full test suite, install or upgrade dependencies without authorization, or mutate remote or production systems.
+
+Enter `WAITING_HUMAN` before N0 when the required toolchain cannot start, the environment would require an unauthorized dependency change, or the worktree cannot reproduce the repository's documented command surface. Never wait until N3 to discover that the frozen commands cannot execute.
 
 ## Use only the fixed cognitive backends
 
@@ -97,7 +111,10 @@ required_participations: []
 allowed_backends:
   - chatgpt-pro-web
   - grok-web
+worktree_preflight: {}
+ci_sources: []
 test_results: []
+artifact_results: []
 reviews: []
 findings: []
 implementation_authors: []
@@ -109,6 +126,8 @@ base_ref: ""
 base_commit: ""
 checkpoint_commits: []
 pull_request_url: ""
+pull_request_head: ""
+required_ci_results: []
 merge_commit: ""
 ```
 
@@ -121,7 +140,7 @@ FAILED
 CANCELLED
 ```
 
-Treat `READY_FOR_DELIVERY`, `PR_OPEN`, `WAITING_FOR_MERGE`, and `MERGED` as non-terminal lifecycle gates. Do not promise automatic resume after an app, terminal, process, or machine failure. Reconstruct a new run from the recorded worktree, branch, commits, current Diff, test evidence, pull request, and saved review conversations when necessary.
+Treat `WORKTREE_READY`, `READY_FOR_DELIVERY`, `PR_OPEN`, `PR_CHECKS_PASSED`, `WAITING_FOR_MERGE`, and `MERGED` as non-terminal lifecycle gates. Do not promise automatic resume after an app, terminal, process, or machine failure. Reconstruct a new run from the recorded worktree, branch, commits, current Diff, test and artifact evidence, pull request checks, and saved review conversations when necessary.
 
 ## N0: Create the task contract
 
@@ -137,7 +156,10 @@ required_participations: []
 allowed_backends:
   - chatgpt-pro-web
   - grok-web
+ci_sources: []
 test_commands: []
+artifacts: []
+required_pr_checks: []
 permissions:
   repository_write: codex_only
   external_code_upload: allowed
@@ -182,8 +204,13 @@ Freeze:
 - task scope;
 - implementation steps;
 - acceptance criteria;
-- exact required test commands;
+- exact required test commands derived from the repository's authoritative CI workflows, scripts, and configuration;
+- the path coverage and CI source for every frozen command, including required remote-only checks that cannot run locally;
+- every real deliverable such as a container image, package, frontend bundle, executable, migration, or generated artifact, plus exact build and verification commands;
+- the required pull-request checks and their authoritative source;
 - the minimum evidence required by Reviewers.
+
+Do not freeze a hand-written approximation when the repository already defines the gate. Do not omit a directory, artifact, platform, or remote-only check merely because it is inconvenient or unavailable locally; record the limitation and preserve the required PR check.
 
 Allow at most one request for missing non-sensitive evidence. Enter `WAITING_HUMAN` if the plan still cannot be frozen.
 
@@ -214,15 +241,25 @@ Do not use any local agent or subagent for a cognitive role. Only the current Co
 
 After each coherent implementation action is complete and its scoped validation passes, create one checkpoint commit containing only that action's task-owned changes. Interpret an action as an independently explainable implementation unit, not an individual edit, command, or tool call. Do not create empty commits, commit known-broken intermediate states, or include unrelated user changes. Record each commit hash, message, covered action, and validation evidence.
 
-## N3: Run the frozen tests
+## N3: Run the frozen tests and artifact checks
 
-Run only the commands frozen at N1.
+Run the exact local test, build, and artifact-verification commands frozen at N1.
+
+For every declared artifact:
+
+1. Build the actual deliverable using the frozen command.
+2. Inspect the produced artifact rather than only its source manifest.
+3. Prove required files, entrypoints, permissions, metadata, and migrations are present as applicable.
+4. Run the smallest safe smoke test against the produced artifact itself.
+5. Record the artifact identity or digest and verification evidence.
+
+Source presence, mocked executor calls, or a passing unit test do not prove that a file entered a container, package, bundle, or executable. If the task produces no artifact, record `artifacts: []` rather than inventing a gate.
 
 Route each result:
 
 | Result | Route |
 |---|---|
-| All required tests pass | N4 |
+| All required local tests and artifact checks pass | N4 |
 | Implementation defect | N2; consume one implementation rework |
 | Frozen plan is wrong | N1; consume one plan rework |
 | Command missing, environment unavailable, or result indeterminate | `WAITING_HUMAN` |
@@ -241,7 +278,7 @@ Require every Reviewer to:
 
 - use a fresh session;
 - remain read-only;
-- receive only the frozen objective, required context, Diff, and test evidence;
+- receive only the frozen objective, required context, Diff, worktree-preflight evidence, test evidence, and artifact evidence;
 - have made no implementation writes;
 - differ from the current Codex Writer session;
 - not be any session recorded in `implementation_authors`.
@@ -305,7 +342,9 @@ Count N5-triggered implementation and plan returns against the same global rewor
 
 Enter N6 only when:
 
-- every frozen required test passes;
+- the task worktree preflight passed;
+- every frozen locally executable required test passes;
+- every declared artifact was built and verified, or the frozen contract records `artifacts: []`;
 - every `required_participations` entry is satisfied;
 - each Reviewer and Arbiter satisfies fresh-session and read-only requirements;
 - every finding is classified;
@@ -316,13 +355,13 @@ Produce `final-report.md` or an equivalent final response containing:
 
 1. objective, scope, and final state;
 2. modified files;
-3. passed, failed, and unrun tests;
+3. worktree preflight, passed, failed, and unrun tests, and artifact verification results;
 4. each agent's backend, role, task type, contribution, and session independence;
 5. required participation reconciliation;
 6. every finding and its final classification;
 7. implementation and plan rework counts;
 8. checkpoint commits and their validation evidence;
-9. branch, worktree, push, pull request, merge, cleanup, deploy, and production-action status;
+9. branch, worktree, push, pull request, required CI, merge, cleanup, deploy, and production-action status;
 10. the recommended human action when merge or another separately authorized operation remains pending.
 
 Report `READY_FOR_DELIVERY` only after every gate passes and every task change is committed on the recorded task branch.
@@ -333,13 +372,16 @@ After N6 reaches `READY_FOR_DELIVERY`:
 
 1. Recheck that the task worktree is clean, every commit is in scope, the branch still descends from the recorded base, and required tests and reviews apply to the exact branch head.
 2. Push only the recorded task branch to its configured remote. Never push the default branch or unrelated refs.
-3. Open one pull request targeting the repository's required base branch. Include the objective, scoped changes, test evidence, review results, finding disposition, checkpoint commits, and explicit statements that merge, deploy, and production mutation were not performed.
-4. Record the pull request URL and enter `WAITING_FOR_MERGE`. Do not merge it unless separately authorized.
-5. After the pull request is confirmed merged by authoritative remote state, verify the recorded task worktree is clean and contains no unpushed or unmerged task work.
-6. Remove only the exact recorded task worktree, then prune stale worktree metadata if needed. Delete the local task branch only when merge is confirmed, it is not checked out anywhere, and repository policy permits deletion. Do not delete the remote branch unless separately authorized or the repository's PR merge policy does so automatically.
-7. Verify that the source checkout and every unrelated worktree remain unchanged, then report `DELIVERED` with the pull request URL, merge commit, and cleanup result.
+3. Open one pull request targeting the repository's required base branch. Include the objective, scoped changes, worktree-preflight evidence, test and artifact evidence, review results, finding disposition, checkpoint commits, and explicit statements that merge, deploy, and production mutation were not performed.
+4. Record the pull request URL and exact remote head, then wait for every frozen required PR check on that head. A skipped check counts only when the authoritative repository policy marks it non-required for this exact change.
+5. Route a required CI failure caused by the implementation to N2 and a failure caused by the frozen plan to N1, consuming the same global rework budgets. For an unavailable or indeterminate check, enter `WAITING_HUMAN`. Never relabel a missing or failed required check as passed.
+6. After any branch-content change, create a scoped checkpoint commit, rerun the frozen local and artifact gates, repeat the required independent review for the changed head, push that head, and wait for its required CI. Earlier evidence does not apply to a different branch head.
+7. Enter `PR_CHECKS_PASSED` and then `WAITING_FOR_MERGE` only when all frozen required checks pass on the same remote head that passed tests and review. Do not merge it unless separately authorized.
+8. After the pull request is confirmed merged by authoritative remote state, verify the recorded task worktree is clean and contains no unpushed or unmerged task work.
+9. Remove only the exact recorded task worktree, then prune stale worktree metadata if needed. Delete the local task branch only when merge is confirmed, it is not checked out anywhere, and repository policy permits deletion. Do not delete the remote branch unless separately authorized or the repository's PR merge policy does so automatically.
+10. Verify that the source checkout and every unrelated worktree remain unchanged, then report `DELIVERED` with the pull request URL, passed required checks, merge commit, and cleanup result.
 
-If merge cannot be confirmed, the worktree is dirty, commits are unpushed or unmerged, or the target path differs from the recorded worktree, enter `WAITING_HUMAN` and do not remove anything.
+If required CI has not passed, merge cannot be confirmed, the worktree is dirty, commits are unpushed or unmerged, or the target path differs from the recorded worktree, enter `WAITING_HUMAN` and do not remove anything.
 
 ## Keep loops bounded
 

@@ -17,8 +17,13 @@ review_request:
   acceptance_criteria: []
   required_participations: []
   implementation_authors: []
+  worktree_preflight_evidence: {}
+  ci_sources: []
   frozen_test_commands: []
   test_evidence: []
+  frozen_artifacts: []
+  artifact_evidence: []
+  required_pr_checks: []
   base_commit: ""
   head_commit: ""
   tracked_files: []
@@ -154,7 +159,7 @@ Do not block V1 by requesting:
 - a configurable graph or generic workflow engine;
 - event sourcing, crash recovery, or concurrent-run locks;
 - a generic source packaging framework;
-- delivery automation beyond the Skill's defined checkpoint-commit, branch-push, pull-request, and verified post-merge worktree-cleanup lifecycle;
+- delivery automation beyond the Skill's defined checkpoint-commit, branch-push, pull-request, required-CI, and verified post-merge worktree-cleanup lifecycle;
 - merge, deploy, or production-side-effect orchestration without separate explicit authorization;
 - mechanisms justified only by hypothetical future needs.
 
