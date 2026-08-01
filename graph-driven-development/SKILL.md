@@ -1,21 +1,27 @@
 ---
 name: graph-driven-development
-description: Coordinate complex software development through a fixed, auditable multi-agent graph with Codex as the only repository writer, all external-model interaction routed through the Codex built-in Browser, external models optionally authoring implementation candidates, deterministic test gates, independent read-only review, evidence-based finding verification, and bounded rework. Use when the user explicitly requests Graph collaboration or multiple agents/models, wants ChatGPT Pro, Grok, or Claude to generate code for Codex to apply, requires named models or multiple reviewers to participate, or asks for a risky cross-module change involving state machines, permissions, authentication, concurrency, migrations, or external side effects. Do not use for small single-file edits, explanation-only work, diagnosis-only work, or an ordinary one-shot code review.
+description: Coordinate complex software development in an isolated task worktree through a fixed, auditable multi-agent graph with Codex as the only repository writer and ChatGPT Pro web plus Grok web as the only cognitive backends, both accessed exclusively through the Codex built-in Browser. Includes checkpoint commits after verified implementation steps, deterministic test gates, independent read-only review, evidence-based finding verification, bounded rework, final branch push and pull-request creation, and post-merge worktree cleanup. Use when the user explicitly requests Graph collaboration or multiple agents/models, wants ChatGPT Pro or Grok to generate code for Codex to apply, requires named models or multiple reviewers to participate, or asks for a risky cross-module change involving state machines, permissions, authentication, concurrency, migrations, or external side effects. Do not use for small single-file edits, explanation-only work, diagnosis-only work, or an ordinary one-shot code review.
 ---
 
 # Graph-Driven Development
 
-Use one fixed V1 workflow:
+Use one fixed V1 cognitive graph inside an isolated delivery lifecycle:
 
 ```text
-TASK_CONTRACT
-→ ADVISE_AND_FREEZE_PLAN
-→ IMPLEMENT
-→ TEST
-→ INDEPENDENT_REVIEW
-→ VERIFY_FINDINGS
-→ LOCAL_HANDOFF
+CREATE_TASK_WORKTREE
+→ (TASK_CONTRACT
+   → ADVISE_AND_FREEZE_PLAN
+   → IMPLEMENT
+   → TEST
+   → INDEPENDENT_REVIEW
+   → VERIFY_FINDINGS
+   → LOCAL_HANDOFF)
 → READY_FOR_DELIVERY
+→ PUSH_BRANCH
+→ OPEN_PULL_REQUEST
+→ WAIT_FOR_MERGE
+→ CLEANUP_TASK_WORKTREE
+→ DELIVERED
 ```
 
 Keep the current Codex control session as both Orchestrator and the only Repository Writer. Treat every other agent or model as a read-only cognitive participant.
@@ -23,43 +29,56 @@ Keep the current Codex control session as both Orchestrator and the only Reposit
 ## Preserve the V1 boundary
 
 - Use the fixed seven-node flow. Do not add, delete, reorder, or configure nodes.
-- Assign available backends to `Advisor`, `Reviewer`, or `Arbiter` based on the task, required context, independence, availability, and model strengths.
+- Assign only ChatGPT Pro web or Grok web to `Advisor`, `Reviewer`, or `Arbiter` based on the task, required context, independence, availability, and model strengths.
 - Treat `implementation_author` as an Advisor task type, not a fourth cognitive role.
 - Do not permanently bind a model to a role.
 - Never count the current Writer as Reviewer or Arbiter.
 - Never let an implementation-authoring session review or arbitrate its own candidate.
-- End at local `READY_FOR_DELIVERY`.
-- Do not commit, push, open a PR, deploy, or mutate production under this Skill. Hand those actions to the relevant workflow after completion.
+- Keep the seven cognitive nodes fixed. Treat worktree setup, checkpoint commits, publication, merge waiting, and cleanup as lifecycle operations rather than additional cognitive nodes.
+- Reach local `READY_FOR_DELIVERY` before pushing or opening a pull request, then continue through verified post-merge worktree cleanup.
+- Do not merge the pull request, deploy, mutate production, or perform any other real external side effect without its own explicit authorization. Creating the task branch and worktree, committing scoped task changes, pushing the ready branch, opening its pull request, and removing the recorded task worktree after verified merge are authorized by this Skill.
 - Do not create a transition engine, event log, lock manager, recovery system, generic source packager, delivery transaction, or arbitrary budget DSL.
 
-## Route backends dynamically
+## Isolate every task in a worktree
 
-Use this stable routing table:
+Before N0, create a dedicated branch and linked worktree for every new task.
 
-| Backend class | Default use | Hard limit |
-|---|---|---|
-| Current Codex control session | Orchestrator and Repository Writer | Never count it as Reviewer or Arbiter |
-| External model such as ChatGPT Pro, Grok, or Claude | Advisor, `implementation_author`, Reviewer, or Arbiter | Never grant repository write access; separate authoring from review and arbitration |
-| Local agent with enforced read-only access | Advisor, Reviewer, or Arbiter | Exclude it when workspace write access cannot be reliably restricted |
+1. Read the repository instructions and inspect the source checkout, existing worktrees, remotes, and default branch.
+2. Preserve every existing user change and worktree. Never stash, move, clean, or reuse a dirty checkout to make room for the task.
+3. Refresh the configured remote tracking branch when available, then create a unique task branch from the repository's required base. Follow repository branch naming rules; otherwise use `codex/<task-slug>`.
+4. Add a new linked worktree at a unique, task-specific path outside the source checkout. Never implement the task in the default checkout.
+5. Record the repository root, source checkout, task worktree path, branch, base ref, and base commit before implementation.
 
-Choose a backend at runtime:
+Enter `WAITING_HUMAN` rather than guessing when the base branch, remote, safe worktree location, or ownership of existing changes is ambiguous.
+
+## Use only the fixed cognitive backends
+
+Use this fixed allowlist:
+
+| Backend ID | Access surface | Allowed use | Hard limit |
+|---|---|---|---|
+| `codex-writer` | Current Codex control session | Orchestrator and Repository Writer | Never count it as Advisor, Reviewer, or Arbiter |
+| `chatgpt-pro-web` | Authenticated ChatGPT Pro website in the Codex built-in Browser | Advisor, `implementation_author`, Reviewer, or Arbiter | Read-only; never review or arbitrate the same session's implementation candidate |
+| `grok-web` | Authenticated Grok website in the Codex built-in Browser | Advisor, `implementation_author`, Reviewer, or Arbiter | Read-only; never review or arbitrate the same session's implementation candidate |
+
+Do not use Claude, a local subagent, another external model, an API, or a model CLI for any cognitive role. Choose between the two allowed cognitive backends at runtime:
 
 1. Honor explicit `required_participations` before preferences.
 2. Verify current availability, usable context surface, and read-only capability.
-3. Match the task to the backend instead of assuming one model is always best.
+3. Match the role and task to ChatGPT Pro web or Grok web instead of permanently binding either backend to one role.
 4. For high risk, separate implementation authors from Reviewers and prefer different backends.
 5. Record the backend, model when visible, role, task type, session ID, and selection reason.
 
-Do not hardcode subscriptions, live availability, or a permanent model ranking. Apply the bounded fallback rules when a preferred backend is unavailable.
+Do not assume that either website is currently authenticated or available, and do not define a permanent ranking between them. Apply bounded fallback only from one allowed backend to the other.
 
 ## Require the Codex built-in Browser
 
-Route every interaction with ChatGPT Pro, Grok, Claude, or any other external model through the Codex built-in Browser using `browser:control-in-app-browser`. Treat this as a hard requirement, not a preference.
+Route every interaction with ChatGPT Pro web or Grok web through the Codex built-in Browser using `browser:control-in-app-browser`. Treat both the fixed backend allowlist and the Browser route as hard requirements.
 
-- Do not use the user's Chrome, OpenCLI, Playwright, a terminal browser wrapper, a direct HTTP API, or a model CLI as a substitute.
-- Before assigning an external backend, verify that the Codex built-in Browser is available and that the required authenticated model session is usable.
-- When a preferred external backend is unavailable through the Codex built-in Browser, apply the bounded backend fallback rules only to another backend usable through the same Browser.
-- When a required external backend is unavailable through the Codex built-in Browser, enter `WAITING_HUMAN`. Never weaken or bypass this Browser requirement.
+- Do not use the user's Chrome, OpenCLI, Playwright, a terminal browser wrapper, a direct HTTP API, a model CLI, Claude, a local subagent, or another website as a substitute.
+- Before assigning a cognitive backend, verify that the Codex built-in Browser is available and that the required authenticated ChatGPT Pro or Grok website session is usable.
+- When one optional backend is unavailable, fallback only to the other allowed backend when role independence remains valid.
+- When a required backend is unavailable, or neither allowed backend is usable through the Codex built-in Browser, enter `WAITING_HUMAN`. Never weaken the backend allowlist or bypass the Browser requirement.
 - Keep each Reviewer and Arbiter in the fresh, independent conversation required by N4, and record its backend, visible model, role, task type, conversation ID, and Browser session evidence.
 
 ## Maintain the task state
@@ -68,28 +87,41 @@ Maintain the following lightweight state in the current task plan or an optional
 
 ```yaml
 status: ACTIVE
+phase: WORKTREE_SETUP
 current_node: N0
 contract_hash: sha256
 plan_version: 1
 implementation_rework_used: 0
 plan_rework_used: 0
 required_participations: []
+allowed_backends:
+  - chatgpt-pro-web
+  - grok-web
 test_results: []
 reviews: []
 findings: []
 implementation_authors: []
+repository_root: ""
+source_checkout: ""
+task_worktree: ""
+task_branch: ""
+base_ref: ""
+base_commit: ""
+checkpoint_commits: []
+pull_request_url: ""
+merge_commit: ""
 ```
 
-Use only these terminal states:
+Use only these overall terminal states:
 
 ```text
 WAITING_HUMAN
-READY_FOR_DELIVERY
+DELIVERED
 FAILED
 CANCELLED
 ```
 
-Do not promise automatic resume after an app, terminal, process, or machine failure. Reconstruct a new run from the current Diff, test evidence, and saved review conversations when necessary.
+Treat `READY_FOR_DELIVERY`, `PR_OPEN`, `WAITING_FOR_MERGE`, and `MERGED` as non-terminal lifecycle gates. Do not promise automatic resume after an app, terminal, process, or machine failure. Reconstruct a new run from the recorded worktree, branch, commits, current Diff, test evidence, pull request, and saved review conversations when necessary.
 
 ## N0: Create the task contract
 
@@ -102,11 +134,22 @@ out_of_scope: []
 acceptance_criteria: []
 risk_level: normal  # normal | high
 required_participations: []
-preferred_backends: []
+allowed_backends:
+  - chatgpt-pro-web
+  - grok-web
 test_commands: []
 permissions:
   repository_write: codex_only
   external_code_upload: allowed
+  create_task_branch: allowed
+  create_task_worktree: allowed
+  checkpoint_commit: allowed_after_scoped_validation
+  push: allowed_after_ready_for_delivery
+  open_pull_request: allowed_after_push
+  merge_pull_request: requires_separate_authorization
+  cleanup_task_worktree: allowed_after_verified_merge
+  deploy: denied
+  production_mutation: denied
 budgets:
   implementation_rework: 2
   plan_rework: 1
@@ -117,16 +160,16 @@ Express mandatory participation directly:
 
 ```yaml
 required_participations:
-  - backend_id: chatgpt-pro
+  - backend_id: chatgpt-pro-web
     role: advisor
     task_type: implementation_author
     min_count: 1
 ```
 
-- Resolve a user-named backend without a role to `advisor` or `reviewer` according to the task.
+- Reject a required participation whose backend is not `chatgpt-pro-web` or `grok-web`; enter `WAITING_HUMAN` unless the user changes the contract.
+- Resolve a user-named allowed backend without a role to `advisor` or `reviewer` according to the task.
 - Use `task_type: implementation_author` when the backend must return code or a patch for Codex to evaluate and apply.
 - Enter `WAITING_HUMAN` when choosing the role would materially change the user's intent.
-- Treat `preferred_backends` as replaceable.
 - Treat `required_participations` as non-replaceable unless the user changes the contract.
 - Reconcile every required participation in the final report.
 
@@ -167,7 +210,9 @@ Before and after each write:
 - reject unauthorized files and side effects;
 - keep external participants read-only.
 
-Do not use a local agent for any cognitive role if its write access to the current workspace cannot be reliably restricted.
+Do not use any local agent or subagent for a cognitive role. Only the current Codex control session may operate locally, and only as Orchestrator and Repository Writer.
+
+After each coherent implementation action is complete and its scoped validation passes, create one checkpoint commit containing only that action's task-owned changes. Interpret an action as an independently explainable implementation unit, not an individual edit, command, or tool call. Do not create empty commits, commit known-broken intermediate states, or include unrelated user changes. Record each commit hash, message, covered action, and validation evidence.
 
 ## N3: Run the frozen tests
 
@@ -201,6 +246,8 @@ Require every Reviewer to:
 - differ from the current Codex Writer session;
 - not be any session recorded in `implementation_authors`.
 
+Give Reviewers the complete task-branch Diff from the recorded base commit, including all checkpoint commits, rather than only the latest commit.
+
 Accept only:
 
 ```text
@@ -214,7 +261,7 @@ Allow one `NEEDS_EVIDENCE` response per Reviewer. On `BACKEND_FAILED`, use at mo
 
 ## Transfer source safely
 
-For ChatGPT Pro, Grok, or another external backend, send only:
+For ChatGPT Pro web or Grok web, send only:
 
 - explicitly listed Git-tracked text files;
 - the task's Git Diff;
@@ -274,10 +321,25 @@ Produce `final-report.md` or an equivalent final response containing:
 5. required participation reconciliation;
 6. every finding and its final classification;
 7. implementation and plan rework counts;
-8. commit, push, PR, deploy, and production actions not performed;
-9. the recommended delivery workflow or human action.
+8. checkpoint commits and their validation evidence;
+9. branch, worktree, push, pull request, merge, cleanup, deploy, and production-action status;
+10. the recommended human action when merge or another separately authorized operation remains pending.
 
-Report `READY_FOR_DELIVERY` only after every gate passes.
+Report `READY_FOR_DELIVERY` only after every gate passes and every task change is committed on the recorded task branch.
+
+## Publish and clean up the task worktree
+
+After N6 reaches `READY_FOR_DELIVERY`:
+
+1. Recheck that the task worktree is clean, every commit is in scope, the branch still descends from the recorded base, and required tests and reviews apply to the exact branch head.
+2. Push only the recorded task branch to its configured remote. Never push the default branch or unrelated refs.
+3. Open one pull request targeting the repository's required base branch. Include the objective, scoped changes, test evidence, review results, finding disposition, checkpoint commits, and explicit statements that merge, deploy, and production mutation were not performed.
+4. Record the pull request URL and enter `WAITING_FOR_MERGE`. Do not merge it unless separately authorized.
+5. After the pull request is confirmed merged by authoritative remote state, verify the recorded task worktree is clean and contains no unpushed or unmerged task work.
+6. Remove only the exact recorded task worktree, then prune stale worktree metadata if needed. Delete the local task branch only when merge is confirmed, it is not checked out anywhere, and repository policy permits deletion. Do not delete the remote branch unless separately authorized or the repository's PR merge policy does so automatically.
+7. Verify that the source checkout and every unrelated worktree remain unchanged, then report `DELIVERED` with the pull request URL, merge commit, and cleanup result.
+
+If merge cannot be confirmed, the worktree is dirty, commits are unpushed or unmerged, or the target path differs from the recorded worktree, enter `WAITING_HUMAN` and do not remove anything.
 
 ## Keep loops bounded
 

@@ -19,6 +19,8 @@ review_request:
   implementation_authors: []
   frozen_test_commands: []
   test_evidence: []
+  base_commit: ""
+  head_commit: ""
   tracked_files: []
   diff: ""
   prohibited_actions:
@@ -152,7 +154,8 @@ Do not block V1 by requesting:
 - a configurable graph or generic workflow engine;
 - event sourcing, crash recovery, or concurrent-run locks;
 - a generic source packaging framework;
-- commit, push, PR, deploy, or production-side-effect orchestration;
+- delivery automation beyond the Skill's defined checkpoint-commit, branch-push, pull-request, and verified post-merge worktree-cleanup lifecycle;
+- merge, deploy, or production-side-effect orchestration without separate explicit authorization;
 - mechanisms justified only by hypothetical future needs.
 
 Report a scope omission only when the frozen acceptance criteria cannot be satisfied safely without it.
