@@ -1,51 +1,46 @@
 # Review and Arbitration Contract
 
-Read this file before preparing independent review inputs, interpreting Review results, or invoking an Arbiter.
+Read this before interpreting a verdict.
 
-## Reviewer input
+## Reviewer input manifest
 
-Send a minimal, read-only package:
+Put the request in `review-request.yaml`; upload it with `full.diff` and `review-context.txt`:
 
 ```yaml
 review_request:
-  review_id: uuid
-  role: reviewer
-  risk_level: normal
+  review_id: "uuid"
+  package_sequence: 1
+  package_digest: "sha256"
+  backend: "chatgpt-web"
+  model: "visible model name"
+  required_reasoning_level: "Extra High"
+  selected_reasoning_level: "Extra High"
+  exact_backend_required: false
+  exact_model_required: false
+  exact_reasoning_level_required: true
+  role: "reviewer"
+  risk_level: "normal"
   objective: ""
   in_scope: []
   out_of_scope: []
   acceptance_criteria: []
-  required_participations: []
   implementation_authors: []
-  worktree_preflight_evidence: {}
-  ci_sources: []
-  frozen_test_commands: []
-  test_evidence: []
-  frozen_artifacts: []
-  artifact_evidence: []
-  required_pr_checks: []
   base_commit: ""
   head_commit: ""
-  tracked_files: []
-  diff: ""
+  test_evidence: []
+  artifact_evidence: []
+  risk_focus: []
   prohibited_actions:
-    - modify repository
-    - run side-effecting commands
-    - commit
-    - push
-    - deploy
+    - "modify repository"
+    - "run side-effecting commands"
+    - "commit"
+    - "push"
+    - "deploy"
 ```
 
-Include enough surrounding code to verify the Diff. Do not include the Writer's conclusions, expected verdict, suspected defects, or desired fixes.
+Both Reviewers must receive identical attachment digests and head SHA. Record backend, visible model, selected reasoning level, fallback reason, fresh conversation URL/ID, start/completion time, and read-only confirmation. Reject a review whose conversation appears in `implementation_authors`.
 
-Record:
-
-- backend and model, when visible;
-- fresh conversation ID;
-- input hash or exact attachment hashes;
-- review start and completion time;
-- whether the Reviewer remained read-only;
-- whether the Reviewer session appears in `implementation_authors`; reject the Review if it does.
+Do not include the Writer's conclusions, expected verdict, suspected defects, desired fixes, or the other Reviewer's verdict.
 
 ## Reviewer output
 
@@ -58,109 +53,93 @@ NEEDS_EVIDENCE
 BACKEND_FAILED
 ```
 
-Require this structure:
+Require:
 
 ```yaml
-verdict: PASS
+verdict: "PASS"
+reviewed_head: "sha"
+package_digest: "sha256"
 summary: ""
 findings: []
 evidence_request: []
 ```
 
-For every finding require:
+Every finding uses:
 
 ```yaml
-- finding_id: stable-id
-  severity: blocking  # blocking | high | medium | low
-  attribution: implementation  # implementation | plan | contract
-  location: path:line
+- finding_id: "stable-id"
+  severity: "blocking"  # blocking | high | medium | low
+  attribution: "implementation"  # implementation | plan | contract
+  location: "path:line"
   claim: ""
   evidence: ""
   recommended_direction: ""
 ```
 
-Reject or request correction for a `blocking/high` finding that lacks a concrete location, claim, or evidence. Do not discard it silently.
+Reject or request correction for a `blocking/high` finding without concrete location, claim, and evidence. Reject a verdict whose head or package digest differs from the immutable package.
 
-Interpret verdicts:
+Interpretation:
 
-- `PASS`: no `blocking/high` finding; preserve any medium/low findings as advisory.
-- `CHANGES_REQUESTED`: one or more findings require verification.
-- `NEEDS_EVIDENCE`: provide one bounded evidence supplement, then require a final verdict.
-- `BACKEND_FAILED`: the backend could not complete a reliable review.
+- `PASS`: no blocking/high finding; retain medium/low findings as advisory.
+- `CHANGES_REQUESTED`: verify every finding.
+- `NEEDS_EVIDENCE`: allow one bounded supplement without changing candidate inputs, then require a final verdict.
+- `BACKEND_FAILED`: record the failure and follow the browser/backend contract; do not substitute a new platform.
 
 ## Finding verification
 
-For each finding:
+For every finding:
 
-1. Verify the cited location against the actual reviewed snapshot.
-2. Verify the claim against code, tests, and the frozen contract.
-3. Classify it as `accepted`, `advisory`, or `disputed`.
-4. Route accepted findings by severity and attribution.
-5. Send a disputed `blocking/high` finding to an independent Arbiter.
+1. verify the location against the reviewed snapshot;
+2. verify the claim against code, tests, artifacts, and frozen contract;
+3. classify as `accepted`, `advisory`, or `disputed`;
+4. route accepted findings by severity and attribution;
+5. arbitrate disputed blocking/high findings.
 
 Preserve count conservation:
 
 ```text
-total findings
-= accepted
-+ advisory
-+ overruled_by_arbiter
-+ unresolved
+total findings = accepted + advisory + overruled_by_arbiter + unresolved
 ```
 
-Do not convert an unverified `blocking/high` finding into advisory merely to unblock delivery.
+Never downgrade an unverified blocking/high finding merely to unblock delivery.
 
-## Arbiter input
+## Arbitration
 
-Use a fresh session and a backend or agent distinct from the Writer, original Reviewer, and any implementation author whose candidate is involved in the finding.
+Use a fresh read-only conversation distinct from the Writer, original Reviewer, and relevant implementation author. Preserve the two-tab cap and approved backend allowlist.
 
-Send:
+Send neutrally:
 
 ```yaml
 arbitration_request:
   finding: {}
   frozen_contract: {}
-  reviewed_snapshot_hash: sha256
+  reviewed_head: "sha"
+  package_digest: "sha256"
   reviewer_evidence: ""
   writer_counter_evidence: ""
   implementation_authors: []
   prohibited_actions:
-    - modify repository
-    - introduce new scope
-    - redesign unrelated code
+    - "modify repository"
+    - "introduce new scope"
+    - "redesign unrelated code"
 ```
-
-Do not tell the Arbiter which party should win.
-
-## Arbiter output
 
 Require:
 
 ```yaml
-verdict: SUPPORT_FINDING  # SUPPORT_FINDING | OVERRULE_FINDING | NEEDS_EVIDENCE | BACKEND_FAILED
-finding_id: stable-id
+verdict: "SUPPORT_FINDING"  # SUPPORT_FINDING | OVERRULE_FINDING | NEEDS_EVIDENCE | BACKEND_FAILED
+finding_id: "stable-id"
 reasoning: ""
 decisive_evidence: ""
 ```
 
-Apply:
-
-- `SUPPORT_FINDING`: return to N2, N1, or `WAITING_HUMAN` according to attribution.
-- `OVERRULE_FINDING`: save both sides' evidence and classify as `overruled_by_arbiter`.
-- `NEEDS_EVIDENCE`: allow one bounded supplement; otherwise `WAITING_HUMAN`.
-- `BACKEND_FAILED`: use the remaining fallback budget; otherwise `WAITING_HUMAN`.
+- `SUPPORT_FINDING`: return to implementation, planning, or `WAITING_HUMAN` according to attribution.
+- `OVERRULE_FINDING`: preserve both sides and classify `overruled_by_arbiter`.
+- `NEEDS_EVIDENCE`: allow one bounded supplement.
+- `BACKEND_FAILED`: preserve evidence and enter `WAITING_HUMAN` if no independent approved session remains.
 
 ## Scope discipline
 
-Review only the frozen objective, acceptance criteria, Diff, and evidence.
+Review only the frozen objective, acceptance criteria, complete diff, failure risks, and evidence. Do not block delivery by requesting a generic workflow engine, event sourcing, crash recovery framework, lock manager, generic source packager, or unrelated redesign.
 
-Do not block V1 by requesting:
-
-- a configurable graph or generic workflow engine;
-- event sourcing, crash recovery, or concurrent-run locks;
-- a generic source packaging framework;
-- delivery automation beyond the Skill's defined checkpoint-commit, branch-push, pull-request, required-CI, and verified post-merge worktree-cleanup lifecycle;
-- merge, deploy, or production-side-effect orchestration without separate explicit authorization;
-- mechanisms justified only by hypothetical future needs.
-
-Report a scope omission only when the frozen acceptance criteria cannot be satisfied safely without it.
+Report a scope omission only when the frozen acceptance criteria cannot be satisfied safely without it. A material omission goes through the scope-expansion gate rather than being silently added during rework.
