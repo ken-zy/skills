@@ -12,7 +12,6 @@ review_request:
   package_sequence: 1
   package_digest_algorithm: "graph-review-package-v1"
   package_digest: "sha256:<64 lowercase hex>"
-  review_request_canonical_sha256: "<64 lowercase hex>"
   full_diff_sha256: "<64 lowercase hex>"
   review_context_sha256: "<64 lowercase hex>"
   backend: "chatgpt-web"
@@ -43,7 +42,7 @@ review_request:
     - "deploy"
 ```
 
-Both Reviewers must receive identical attachment digests and head SHA. Record the actual final `review-request.yaml` file SHA outside the request, backend, account plan when visible, model, selected reasoning level, fallback reason, fresh conversation URL/ID, start/completion time, and read-only confirmation. Reject a review whose conversation appears in `implementation_authors`.
+Both Reviewers must receive identical attachment digests and head SHA. Record the actual and canonical `review-request.yaml` hashes outside the request, backend, account plan when visible, model, selected reasoning level, fallback reason, fresh conversation URL/ID, start/completion time, and read-only confirmation. Neither request hash may appear inside the file it hashes. Reject a review whose conversation appears in `implementation_authors`.
 
 Do not include the Writer's conclusions, expected verdict, suspected defects, desired fixes, or the other Reviewer's verdict.
 

@@ -211,7 +211,7 @@ The three-file limit is an upload-container rule, not a changed-file limit. `ful
 
 Generate and validate `full.diff` deterministically with Git binary/full-index output, external diff and text conversion disabled, stable prefixes, and rename detection disabled. Symlink target/mode changes are included. Any binary changed path blocks package creation before transfer rather than being silently omitted.
 
-Use `graph-review-package-v1` to break digest self-reference: canonicalize the unique quoted `package_digest` scalar to 64 ASCII zeroes, hash the canonical request plus exact diff/context bytes, and hash one exact LF-delimited manifest with the head SHA. Record the actual final request-file hash separately as transport evidence. The standard-library reference scripts provide a reproducible test vector and read-only verification.
+Use `graph-review-package-v1` to break digest self-reference: canonicalize the unique quoted `package_digest` scalar to 64 ASCII zeroes, hash the canonical request plus exact diff/context bytes, and hash one exact LF-delimited manifest with the head SHA. Record both actual and canonical request hashes outside `review-request.yaml`; neither may be embedded in the file it hashes. The standard-library reference scripts provide a reproducible test vector and read-only verification.
 
 ## 11. Progressive disclosure layout
 
@@ -243,7 +243,7 @@ The first immutable review package at head `1e351d4e864d56f751d882cef85d0de6fd61
 
 | Finding | Resolution |
 |---|---|
-| PR7-H1 package digest non-reproducible | Add `graph-review-package-v1`, canonical request hashing, exact manifest bytes, a reference script, and a fixed test vector. |
+| PR7-H1 package digest non-reproducible | Add `graph-review-package-v1`, canonical request hashing with request hashes recorded externally, exact manifest bytes, a reference script, and a fixed test vector. |
 | PR7-H2 complete diff omits paths | Include symlink changes, compare exact deterministic Git diff bytes, and fail closed on binary changed paths. |
 | PR7-H3 delivered with pending High | Reject every delivered/review-complete state with pending blocking/high findings and constrain Package 3 terminal status. |
 | PR7-H4 backend fallback bypass | Enforce the canonical backend allowlist and highest-priority available Extra High-capable ChatGPT selection. |

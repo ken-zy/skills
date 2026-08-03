@@ -116,7 +116,7 @@ Include:
 
 - objective, scope, acceptance criteria, and risk class;
 - base SHA, head SHA, package sequence number, and package digest;
-- digest algorithm ID plus the canonical request, diff, and context SHA-256 values;
+- digest algorithm ID plus the diff and context SHA-256 values;
 - implementation-author conversation IDs;
 - repository-derived test and artifact evidence;
 - failure-matrix risk focus;
@@ -186,7 +186,7 @@ python3 scripts/compute_review_package_digest.py \
   --diff full.diff --context review-context.txt
 ```
 
-First run it with the all-zero placeholder, insert the returned package digest, then run it with `--verify-embedded`. Record the actual final `review-request.yaml` SHA-256 outside that self-referential file in run state and Browser transfer evidence. This actual file hash is transport evidence; the canonical request hash is the request component bound into the package digest.
+First run it with the all-zero placeholder, insert the returned package digest, then run it with `--verify-embedded`. Do not write either the actual request SHA or canonical request SHA inside `review-request.yaml`, because either would create another self-reference. Record both outside that file in run state and Browser transfer evidence. The actual file hash is transport evidence; the canonical request hash is the request component bound into the package digest.
 
 Increment the task-wide package counter only for a newly verified head with newly generated package contents.
 

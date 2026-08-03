@@ -84,6 +84,18 @@ class ReviewPackageDigestTests(unittest.TestCase):
                 context=b"context\n",
             )
 
+    def test_rejects_embedded_request_self_hash(self):
+        request = self.request() + (
+            b'  review_request_canonical_sha256: "' + b"f" * 64 + b'"\n'
+        )
+        with self.assertRaisesRegex(ValueError, "must not embed"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=request,
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
 
 class ReviewDiffTests(unittest.TestCase):
     def setUp(self):

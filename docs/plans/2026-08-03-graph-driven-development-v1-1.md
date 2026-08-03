@@ -155,7 +155,7 @@ Files:
 Actions:
 
 1. Define `graph-review-package-v1` with exact canonical request replacement and manifest bytes.
-2. Record the actual final request SHA outside the self-referential request.
+2. Record the actual and canonical request SHAs outside the self-referential request; embed neither one.
 3. Recompute exact deterministic Git diff bytes and path evidence.
 4. Include symlink target/mode changes and fail package creation on binary changed paths.
 5. Keep the scripts read-only, standard-library-only, and narrower than a generic packager.
@@ -206,6 +206,6 @@ Status: In progress.
 
 Current local evidence:
 
-- 44 unit tests pass across review-package and run-state suites.
+- 45 unit tests pass across review-package and run-state suites, including rejection of request self-hashes.
 - `git diff --check` and reference existence checks pass.
 - The standard `quick_validate.py` cannot import `yaml` in either available Python runtime (`ModuleNotFoundError: No module named 'yaml'`); no dependency was installed. An equivalent read-only structural check against the validator's exact rules passes.

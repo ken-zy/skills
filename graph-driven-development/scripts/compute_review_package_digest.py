@@ -19,6 +19,9 @@ PACKAGE_LINE_RE = re.compile(
     rb'(?m)^(?P<prefix>[ \t]+package_digest:[ \t]+"sha256:)'
     rb'(?P<digest>[0-9a-f]{64})(?P<suffix>"[ \t]*)$'
 )
+FORBIDDEN_SELF_HASH_RE = re.compile(
+    rb"(?m)^[ \t]+review_request_(?:canonical_)?sha256:[ \t]*"
+)
 
 
 def sha256_hex(data: bytes) -> str:
@@ -36,6 +39,8 @@ def canonicalize_request(data: bytes) -> tuple[bytes, str]:
         data.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise ValueError("review-request.yaml must be valid UTF-8") from exc
+    if FORBIDDEN_SELF_HASH_RE.search(data):
+        raise ValueError("review-request.yaml must not embed its actual or canonical self hash")
 
     matches = list(PACKAGE_LINE_RE.finditer(data))
     if len(matches) != 1:
