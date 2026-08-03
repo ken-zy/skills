@@ -1,8 +1,11 @@
 # Failure Matrix and Scope Gate
 
-Complete this before implementation. Keep it proportional: irrelevant rows may be `not_applicable`, but every N/A needs a concrete reason.
+Use proportional evidence before implementation:
 
-High-risk tasks involving state machines, concurrency, recovery, authentication, permissions, or external effects must freeze this matrix in N1. Reviewers receive and review it with the implementation candidate.
+- normal tasks record concise `risk_notes` for applicable failure behavior, containment, and rollback; they do not fill a mostly `not_applicable` matrix;
+- high-risk tasks involving state machines, concurrency, recovery, authentication, permissions, migrations, persistence, or external effects freeze the complete matrix in N1 and send it to Reviewers.
+
+If a normal task later enters one of those risk domains, reclassify it as high risk and complete the matrix before continuing.
 
 ## Template
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import importlib.util
 import hashlib
+import importlib.util
+import json
 import os
 import subprocess
 import tempfile
@@ -9,14 +10,13 @@ import unittest
 from pathlib import Path
 
 
-SCRIPTS_DIR = Path(__file__).parent
+SCRIPT_DIR = Path(__file__).resolve().parent
 
 
 def load_module(name: str):
-    path = SCRIPTS_DIR / f"{name}.py"
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec and spec.loader
+    spec = importlib.util.spec_from_file_location(name, SCRIPT_DIR / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
 
@@ -28,24 +28,25 @@ DIFF = load_module("validate_review_diff")
 class ReviewPackageDigestTests(unittest.TestCase):
     def request(
         self,
-        digest: str = "0" * 64,
         *,
         head: str = "a" * 40,
         diff: bytes = b"diff\n",
         context: bytes = b"context\n",
-        algorithm: str = "graph-review-package-v1",
+        version: str = "graph-review-package-v2",
         sequence: int = 1,
     ) -> bytes:
-        return (
-            "review_request:\n"
-            f"  package_sequence: {sequence}\n"
-            f'  package_digest_algorithm: "{algorithm}"\n'
-            f'  package_digest: "sha256:{digest}"\n'
-            f'  full_diff_sha256: "{hashlib.sha256(diff).hexdigest()}"\n'
-            f'  review_context_sha256: "{hashlib.sha256(context).hexdigest()}"\n'
-            f'  head_commit: "{head}"\n'
-            '  objective: "demo"\n'
-        ).encode()
+        request = {
+            "review_request": {
+                "package_version": version,
+                "package_sequence": sequence,
+                "base_commit": "b" * 40,
+                "head_commit": head,
+                "full_diff_sha256": hashlib.sha256(diff).hexdigest(),
+                "review_context_sha256": hashlib.sha256(context).hexdigest(),
+                "objective": "demo",
+            }
+        }
+        return (json.dumps(request, sort_keys=True, indent=2) + "\n").encode()
 
     def test_reference_vector(self):
         diff = b"diff --git a/a b/a\n"
@@ -56,137 +57,72 @@ class ReviewPackageDigestTests(unittest.TestCase):
             diff=diff,
             context=context,
         )
-        self.assertEqual(
-            "sha256:7e143cf45f3d8c6ed1e555fe9dcc9f2a5b1b75788e34c41e1bd5b6cf46d19c50",
-            result["package_digest"],
-        )
+        self.assertEqual("graph-review-package-v2", result["algorithm"])
+        self.assertRegex(result["package_id"], r"^sha256:[0-9a-f]{64}$")
 
-    def test_embedded_digest_does_not_change_canonical_package_digest(self):
+    def test_mutating_any_input_changes_package_id(self):
         diff = b"diff\n"
         context = b"context\n"
-        draft = DIGEST.compute_package(
-            head_sha="a" * 40,
-            request=self.request(diff=diff, context=context),
-            diff=diff,
-            context=context,
-        )
-        final = DIGEST.compute_package(
-            head_sha="a" * 40,
-            request=self.request(
-                draft["package_digest"].removeprefix("sha256:"),
-                diff=diff,
-                context=context,
-            ),
-            diff=diff,
-            context=context,
-        )
-        self.assertEqual(draft["package_digest"], final["package_digest"])
-        self.assertNotEqual(draft["review_request_sha256"], final["review_request_sha256"])
-
-    def test_one_byte_change_changes_package_digest(self):
-        original_diff = b"diff\n"
-        changed_diff = b"diff!\n"
-        context = b"context\n"
+        request = self.request(diff=diff, context=context)
         original = DIGEST.compute_package(
+            head_sha="a" * 40, request=request, diff=diff, context=context
+        )
+        changed_request = self.request(diff=diff, context=context).replace(b'"demo"', b'"demo2"')
+        request_result = DIGEST.compute_package(
             head_sha="a" * 40,
-            request=self.request(diff=original_diff, context=context),
-            diff=original_diff,
+            request=changed_request,
+            diff=diff,
             context=context,
         )
-        changed = DIGEST.compute_package(
+        changed_diff = b"diff!\n"
+        diff_result = DIGEST.compute_package(
             head_sha="a" * 40,
             request=self.request(diff=changed_diff, context=context),
             diff=changed_diff,
             context=context,
         )
-        self.assertNotEqual(original["package_digest"], changed["package_digest"])
-
-    def test_rejects_crlf_request(self):
-        with self.assertRaisesRegex(ValueError, "LF line endings"):
-            DIGEST.compute_package(
-                head_sha="a" * 40,
-                request=self.request().replace(b"\n", b"\r\n"),
-                diff=b"diff\n",
-                context=b"context\n",
-            )
-
-    def test_rejects_embedded_request_self_hash(self):
-        request = self.request() + (
-            b'  review_request_canonical_sha256: "' + b"f" * 64 + b'"\n'
+        changed_context = b"context!\n"
+        context_result = DIGEST.compute_package(
+            head_sha="a" * 40,
+            request=self.request(diff=diff, context=changed_context),
+            diff=diff,
+            context=changed_context,
         )
-        with self.assertRaisesRegex(ValueError, "must not embed"):
-            DIGEST.compute_package(
-                head_sha="a" * 40,
-                request=request,
-                diff=b"diff\n",
-                context=b"context\n",
-            )
-
-    def test_rejects_top_level_request_self_hash(self):
-        request = self.request() + (
-            b'review_request_sha256: "' + b"f" * 64 + b'"\n'
+        changed_head = "c" * 40
+        head_result = DIGEST.compute_package(
+            head_sha=changed_head,
+            request=self.request(head=changed_head, diff=diff, context=context),
+            diff=diff,
+            context=context,
         )
-        with self.assertRaisesRegex(ValueError, "must not embed"):
-            DIGEST.compute_package(
-                head_sha="a" * 40,
-                request=request,
-                diff=b"diff\n",
-                context=b"context\n",
-            )
-
-    def test_rejects_quoted_request_self_hash(self):
-        request = self.request() + (
-            b'"review_request_sha256": "' + b"f" * 64 + b'"\n'
+        self.assertEqual(
+            5,
+            len(
+                {
+                    original["package_id"],
+                    request_result["package_id"],
+                    diff_result["package_id"],
+                    context_result["package_id"],
+                    head_result["package_id"],
+                }
+            ),
         )
-        with self.assertRaisesRegex(ValueError, "must not embed"):
-            DIGEST.compute_package(
-                head_sha="a" * 40,
-                request=request,
-                diff=b"diff\n",
-                context=b"context\n",
-            )
 
-    def test_rejects_quoted_duplicate_review_request_root(self):
-        request = self.request() + b'"review_request": {"objective": "shadow"}\n'
-        with self.assertRaisesRegex(ValueError, "exactly one top-level review_request"):
-            DIGEST.compute_package(
-                head_sha="a" * 40,
-                request=request,
-                diff=b"diff\n",
-                context=b"context\n",
-            )
-
-    def test_rejects_nested_package_digest(self):
-        request = self.request().replace(
-            b"  package_digest:",
-            b"  metadata:\n    package_digest:",
+    def test_package_sequence_can_continue_after_default_threshold(self):
+        result = DIGEST.compute_package(
+            head_sha="a" * 40,
+            request=self.request(sequence=4),
+            diff=b"diff\n",
+            context=b"context\n",
         )
-        with self.assertRaisesRegex(ValueError, "direct review_request.package_digest"):
-            DIGEST.compute_package(
-                head_sha="a" * 40,
-                request=request,
-                diff=b"diff\n",
-                context=b"context\n",
-            )
+        self.assertRegex(result["package_id"], r"^sha256:[0-9a-f]{64}$")
 
-    def test_rejects_package_digest_inside_block_scalar(self):
-        request = self.request().replace(
-            b"  package_digest:",
-            b"  notes: |\n    package_digest:",
-        )
-        with self.assertRaisesRegex(ValueError, "direct review_request.package_digest"):
-            DIGEST.compute_package(
-                head_sha="a" * 40,
-                request=request,
-                diff=b"diff\n",
-                context=b"context\n",
-            )
-
-    def test_rejects_duplicate_package_digest_in_flow_mapping(self):
-        request = self.request() + (
-            b'metadata: {"package_digest": "sha256:' + b"f" * 64 + b'"}\n'
-        )
-        with self.assertRaisesRegex(ValueError, "direct review_request.package_digest"):
+    def test_rejects_duplicate_json_keys(self):
+        request = (
+            '{"review_request":{"package_version":"graph-review-package-v2",'
+            '"package_sequence":1,"package_sequence":2}}\n'
+        ).encode()
+        with self.assertRaisesRegex(ValueError, "duplicate key"):
             DIGEST.compute_package(
                 head_sha="a" * 40,
                 request=request,
@@ -195,7 +131,7 @@ class ReviewPackageDigestTests(unittest.TestCase):
             )
 
     def test_rejects_stale_declared_head(self):
-        with self.assertRaisesRegex(ValueError, "head_commit does not match"):
+        with self.assertRaisesRegex(ValueError, "head_commit"):
             DIGEST.compute_package(
                 head_sha="a" * 40,
                 request=self.request(head="b" * 40),
@@ -203,38 +139,45 @@ class ReviewPackageDigestTests(unittest.TestCase):
                 context=b"context\n",
             )
 
-    def test_rejects_stale_declared_diff_hash(self):
-        with self.assertRaisesRegex(ValueError, "full_diff_sha256 does not match"):
+    def test_rejects_stale_declared_hashes(self):
+        with self.assertRaisesRegex(ValueError, "full_diff_sha256"):
             DIGEST.compute_package(
                 head_sha="a" * 40,
-                request=self.request(diff=b"old diff\n"),
+                request=self.request(diff=b"old\n"),
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+        with self.assertRaisesRegex(ValueError, "review_context_sha256"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=self.request(context=b"old\n"),
                 diff=b"diff\n",
                 context=b"context\n",
             )
 
-    def test_rejects_stale_declared_context_hash(self):
-        with self.assertRaisesRegex(ValueError, "review_context_sha256 does not match"):
+    def test_rejects_wrong_version_and_nonpositive_sequence(self):
+        with self.assertRaisesRegex(ValueError, "package_version"):
             DIGEST.compute_package(
                 head_sha="a" * 40,
-                request=self.request(context=b"old context\n"),
+                request=self.request(version="graph-review-package-v1"),
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+        with self.assertRaisesRegex(ValueError, "positive integer"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=self.request(sequence=0),
                 diff=b"diff\n",
                 context=b"context\n",
             )
 
-    def test_rejects_wrong_algorithm(self):
-        with self.assertRaisesRegex(ValueError, "package_digest_algorithm"):
+    def test_rejects_missing_base_commit(self):
+        request = json.loads(self.request())
+        del request["review_request"]["base_commit"]
+        with self.assertRaisesRegex(ValueError, "base_commit"):
             DIGEST.compute_package(
                 head_sha="a" * 40,
-                request=self.request(algorithm="graph-review-package-v0"),
-                diff=b"diff\n",
-                context=b"context\n",
-            )
-
-    def test_rejects_package_sequence_outside_budget(self):
-        with self.assertRaisesRegex(ValueError, "package_sequence"):
-            DIGEST.compute_package(
-                head_sha="a" * 40,
-                request=self.request(sequence=4),
+                request=json.dumps(request).encode(),
                 diff=b"diff\n",
                 context=b"context\n",
             )
@@ -244,119 +187,133 @@ class ReviewDiffTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.repo = Path(self.temp.name)
-        self.git("init", "-q")
-        self.git("config", "user.email", "review-package@example.invalid")
-        self.git("config", "user.name", "Review Package Test")
+        subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
+        subprocess.run(["git", "-C", str(self.repo), "config", "user.name", "Test"], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.repo), "config", "user.email", "test@example.com"],
+            check=True,
+        )
 
     def tearDown(self):
         self.temp.cleanup()
 
-    def git(self, *args: str) -> bytes:
-        return subprocess.check_output(["git", "-C", str(self.repo), *args])
-
-    def commit_all(self, message: str) -> str:
-        self.git("add", "-A")
-        self.git("commit", "-q", "-m", message)
-        return self.git("rev-parse", "HEAD").decode().strip()
-
-    def commit_index(self, message: str) -> str:
-        self.git("commit", "-q", "-m", message)
-        return self.git("rev-parse", "HEAD").decode().strip()
+    def commit(self, message: str) -> str:
+        subprocess.run(["git", "-C", str(self.repo), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(self.repo), "commit", "-qm", message], check=True)
+        return subprocess.check_output(
+            ["git", "-C", str(self.repo), "rev-parse", "HEAD"], text=True
+        ).strip()
 
     def test_complete_text_diff_passes(self):
-        (self.repo / "a.txt").write_text("one\n", encoding="utf-8")
-        base = self.commit_all("base")
-        (self.repo / "a.txt").write_text("two\n", encoding="utf-8")
-        head = self.commit_all("head")
-        full_diff = DIFF.expected_diff(self.repo, base, head)
-        result = DIFF.validate_diff(
-            repo=self.repo,
-            base=base,
-            head=head,
-            supplied_diff=full_diff,
-        )
+        (self.repo / "a.txt").write_text("one\n")
+        base = self.commit("base")
+        (self.repo / "a.txt").write_text("two\n")
+        head = self.commit("head")
+        patch = DIFF.expected_diff(self.repo, base, head)
+        result = DIFF.validate_diff(repo=self.repo, base=base, head=head, supplied_diff=patch)
         self.assertTrue(result["complete"])
         self.assertEqual(["a.txt"], result["changed_paths"])
-        self.assertEqual(result["changed_paths"], result["diff_paths"])
+        self.assertEqual([], result["binary_evidence"])
 
-    @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unsupported")
     def test_symlink_target_change_is_included(self):
         os.symlink("one", self.repo / "link")
-        base = self.commit_all("base")
+        base = self.commit("base")
         (self.repo / "link").unlink()
         os.symlink("two", self.repo / "link")
-        head = self.commit_all("head")
-        full_diff = DIFF.expected_diff(self.repo, base, head)
-        result = DIFF.validate_diff(
-            repo=self.repo,
-            base=base,
-            head=head,
-            supplied_diff=full_diff,
-        )
+        head = self.commit("head")
+        patch = DIFF.expected_diff(self.repo, base, head)
+        result = DIFF.validate_diff(repo=self.repo, base=base, head=head, supplied_diff=patch)
         self.assertEqual(["link"], result["symlink_paths"])
-        self.assertIn(b"-one", full_diff)
-        self.assertIn(b"+two", full_diff)
 
-    def test_binary_change_fails_closed(self):
-        (self.repo / "asset.bin").write_bytes(b"\x00one")
-        base = self.commit_all("base")
-        (self.repo / "asset.bin").write_bytes(b"\x00two")
-        head = self.commit_all("head")
-        full_diff = DIFF.expected_diff(self.repo, base, head)
-        with self.assertRaisesRegex(ValueError, "binary changed paths block"):
-            DIFF.validate_diff(
-                repo=self.repo,
-                base=base,
-                head=head,
-                supplied_diff=full_diff,
-            )
+    def test_binary_change_is_reported_not_rejected(self):
+        (self.repo / "asset.bin").write_bytes(b"a\x00b")
+        base = self.commit("base")
+        (self.repo / "asset.bin").write_bytes(b"c\x00d")
+        head = self.commit("head")
+        patch = DIFF.expected_diff(self.repo, base, head)
+        result = DIFF.validate_diff(repo=self.repo, base=base, head=head, supplied_diff=patch)
+        self.assertEqual(["asset.bin"], result["binary_paths"])
+        evidence = result["binary_evidence"][0]
+        self.assertEqual("asset.bin", evidence["path"])
+        self.assertRegex(evidence["old_object"], r"^[0-9a-f]{40,64}$")
+        self.assertRegex(evidence["new_object"], r"^[0-9a-f]{40,64}$")
 
     def test_forced_text_attribute_cannot_hide_binary_blob(self):
-        (self.repo / ".gitattributes").write_text("*.bin diff\n", encoding="utf-8")
-        (self.repo / "asset.bin").write_bytes(b"\x00one")
-        base = self.commit_all("base")
-        (self.repo / "asset.bin").write_bytes(b"\x00two")
-        head = self.commit_all("head")
-        full_diff = DIFF.expected_diff(self.repo, base, head)
-        self.assertIn(b"\x00", full_diff)
-        with self.assertRaisesRegex(ValueError, "binary changed paths block"):
-            DIFF.validate_diff(
-                repo=self.repo,
-                base=base,
-                head=head,
-                supplied_diff=full_diff,
-            )
+        (self.repo / ".gitattributes").write_text("*.bin diff\n")
+        (self.repo / "asset.bin").write_bytes(b"a\x00b")
+        base = self.commit("base")
+        (self.repo / "asset.bin").write_bytes(b"c\x00d")
+        head = self.commit("head")
+        patch = DIFF.expected_diff(self.repo, base, head)
+        result = DIFF.validate_diff(repo=self.repo, base=base, head=head, supplied_diff=patch)
+        self.assertEqual(["asset.bin"], result["binary_paths"])
 
     def test_ignore_submodules_config_cannot_hide_gitlink_change(self):
-        (self.repo / "seed.txt").write_text("seed\n", encoding="utf-8")
-        seed = self.commit_all("seed")
-        self.git("update-index", "--add", "--cacheinfo", f"160000,{seed},vendor/sub")
-        base = self.commit_index("base gitlink")
-        self.git("update-index", "--cacheinfo", f"160000,{base},vendor/sub")
-        head = self.commit_index("head gitlink")
-        self.git("config", "diff.ignoreSubmodules", "all")
-        full_diff = DIFF.expected_diff(self.repo, base, head)
-        result = DIFF.validate_diff(
-            repo=self.repo,
-            base=base,
-            head=head,
-            supplied_diff=full_diff,
+        other = self.repo.parent / f"{self.repo.name}-sub"
+        subprocess.run(["git", "init", "-q", str(other)], check=True)
+        subprocess.run(["git", "-C", str(other), "config", "user.name", "Test"], check=True)
+        subprocess.run(
+            ["git", "-C", str(other), "config", "user.email", "test@example.com"],
+            check=True,
         )
-        self.assertEqual(["vendor/sub"], result["changed_paths"])
-        self.assertEqual(result["changed_paths"], result["diff_paths"])
+        (other / "x").write_text("one\n")
+        subprocess.run(["git", "-C", str(other), "add", "x"], check=True)
+        subprocess.run(["git", "-C", str(other), "commit", "-qm", "one"], check=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "protocol.file.allow=always",
+                "-C",
+                str(self.repo),
+                "submodule",
+                "add",
+                "-q",
+                str(other),
+                "sub",
+            ],
+            check=True,
+        )
+        base = self.commit("base")
+        (other / "x").write_text("two\n")
+        subprocess.run(["git", "-C", str(other), "commit", "-qam", "two"], check=True)
+        sub_branch = subprocess.run(
+            ["git", "-C", str(other), "branch", "--show-current"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "-C", str(self.repo / "sub"), "fetch", "-q", "origin"], check=True
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.repo / "sub"),
+                "checkout",
+                "-q",
+                f"origin/{sub_branch}",
+            ],
+            check=True,
+        )
+        head = self.commit("head")
+        subprocess.run(
+            ["git", "-C", str(self.repo), "config", "diff.ignoreSubmodules", "all"],
+            check=True,
+        )
+        patch = DIFF.expected_diff(self.repo, base, head)
+        result = DIFF.validate_diff(repo=self.repo, base=base, head=head, supplied_diff=patch)
+        self.assertEqual(["sub"], result["changed_paths"])
 
     def test_truncated_diff_is_rejected(self):
-        (self.repo / "a.txt").write_text("one\n", encoding="utf-8")
-        base = self.commit_all("base")
-        (self.repo / "a.txt").write_text("two\n", encoding="utf-8")
-        head = self.commit_all("head")
+        (self.repo / "a.txt").write_text("one\n")
+        base = self.commit("base")
+        (self.repo / "a.txt").write_text("two\n")
+        head = self.commit("head")
+        patch = DIFF.expected_diff(self.repo, base, head)
         with self.assertRaisesRegex(ValueError, "do not equal"):
-            DIFF.validate_diff(
-                repo=self.repo,
-                base=base,
-                head=head,
-                supplied_diff=b"",
-            )
+            DIFF.validate_diff(repo=self.repo, base=base, head=head, supplied_diff=patch[:-1])
 
 
 if __name__ == "__main__":

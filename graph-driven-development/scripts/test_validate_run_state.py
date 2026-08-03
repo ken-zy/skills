@@ -1,614 +1,292 @@
 #!/usr/bin/env python3
+"""Focused tests for the schema-v3 run-state validator."""
+
+from __future__ import annotations
 
 import copy
 import importlib.util
-import sys
 import unittest
 from pathlib import Path
 
 
-SCRIPTS_DIR = Path(__file__).parent
-sys.path.insert(0, str(SCRIPTS_DIR))
-import compute_review_package_digest as DIGEST  # noqa: E402
-
-MODULE_PATH = SCRIPTS_DIR / "validate_run_state.py"
-SPEC = importlib.util.spec_from_file_location("validate_run_state", MODULE_PATH)
+SCRIPT_DIR = Path(__file__).resolve().parent
+SPEC = importlib.util.spec_from_file_location(
+    "validate_run_state", SCRIPT_DIR / "validate_run_state.py"
+)
 assert SPEC and SPEC.loader
 VALIDATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VALIDATOR)
 
-
 HEAD = "a" * 40
-REQUEST_SHA = "1" * 64
-CANONICAL_REQUEST_SHA = "2" * 64
-DIFF_SHA = "3" * 64
-CONTEXT_SHA = "4" * 64
-PACKAGE_DIGEST = DIGEST.digest_from_hashes(
-    head_sha=HEAD,
-    request_canonical_sha256=CANONICAL_REQUEST_SHA,
-    full_diff_sha256=DIFF_SHA,
-    review_context_sha256=CONTEXT_SHA,
-)
+PACKAGE_ID = "sha256:" + "b" * 64
 
 
-def reviewer(conversation_id: str, backend: str) -> dict:
+def reviewer(
+    conversation_id: str = "reviewer-1",
+    *,
+    backend: str = "chatgpt-web",
+    visible_model: str = "GPT-5.6 Sol Pro",
+    selection_label: str = "Pro",
+    reasoning_setting: str | None = None,
+) -> dict:
     return {
         "conversation_id": conversation_id,
         "backend": backend,
-        "role": "reviewer",
+        "visible_model": visible_model,
+        "selection_label": selection_label,
+        "reasoning_setting": reasoning_setting,
+        "selection_evidence_ref": f"browser-evidence-{conversation_id}",
         "read_only": True,
         "authored_candidate": False,
         "head_sha": HEAD,
-        "package_digest": PACKAGE_DIGEST,
-        "selected_reasoning_level": "Extra High",
+        "package_id": PACKAGE_ID,
+        "verdict": "PASS",
+        "findings_reconciled": True,
+        "blocking_high_remaining": False,
     }
 
 
-def completed_reviewer(conversation_id: str, backend: str) -> dict:
-    result = reviewer(conversation_id, backend)
-    result.update(
-        verdict="PASS",
-        completed_at="2026-08-03T11:00:00+08:00",
-        findings_reconciled=True,
-        blocking_high_remaining=False,
-    )
-    return result
-
-
-def extension(
-    *,
-    authorized_at_active_seconds: int = 3600,
-    new_active_limit_seconds: int = 5400,
-    paused_at_active_seconds: int = 3600,
-    paused_at: str = "2026-08-03T12:00:00+08:00",
-    authorized_at: str = "2026-08-03T12:05:00+08:00",
-    new_deadline: str = "2026-08-03T13:30:00+08:00",
-) -> dict:
-    return {
-        "authorized_by": "jdy",
-        "authorization_ref": "message-123",
-        "authorized_at_active_seconds": authorized_at_active_seconds,
-        "authorized_at": authorized_at,
-        "new_active_limit_seconds": new_active_limit_seconds,
-        "new_deadline": new_deadline,
-        "pause_evidence": {
-            "status": "WAITING_HUMAN",
-            "reason": "mandatory_active_limit",
-            "active_seconds": paused_at_active_seconds,
-            "paused_at": paused_at,
-        },
-    }
-
-
-def valid_state():
-    return {
-        "schema_version": 2,
+def valid_state(*, task_class: str = "normal", complete: bool = False) -> dict:
+    state = {
+        "schema_version": 3,
         "status": "ACTIVE",
-        "state": "REVIEW_CANDIDATE",
-        "task_class": "normal",
-        "active_seconds": 1200,
-        "mandatory_pause_at": "2026-08-03T12:00:00+08:00",
-        "extension_authorization": None,
-        "head_sha": HEAD,
-        "verified_head_sha": HEAD,
-        "review_package_head_sha": HEAD,
-        "review_package_digest": PACKAGE_DIGEST,
-        "package_digest_algorithm": DIGEST.ALGORITHM,
-        "review_request_sha256": REQUEST_SHA,
-        "review_request_canonical_sha256": CANONICAL_REQUEST_SHA,
-        "full_diff_sha256": DIFF_SHA,
-        "review_context_sha256": CONTEXT_SHA,
-        "review_diff_verified": True,
-        "review_package_changed_paths": ["graph-driven-development/SKILL.md"],
-        "review_package_diff_paths": ["graph-driven-development/SKILL.md"],
-        "review_package_binary_paths": [],
-        "review_package_symlink_paths": [],
-        "review_round": 1,
-        "review_package_count": 1,
+        "state": "IMPLEMENTING",
+        "task_class": task_class,
+        "task_worktree": "/tmp/task-worktree",
+        "task_branch": "codex/task",
+        "base_commit": "0" * 40,
+        "head_sha": None,
+        "verified_head_sha": None,
+        "active_seconds": 10,
+        "active_limit_seconds": 10_800 if task_class == "high_risk" else 3_600,
+        "time_extension_authorization_ref": None,
+        "review_package_id": None,
+        "review_package_count": 0,
+        "review_package_limit": 3,
         "implementation_rework_used": 0,
-        "plan_rework_used": 0,
+        "implementation_rework_limit": 2,
+        "budget_extension_authorization_ref": None,
         "accepted_blocking_high_pending": False,
-        "rework_trigger": None,
-        "chatgpt_model_inventory": [
-            {
-                "model": "ChatGPT Pro",
-                "preference_rank": 0,
-                "reasoning_levels": ["Extra High"],
-                "availability": "available",
-            },
-            {
-                "model": "GPT-5.6 Sol",
-                "preference_rank": 1,
-                "reasoning_levels": ["Extra High", "High", "Medium"],
-                "availability": "available",
-            },
-        ],
-        "model_inventory_observed_at": "2026-08-03T10:00:00+08:00",
-        "model_inventory_ambiguity": "",
-        "selected_backend": "chatgpt-web",
-        "selected_cognitive_model": "ChatGPT Pro",
-        "required_backend": None,
-        "required_model": None,
-        "required_reasoning_level": "Extra High",
-        "selected_reasoning_level": "Extra High",
-        "model_fallback_reason": "",
-        "reasoning_level_selection_reason": "fixed_skill_policy",
-        "exact_backend_required": False,
-        "exact_model_required": False,
-        "exact_reasoning_level_required": True,
-        "implementation_author_conversation_ids": ["author-1"],
-        "reviewers": [
-            reviewer("reviewer-1", "chatgpt-web"),
-            reviewer("reviewer-2", "grok-web"),
-        ],
+        "reviewers": [],
     }
+    if complete:
+        state.update(
+            {
+                "state": "READY_FOR_AUTHORIZED_NEXT_ACTION",
+                "head_sha": HEAD,
+                "verified_head_sha": HEAD,
+                "review_package_id": PACKAGE_ID,
+                "review_package_count": 1,
+                "reviewers": [reviewer()],
+            }
+        )
+        if task_class == "high_risk":
+            state["reviewers"].append(
+                reviewer(
+                    "reviewer-2",
+                    backend="grok-web",
+                    visible_model="Grok 4.5",
+                    selection_label="Expert",
+                )
+            )
+    return state
 
 
-class ValidateRunStateTests(unittest.TestCase):
-    def assert_invalid(self, mutate, expected):
-        state = copy.deepcopy(valid_state())
-        mutate(state)
-        errors = VALIDATOR.validate_state(state)
-        self.assertTrue(any(expected in error for error in errors), errors)
+class RunStateV3Tests(unittest.TestCase):
+    def assert_invalid(self, state: dict, text: str) -> None:
+        self.assertTrue(
+            any(text in error for error in VALIDATOR.validate_state(state)),
+            VALIDATOR.validate_state(state),
+        )
 
-    def test_valid_review_candidate(self):
+    def test_valid_normal_active_state(self):
         self.assertEqual([], VALIDATOR.validate_state(valid_state()))
 
-    def test_rejects_schema_v1(self):
-        self.assert_invalid(lambda state: state.update(schema_version=1), "schema_version")
+    def test_valid_normal_completion(self):
+        self.assertEqual([], VALIDATOR.validate_state(valid_state(complete=True)))
 
-    def test_rejects_unknown_state(self):
-        self.assert_invalid(lambda state: state.update(state="UNKNOWN"), "state must be one of")
-
-    def test_rejects_ready_for_delivery_alias(self):
-        self.assert_invalid(
-            lambda state: state.update(state="READY_FOR_DELIVERY"),
-            "state must be one of",
-        )
-
-    def test_rejects_pr_checks_passed_alias(self):
-        self.assert_invalid(
-            lambda state: state.update(state="PR_CHECKS_PASSED"),
-            "state must be one of",
-        )
-
-    def test_rejects_package_four(self):
-        self.assert_invalid(lambda state: state.update(review_package_count=4), "cannot exceed 3")
-
-    def test_rejects_rework_three(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                implementation_rework_used=3,
-                rework_trigger="accepted_blocking_high",
-            ),
-            "cannot exceed 2",
-        )
-
-    def test_rejects_head_mismatch(self):
-        self.assert_invalid(
-            lambda state: state.update(verified_head_sha="b" * 40),
-            "identical non-empty",
-        )
-
-    def test_rejects_package_digest_mismatch(self):
-        self.assert_invalid(
-            lambda state: state.update(review_package_digest="sha256:" + "f" * 64),
-            "does not match",
-        )
-
-    def test_rejects_changed_path_omission(self):
-        self.assert_invalid(
-            lambda state: state.update(review_package_diff_paths=[]),
-            "must exactly equal",
-        )
-
-    def test_rejects_binary_review_package(self):
-        self.assert_invalid(
-            lambda state: state.update(review_package_binary_paths=["asset.bin"]),
-            "binary changed paths block",
-        )
-
-    def test_accepts_included_symlink_path(self):
-        state = valid_state()
-        state["review_package_symlink_paths"] = ["graph-driven-development/SKILL.md"]
-        self.assertEqual([], VALIDATOR.validate_state(state))
-
-    def test_rejects_omitted_symlink_path(self):
-        self.assert_invalid(
-            lambda state: state.update(review_package_symlink_paths=["link"]),
-            "symlink paths must be included",
-        )
-
-    def test_rejects_reasoning_downgrade(self):
-        self.assert_invalid(
-            lambda state: state.update(selected_reasoning_level="High"),
-            "exactly 'Extra High'",
-        )
-
-    def test_rejects_active_normal_run_at_one_hour(self):
-        self.assert_invalid(lambda state: state.update(active_seconds=3600), "mandatory pause")
-
-    def test_rejects_active_high_risk_run_at_three_hours(self):
-        self.assert_invalid(
-            lambda state: state.update(task_class="high_risk", active_seconds=10800),
-            "mandatory pause",
-        )
-
-    def test_waiting_human_is_valid_at_time_limit(self):
-        state = valid_state()
-        state.update(status="WAITING_HUMAN", active_seconds=3600)
-        self.assertEqual([], VALIDATOR.validate_state(state))
-
-    def test_valid_post_pause_extension(self):
-        state = valid_state()
-        state.update(
-            active_seconds=3600,
-            extension_authorization=extension(),
-        )
-        self.assertEqual([], VALIDATOR.validate_state(state))
-
-    def test_rejects_extension_before_initial_pause(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                extension_authorization=extension(
-                    authorized_at_active_seconds=3500,
-                    paused_at_active_seconds=3500,
-                )
-            ),
-            "after the mandatory pause",
-        )
-
-    def test_rejects_active_run_at_extended_limit(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                active_seconds=5400,
-                extension_authorization=extension(),
-            ),
-            "mandatory pause at 5400",
-        )
-
-    def test_rejects_extension_without_pause_evidence(self):
-        def mutate(state):
-            value = extension()
-            value.pop("pause_evidence")
-            state["extension_authorization"] = value
-
-        self.assert_invalid(mutate, "pause_evidence must be an object")
-
-    def test_rejects_extension_deadline_before_authorization(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                extension_authorization=extension(
-                    new_deadline="2026-08-03T12:04:00+08:00"
-                )
-            ),
-            "deadline must be later",
-        )
-
-    def test_rejects_extension_with_rolled_back_active_ledger(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                active_seconds=3599,
-                extension_authorization=extension(),
-            ),
-            "cannot precede",
-        )
-
-    def test_rejects_extension_authorized_at_pause_timestamp(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                active_seconds=3600,
-                extension_authorization=extension(
-                    authorized_at="2026-08-03T12:00:00+08:00",
-                ),
-            ),
-            "strictly after",
-        )
-
-    def test_rejects_delivered_with_pending_high(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                status="DELIVERED",
-                accepted_blocking_high_pending=True,
-            ),
-            "cannot retain blocking/high",
-        )
-
-    def test_rejects_delivered_state_with_active_status_and_missing_evidence(self):
-        def mutate(state):
-            state.update(
-                state="DELIVERED",
-                status="ACTIVE",
-                head_sha=None,
-                verified_head_sha=None,
-                review_package_head_sha=None,
-                review_package_digest=None,
-                package_digest_algorithm=None,
-                review_request_sha256=None,
-                review_request_canonical_sha256=None,
-                full_diff_sha256=None,
-                review_context_sha256=None,
-                review_diff_verified=False,
-                review_package_changed_paths=[],
-                review_package_diff_paths=[],
-                review_package_binary_paths=[],
-                review_package_symlink_paths=[],
-                review_round=0,
-                review_package_count=0,
-                reviewers=[],
+    def test_valid_chatgpt_extra_high_completion(self):
+        state = valid_state(complete=True)
+        state["reviewers"] = [
+            reviewer(
+                visible_model="GPT-5.6 Sol",
+                selection_label="Extra High",
+                reasoning_setting="Extra High",
             )
+        ]
+        self.assertEqual([], VALIDATOR.validate_state(state))
 
+    def test_valid_grok_expert_completion(self):
+        state = valid_state(complete=True)
+        state["reviewers"] = [
+            reviewer(
+                backend="grok-web",
+                visible_model="Grok 4.5",
+                selection_label="Expert",
+            )
+        ]
+        self.assertEqual([], VALIDATOR.validate_state(state))
+
+    def test_valid_high_risk_completion_requires_two_reviewers(self):
+        state = valid_state(task_class="high_risk", complete=True)
+        self.assertEqual([], VALIDATOR.validate_state(state))
+        state["reviewers"].pop()
+        self.assert_invalid(state, "at least 2 independent")
+
+    def test_missing_core_field_is_rejected(self):
         state = valid_state()
-        mutate(state)
-        errors = VALIDATOR.validate_state(state)
-        self.assertTrue(any("terminal state/status" in error for error in errors), errors)
-        self.assertTrue(any("identical non-empty" in error for error in errors), errors)
-        self.assertTrue(any("completed PASS reviewer" in error for error in errors), errors)
+        del state["task_worktree"]
+        self.assert_invalid(state, "missing required field: task_worktree")
 
-    def test_rejects_delivered_state_waiting_with_pending_high(self):
+    def test_schema_state_and_status_are_checked(self):
+        state = valid_state()
+        state["schema_version"] = 2
+        state["state"] = "UNKNOWN"
+        state["status"] = "UNKNOWN"
+        errors = VALIDATOR.validate_state(state)
+        self.assertTrue(any("schema_version" in error for error in errors))
+        self.assertTrue(any("state must be" in error for error in errors))
+        self.assertTrue(any("status must be" in error for error in errors))
+
+    def test_terminal_state_and_status_must_match(self):
+        state = valid_state()
+        state["state"] = "WAITING_HUMAN"
+        self.assert_invalid(state, "terminal state/status")
+
+    def test_active_time_limit_forces_pause(self):
+        state = valid_state()
+        state["active_seconds"] = 3_600
+        self.assert_invalid(state, "active-time limit")
+
+    def test_raised_time_limit_requires_only_authorization_reference(self):
+        state = valid_state()
+        state["active_limit_seconds"] = 4_000
+        self.assert_invalid(state, "time_extension_authorization_ref")
+        state["time_extension_authorization_ref"] = "user-message-42"
+        self.assertEqual([], VALIDATOR.validate_state(state))
+
+    def test_saved_budget_limits_allow_authorized_package_four_and_rework_three(self):
         state = valid_state()
         state.update(
-            state="DELIVERED",
-            status="WAITING_HUMAN",
-            accepted_blocking_high_pending=True,
-            reviewers=[],
+            {
+                "review_package_count": 4,
+                "review_package_limit": 4,
+                "implementation_rework_used": 3,
+                "implementation_rework_limit": 3,
+                "budget_extension_authorization_ref": "user-message-43",
+            }
+        )
+        self.assertEqual([], VALIDATOR.validate_state(state))
+
+    def test_raised_budget_limit_requires_authorization_reference(self):
+        state = valid_state()
+        state["review_package_limit"] = 4
+        self.assert_invalid(state, "budget_extension_authorization_ref")
+
+    def test_counts_cannot_exceed_saved_limits(self):
+        state = valid_state()
+        state["review_package_count"] = 4
+        state["implementation_rework_used"] = 3
+        errors = VALIDATOR.validate_state(state)
+        self.assertTrue(any("review_package_count" in error for error in errors))
+        self.assertTrue(any("implementation_rework_used" in error for error in errors))
+
+    def test_pending_high_at_budget_limit_forces_pause(self):
+        state = valid_state()
+        state.update(
+            {
+                "accepted_blocking_high_pending": True,
+                "review_package_count": 3,
+            }
+        )
+        self.assert_invalid(state, "requires WAITING_HUMAN")
+
+    def test_completion_requires_matching_verified_head_and_package(self):
+        state = valid_state(complete=True)
+        state["verified_head_sha"] = "c" * 40
+        state["review_package_id"] = "bad"
+        state["review_package_count"] = 0
+        errors = VALIDATOR.validate_state(state)
+        self.assertTrue(any("identical non-empty" in error for error in errors))
+        self.assertTrue(any("sha256 review_package_id" in error for error in errors))
+        self.assertTrue(any("review_package_count" in error for error in errors))
+
+    def test_completion_cannot_retain_pending_high(self):
+        state = valid_state(complete=True)
+        state["accepted_blocking_high_pending"] = True
+        self.assert_invalid(state, "cannot retain")
+
+    def test_reviewer_must_be_independent(self):
+        state = valid_state(complete=True)
+        state["implementation_author_conversation_ids"] = ["reviewer-1"]
+        self.assert_invalid(state, "authored the candidate")
+
+    def test_reviewer_ids_must_be_distinct(self):
+        state = valid_state(task_class="high_risk", complete=True)
+        state["reviewers"][1]["conversation_id"] = "reviewer-1"
+        self.assert_invalid(state, "must be distinct")
+
+    def test_reviewer_backend_selection_evidence_head_and_package_are_bound(self):
+        state = valid_state(complete=True)
+        current = state["reviewers"][0]
+        current.update(
+            {
+                "backend": "other-site",
+                "visible_model": "",
+                "selection_label": "",
+                "reasoning_setting": "",
+                "selection_evidence_ref": "",
+                "head_sha": "d" * 40,
+                "package_id": "sha256:" + "e" * 64,
+            }
         )
         errors = VALIDATOR.validate_state(state)
-        self.assertTrue(any("terminal state/status" in error for error in errors), errors)
-        self.assertTrue(any("cannot retain blocking/high" in error for error in errors), errors)
-        self.assertTrue(any("completed PASS reviewer" in error for error in errors), errors)
+        for text in (
+            "backend",
+            "visible_model",
+            "selection_label",
+            "reasoning_setting",
+            "selection_evidence_ref",
+            "current head",
+            "current review package",
+        ):
+            self.assertTrue(any(text in error for error in errors), errors)
 
-    def test_valid_delivered_state_requires_matching_status_and_review(self):
-        state = valid_state()
-        state.update(
-            state="DELIVERED",
-            status="DELIVERED",
-            reviewers=[completed_reviewer("reviewer-1", "chatgpt-web")],
+    def test_reasoning_setting_must_be_explicitly_present_even_when_null(self):
+        state = valid_state(complete=True)
+        del state["reviewers"][0]["reasoning_setting"]
+        self.assert_invalid(state, "reasoning_setting must be present")
+
+    def test_completion_requires_pass_reconciled_and_no_high(self):
+        state = valid_state(complete=True)
+        current = state["reviewers"][0]
+        current.update(
+            {
+                "verdict": "CHANGES_REQUESTED",
+                "findings_reconciled": False,
+                "blocking_high_remaining": True,
+            }
         )
+        errors = VALIDATOR.validate_state(state)
+        for text in ("verdict", "findings_reconciled", "blocking_high_remaining"):
+            self.assertTrue(any(text in error for error in errors), errors)
+
+    def test_future_visible_model_does_not_invalidate_approved_profile_evidence(self):
+        state = valid_state(complete=True)
+        state["reviewers"][0]["visible_model"] = "future-chatgpt-model"
         self.assertEqual([], VALIDATOR.validate_state(state))
 
-    def test_rejects_package_three_pending_high_as_active(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                review_round=3,
-                review_package_count=3,
-                accepted_blocking_high_pending=True,
-            ),
-            "package 4 is forbidden",
-        )
-
-    def test_accepts_package_three_pending_high_while_waiting(self):
+    def test_validator_does_not_claim_git_or_ci_truth(self):
         state = valid_state()
-        state.update(
-            status="WAITING_HUMAN",
-            review_round=3,
-            review_package_count=3,
-            accepted_blocking_high_pending=True,
-        )
+        state["git_clean"] = False
+        state["pr_ci"] = "unknown"
         self.assertEqual([], VALIDATOR.validate_state(state))
 
-    def test_rejects_forbidden_selected_backend(self):
-        self.assert_invalid(
-            lambda state: state.update(selected_backend="claude-web"),
-            "selected_backend",
-        )
-
-    def test_rejects_chatgpt_pro_backend_alias(self):
-        self.assert_invalid(
-            lambda state: state.update(selected_backend="chatgpt-pro-web"),
-            "selected_backend",
-        )
-
-    def test_rejects_forbidden_exact_backend_even_when_equal(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                exact_backend_required=True,
-                required_backend="claude-web",
-                selected_backend="claude-web",
-            ),
-            "required_backend",
-        )
-
-    def test_rejects_premature_model_fallback(self):
-        self.assert_invalid(
-            lambda state: state.update(selected_cognitive_model="GPT-5.6 Sol"),
-            "premature fallback",
-        )
-
-    def test_accepts_quota_fallback_with_extra_high(self):
-        state = valid_state()
-        state["chatgpt_model_inventory"][0]["availability"] = "quota_exhausted"
-        state.update(
-            selected_cognitive_model="GPT-5.6 Sol",
-            model_fallback_reason="ChatGPT Pro quota exhausted",
-        )
-        self.assertEqual([], VALIDATOR.validate_state(state))
-
-    def test_rejects_lower_model_without_fallback_reason(self):
-        def mutate(state):
-            state["chatgpt_model_inventory"][0]["availability"] = "quota_exhausted"
-            state["selected_cognitive_model"] = "GPT-5.6 Sol"
-
-        self.assert_invalid(mutate, "requires a non-empty fallback reason")
-
-    def test_rejects_unknown_availability_value(self):
-        self.assert_invalid(
-            lambda state: state["chatgpt_model_inventory"][0].update(
-                availability="probably_unavailable"
-            ),
-            "availability must be one of",
-        )
-
-    def test_rejects_inventory_rank_gap(self):
-        self.assert_invalid(
-            lambda state: state["chatgpt_model_inventory"][1].update(preference_rank=3),
-            "preference_rank",
-        )
-
-    def test_rejects_reversed_known_model_order(self):
-        def mutate(state):
-            state["chatgpt_model_inventory"].reverse()
-            for index, item in enumerate(state["chatgpt_model_inventory"]):
-                item["preference_rank"] = index
-            state["selected_cognitive_model"] = "GPT-5.6 Sol"
-
-        self.assert_invalid(mutate, "fixed policy preference order")
-
-    def test_rejects_unknown_model_during_active_work(self):
-        def mutate(state):
-            state["chatgpt_model_inventory"] = [
-                {
-                    "model": "Unknown Future Model",
-                    "preference_rank": 0,
-                    "reasoning_levels": ["Extra High"],
-                    "availability": "available",
-                }
-            ]
-            state["selected_cognitive_model"] = "Unknown Future Model"
-
-        self.assert_invalid(mutate, "require WAITING_HUMAN")
-
-    def test_accepts_unknown_model_only_as_waiting_ambiguity(self):
-        state = valid_state()
-        state.update(
-            status="WAITING_HUMAN",
-            selected_backend=None,
-            selected_cognitive_model=None,
-            model_inventory_ambiguity="Unknown model has no approved policy rank",
-            chatgpt_model_inventory=[
-                {
-                    "model": "Unknown Future Model",
-                    "preference_rank": 0,
-                    "reasoning_levels": ["Extra High"],
-                    "availability": "available",
-                }
-            ],
-        )
-        self.assertEqual([], VALIDATOR.validate_state(state))
-
-    def test_review_candidate_can_wait_without_reviewers(self):
-        state = valid_state()
-        state["reviewers"] = []
-        self.assertEqual([], VALIDATOR.validate_state(state))
-
-    def test_review_completion_still_requires_package_evidence(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                state="READY_FOR_AUTHORIZED_NEXT_ACTION",
-                review_package_digest=None,
-            ),
-            "requires a sha256 review_package_digest",
-        )
-
-    def test_normal_review_completion_requires_one_reviewer(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                state="READY_FOR_AUTHORIZED_NEXT_ACTION",
-                reviewers=[],
-            ),
-            "requires at least 1 completed PASS reviewer",
-        )
-
-    def test_placeholder_reviewer_does_not_complete_review(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                state="READY_FOR_AUTHORIZED_NEXT_ACTION",
-                reviewers=[reviewer("placeholder", "chatgpt-web")],
-            ),
-            "completed PASS reviewer",
-        )
-
-    def test_valid_normal_review_completion(self):
-        state = valid_state()
-        state.update(
-            state="READY_FOR_AUTHORIZED_NEXT_ACTION",
-            reviewers=[completed_reviewer("reviewer-1", "chatgpt-web")],
-        )
-        self.assertEqual([], VALIDATOR.validate_state(state))
-
-    def test_rejects_nonpass_reviewer_beside_sufficient_pass_reviewers(self):
-        rejected = reviewer("reviewer-2", "grok-web")
-        rejected.update(
-            verdict="CHANGES_REQUESTED",
-            completed_at="2026-08-03T11:05:00+08:00",
-            findings_reconciled=False,
-            blocking_high_remaining=True,
-        )
-        self.assert_invalid(
-            lambda state: state.update(
-                state="READY_FOR_AUTHORIZED_NEXT_ACTION",
-                reviewers=[
-                    completed_reviewer("reviewer-1", "chatgpt-web"),
-                    rejected,
-                ],
-            ),
-            "every current reviewer",
-        )
-
-    def test_high_risk_review_completion_requires_two_reviewers(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                state="READY_FOR_AUTHORIZED_NEXT_ACTION",
-                task_class="high_risk",
-                reviewers=[state["reviewers"][0]],
-            ),
-            "requires at least 2 completed PASS reviewer",
-        )
-
-    def test_valid_high_risk_review_completion(self):
-        state = valid_state()
-        state.update(
-            state="READY_FOR_AUTHORIZED_NEXT_ACTION",
-            task_class="high_risk",
-            reviewers=[
-                completed_reviewer("reviewer-1", "chatgpt-web"),
-                completed_reviewer("reviewer-2", "grok-web"),
-            ],
-        )
-        self.assertEqual([], VALIDATOR.validate_state(state))
-
-    def test_rejects_stale_reviewer_head(self):
-        self.assert_invalid(
-            lambda state: state["reviewers"][0].update(head_sha="b" * 40),
-            "current package head",
-        )
-
-    def test_rejects_reviewer_digest_mismatch_even_on_stale_head(self):
-        def mutate(state):
-            state["reviewers"][0].update(
-                head_sha="b" * 40,
-                package_digest="sha256:" + "f" * 64,
-            )
-
-        self.assert_invalid(mutate, "current package digest")
-
-    def test_rejects_duplicate_reviewer_conversation(self):
-        self.assert_invalid(
-            lambda state: state["reviewers"][1].update(conversation_id="reviewer-1"),
-            "must be distinct",
-        )
-
-    def test_rejects_implementation_author_self_review(self):
-        self.assert_invalid(
-            lambda state: state["reviewers"][0].update(conversation_id="author-1"),
-            "authored the candidate",
-        )
-
-    def test_rejects_unavailable_exact_backend(self):
-        self.assert_invalid(
-            lambda state: state.update(
-                exact_backend_required=True,
-                required_backend="grok-web",
-                selected_backend="chatgpt-web",
-            ),
-            "exact backend requirement",
-        )
-
-    def test_rejects_model_without_backend(self):
-        self.assert_invalid(
-            lambda state: state.update(selected_backend=None),
-            "requires an allowed selected_backend",
-        )
+    def test_input_is_not_mutated(self):
+        state = valid_state(complete=True)
+        before = copy.deepcopy(state)
+        VALIDATOR.validate_state(state)
+        self.assertEqual(before, state)
 
 
 if __name__ == "__main__":
