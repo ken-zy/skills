@@ -20,7 +20,7 @@ The current Codex session is the Orchestrator and only Repository Writer. Extern
 ## Hard invariants
 
 - Keep nodes N0–N6 fixed. Worktree, Git publication, CI, merge waiting, and cleanup are lifecycle operations, not new cognitive nodes.
-- Use only ChatGPT Web and Grok Web through the Codex built-in Browser for Advisor, implementation-author, Reviewer, or Arbiter work.
+- Use only canonical backends `chatgpt-web` and `grok-web` through the Codex built-in Browser for Advisor, implementation-author, Reviewer, or Arbiter work. Record ChatGPT account plan and visible model separately from backend.
 - Never use Chrome, an API, CLI, local subagent, Claude, or another platform as a cognitive substitute.
 - Use reasoning level `Extra High` for every external cognitive role. Model identity and reasoning level are separate; never reduce reasoning to handle quota.
 - Let only Codex edit files, run repository mutations, and apply external proposals.
@@ -180,6 +180,8 @@ The three uploaded files are always:
 3. `review-context.txt`.
 
 This is not a three-source-file limit. `full.diff` may contain any number of changed files. If a complete safe diff cannot fit, split the task coherently or enter `WAITING_HUMAN`; never truncate it.
+
+Validate `full.diff` with `scripts/validate_review_diff.py` before upload. Include symlink target/mode changes. Any binary changed path blocks package creation until the task is coherently split or a new approved contract makes the complete transfer safe. Compute and verify `graph-review-package-v1` with `scripts/compute_review_package_digest.py`; never invent package digest bytes manually.
 
 Accept only `PASS`, `CHANGES_REQUESTED`, `NEEDS_EVIDENCE`, or `BACKEND_FAILED`. Allow one bounded evidence supplement per Reviewer. Backend retries and re-uploads of an identical package do not consume another review-package count.
 

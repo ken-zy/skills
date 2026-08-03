@@ -10,8 +10,13 @@ Put the request in `review-request.yaml`; upload it with `full.diff` and `review
 review_request:
   review_id: "uuid"
   package_sequence: 1
-  package_digest: "sha256"
+  package_digest_algorithm: "graph-review-package-v1"
+  package_digest: "sha256:<64 lowercase hex>"
+  review_request_canonical_sha256: "<64 lowercase hex>"
+  full_diff_sha256: "<64 lowercase hex>"
+  review_context_sha256: "<64 lowercase hex>"
   backend: "chatgpt-web"
+  account_plan: "Pro"
   model: "visible model name"
   required_reasoning_level: "Extra High"
   selected_reasoning_level: "Extra High"
@@ -38,7 +43,7 @@ review_request:
     - "deploy"
 ```
 
-Both Reviewers must receive identical attachment digests and head SHA. Record backend, visible model, selected reasoning level, fallback reason, fresh conversation URL/ID, start/completion time, and read-only confirmation. Reject a review whose conversation appears in `implementation_authors`.
+Both Reviewers must receive identical attachment digests and head SHA. Record the actual final `review-request.yaml` file SHA outside the request, backend, account plan when visible, model, selected reasoning level, fallback reason, fresh conversation URL/ID, start/completion time, and read-only confirmation. Reject a review whose conversation appears in `implementation_authors`.
 
 Do not include the Writer's conclusions, expected verdict, suspected defects, desired fixes, or the other Reviewer's verdict.
 
