@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import importlib.util
+import hashlib
 import os
 import subprocess
 import tempfile
@@ -25,53 +26,78 @@ DIFF = load_module("validate_review_diff")
 
 
 class ReviewPackageDigestTests(unittest.TestCase):
-    def request(self, digest: str = "0" * 64) -> bytes:
+    def request(
+        self,
+        digest: str = "0" * 64,
+        *,
+        head: str = "a" * 40,
+        diff: bytes = b"diff\n",
+        context: bytes = b"context\n",
+        algorithm: str = "graph-review-package-v1",
+        sequence: int = 1,
+    ) -> bytes:
         return (
             "review_request:\n"
+            f"  package_sequence: {sequence}\n"
+            f'  package_digest_algorithm: "{algorithm}"\n'
             f'  package_digest: "sha256:{digest}"\n'
+            f'  full_diff_sha256: "{hashlib.sha256(diff).hexdigest()}"\n'
+            f'  review_context_sha256: "{hashlib.sha256(context).hexdigest()}"\n'
+            f'  head_commit: "{head}"\n'
             '  objective: "demo"\n'
         ).encode()
 
     def test_reference_vector(self):
+        diff = b"diff --git a/a b/a\n"
+        context = b"context\n"
         result = DIGEST.compute_package(
             head_sha="a" * 40,
-            request=self.request(),
-            diff=b"diff --git a/a b/a\n",
-            context=b"context\n",
+            request=self.request(diff=diff, context=context),
+            diff=diff,
+            context=context,
         )
         self.assertEqual(
-            "sha256:9347105c5cfa21d55154d6dbc67c15202b4d21a43b543cf58611583c121f3251",
+            "sha256:7e143cf45f3d8c6ed1e555fe9dcc9f2a5b1b75788e34c41e1bd5b6cf46d19c50",
             result["package_digest"],
         )
 
     def test_embedded_digest_does_not_change_canonical_package_digest(self):
+        diff = b"diff\n"
+        context = b"context\n"
         draft = DIGEST.compute_package(
             head_sha="a" * 40,
-            request=self.request(),
-            diff=b"diff\n",
-            context=b"context\n",
+            request=self.request(diff=diff, context=context),
+            diff=diff,
+            context=context,
         )
         final = DIGEST.compute_package(
             head_sha="a" * 40,
-            request=self.request(draft["package_digest"].removeprefix("sha256:")),
-            diff=b"diff\n",
-            context=b"context\n",
+            request=self.request(
+                draft["package_digest"].removeprefix("sha256:"),
+                diff=diff,
+                context=context,
+            ),
+            diff=diff,
+            context=context,
         )
         self.assertEqual(draft["package_digest"], final["package_digest"])
         self.assertNotEqual(draft["review_request_sha256"], final["review_request_sha256"])
 
     def test_one_byte_change_changes_package_digest(self):
+        original_diff = b"diff\n"
+        changed_diff = b"diff!\n"
+        context = b"context\n"
         original = DIGEST.compute_package(
             head_sha="a" * 40,
-            request=self.request(),
-            diff=b"diff\n",
-            context=b"context\n",
+            request=self.request(diff=original_diff, context=context),
+            diff=original_diff,
+            context=context,
         )
         changed = DIGEST.compute_package(
             head_sha="a" * 40,
-            request=self.request(),
-            diff=b"diff!\n",
-            context=b"context\n",
+            request=self.request(diff=changed_diff, context=context),
+            diff=changed_diff,
+            context=context,
         )
         self.assertNotEqual(original["package_digest"], changed["package_digest"])
 
@@ -92,6 +118,123 @@ class ReviewPackageDigestTests(unittest.TestCase):
             DIGEST.compute_package(
                 head_sha="a" * 40,
                 request=request,
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_top_level_request_self_hash(self):
+        request = self.request() + (
+            b'review_request_sha256: "' + b"f" * 64 + b'"\n'
+        )
+        with self.assertRaisesRegex(ValueError, "must not embed"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=request,
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_quoted_request_self_hash(self):
+        request = self.request() + (
+            b'"review_request_sha256": "' + b"f" * 64 + b'"\n'
+        )
+        with self.assertRaisesRegex(ValueError, "must not embed"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=request,
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_quoted_duplicate_review_request_root(self):
+        request = self.request() + b'"review_request": {"objective": "shadow"}\n'
+        with self.assertRaisesRegex(ValueError, "exactly one top-level review_request"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=request,
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_nested_package_digest(self):
+        request = self.request().replace(
+            b"  package_digest:",
+            b"  metadata:\n    package_digest:",
+        )
+        with self.assertRaisesRegex(ValueError, "direct review_request.package_digest"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=request,
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_package_digest_inside_block_scalar(self):
+        request = self.request().replace(
+            b"  package_digest:",
+            b"  notes: |\n    package_digest:",
+        )
+        with self.assertRaisesRegex(ValueError, "direct review_request.package_digest"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=request,
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_duplicate_package_digest_in_flow_mapping(self):
+        request = self.request() + (
+            b'metadata: {"package_digest": "sha256:' + b"f" * 64 + b'"}\n'
+        )
+        with self.assertRaisesRegex(ValueError, "direct review_request.package_digest"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=request,
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_stale_declared_head(self):
+        with self.assertRaisesRegex(ValueError, "head_commit does not match"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=self.request(head="b" * 40),
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_stale_declared_diff_hash(self):
+        with self.assertRaisesRegex(ValueError, "full_diff_sha256 does not match"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=self.request(diff=b"old diff\n"),
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_stale_declared_context_hash(self):
+        with self.assertRaisesRegex(ValueError, "review_context_sha256 does not match"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=self.request(context=b"old context\n"),
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_wrong_algorithm(self):
+        with self.assertRaisesRegex(ValueError, "package_digest_algorithm"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=self.request(algorithm="graph-review-package-v0"),
+                diff=b"diff\n",
+                context=b"context\n",
+            )
+
+    def test_rejects_package_sequence_outside_budget(self):
+        with self.assertRaisesRegex(ValueError, "package_sequence"):
+            DIGEST.compute_package(
+                head_sha="a" * 40,
+                request=self.request(sequence=4),
                 diff=b"diff\n",
                 context=b"context\n",
             )

@@ -1,6 +1,6 @@
 # Graph-Driven Development v1.1 Optimization Spec
 
-Status: Final bounded rework implemented; Package 3 verification in progress
+Status: Package 3 stopped the Graph run; separately authorized ordinary follow-up repair completed locally
 Date: 2026-08-03
 Owner: Codex
 Target: `graph-driven-development/`
@@ -144,9 +144,9 @@ Core invariants:
 9. If a selected model cannot expose or confirm `Extra High`, transition to `WAITING_HUMAN`.
 10. `selected_backend` and any non-null `required_backend` are only `chatgpt-web` or `grok-web`; account plan, visible model, and reasoning level are separate fields.
 11. Known ChatGPT models preserve the fixed policy-relative order even when some are absent. A selected ChatGPT model is the available Extra High-capable known entry with the lowest policy rank; an exact flag cannot legalize another platform or premature fallback. An unknown visible model forces `WAITING_HUMAN` with explicit ambiguity rather than an inferred rank.
-12. `DELIVERED` and review-complete lifecycle states cannot retain an accepted blocking/high finding. Package 3 with one pending uses only `WAITING_HUMAN`, `FAILED`, or `CANCELLED`.
-13. `REVIEW_CANDIDATE` may await verdicts, but review completion requires one completed `PASS` Reviewer for normal work and two for high risk. Every counted Reviewer has a timezone-aware completion time, reconciled findings, no blocking High remaining, and is fresh, read-only, non-authoring, independent by conversation ID, and bound to the current head/package.
-14. `graph-review-package-v1` recomputes from the exact head, canonical request hash, exact diff hash, and exact context hash. Tree-derived changed paths and independently patch-parsed paths match exactly; blob inspection blocks binary paths even under hostile diff attributes/config; symlink and gitlink target/mode changes remain in the diff.
+12. `DELIVERED` and review-complete lifecycle states cannot retain an accepted blocking/high finding. Terminal state/status pairs cannot contradict each other. Package 3 with one pending uses only `WAITING_HUMAN`, `FAILED`, or `CANCELLED`.
+13. `REVIEW_CANDIDATE` may await verdicts, but review completion requires one completed `PASS` Reviewer for normal work and two for high risk. Every current Reviewer—not only a qualifying subset—has a final PASS, timezone-aware completion time, reconciled findings, no blocking High remaining, and is fresh, read-only, non-authoring, independent by conversation ID, and bound to the current head/package.
+14. `graph-review-package-v1` validates unique direct request declarations for algorithm, sequence, head, diff hash, and context hash before recomputing from the canonical request and exact supplied inputs. Tree-derived changed paths and independently patch-parsed paths match exactly; blob inspection blocks binary paths even under hostile diff attributes/config; symlink and gitlink target/mode changes remain in the diff.
 
 ## 7. Implementation and verification lifecycle
 
@@ -239,7 +239,7 @@ A narrow `scripts/validate_run_state.py` validates a JSON snapshot against criti
 - Normal and high-risk mandatory pauses are exactly 1 hour and 3 hours of active work.
 - The task-wide caps are exactly three review packages and two implementation reworks.
 - Synthetic states prove rejection of package 4, rework 3, mismatched head/package, wrong reasoning level, and work after mandatory pause.
-- Synthetic states reject delivery with pending High findings, unknown or aliased lifecycle states, forbidden backends, reversed/unknown model priority, premature model fallback, extensions without prior pause evidence, incomplete Reviewer placeholders, stale/self-reviewing/duplicate Reviewer records, incomplete paths, hostile-config binary/submodule omissions, and non-reproducible digests.
+- Synthetic states reject delivery with pending High findings or contradictory terminal status, unknown or aliased lifecycle states, forbidden backends, reversed/unknown model priority, premature model fallback, extensions without strictly ordered pause evidence, any incomplete/non-PASS current Reviewer, stale/self-reviewing/duplicate Reviewer records, incomplete paths, hostile-config binary/submodule omissions, malformed/stale request manifests, and non-reproducible digests.
 - The review contract clearly states that three uploads may represent changes to more than three source files.
 - The final diff contains no unrelated changes and does not include the untracked source prompt from the main checkout.
 
@@ -269,3 +269,14 @@ Package 2 at head `b8362c1c3a1e41313eb2e5604b3c6180039287aa` also returned `CHAN
 | PR7-M1-EXTENSION-PAUSE-NOT-EVIDENCED | Persist the mandatory `WAITING_HUMAN` pause, matching active ledger, pause/authorization timestamps, and a deadline later than authorization. |
 
 This is the second and final allowed implementation rework. Its next candidate is Package 3. Any accepted blocking/high finding in Package 3 must stop in `WAITING_HUMAN` or `FAILED`; Package 4 and rework 3 are forbidden.
+
+## 14. Package 3 stop and separate ordinary follow-up
+
+Package 3 at head `e4d18207818cd544823a23280a98fe27e20de9e1` returned three accepted High findings and one Medium. The Graph run stopped as required; no Package 4 or third Graph rework was created. A later explicit user instruction started a separate ordinary repair task on a fresh worktree/branch without invoking Graph:
+
+- bind `DELIVERED` and terminal state/status combinations to all completion gates;
+- validate the direct request manifest structure and declared package inputs before hashing;
+- require every current Reviewer record to be a final reconciled PASS at completion;
+- require extension authorization time to be strictly later than the recorded pause.
+
+The ordinary repair is complete locally. It remains uncommitted and unpushed pending separate user authorization.

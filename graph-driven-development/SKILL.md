@@ -181,7 +181,7 @@ The three uploaded files are always:
 
 This is not a three-source-file limit. `full.diff` may contain any number of changed files. If a complete safe diff cannot fit, split the task coherently or enter `WAITING_HUMAN`; never truncate it.
 
-Validate `full.diff` with `scripts/validate_review_diff.py` before upload. Include symlink target/mode changes. Any binary changed path blocks package creation until the task is coherently split or a new approved contract makes the complete transfer safe. Compute and verify `graph-review-package-v1` with `scripts/compute_review_package_digest.py`; never invent package digest bytes manually.
+Validate `full.diff` with `scripts/validate_review_diff.py` before upload. Include symlink target/mode changes. Any binary changed path blocks package creation until the task is coherently split or a new approved contract makes the complete transfer safe. Compute and verify `graph-review-package-v1` with `scripts/compute_review_package_digest.py`; it must bind the direct request algorithm, sequence, head, diff hash, and context hash to the supplied inputs before accepting the embedded digest. Never invent package digest bytes manually.
 
 Accept only `PASS`, `CHANGES_REQUESTED`, `NEEDS_EVIDENCE`, or `BACKEND_FAILED`. Allow one bounded evidence supplement per Reviewer. Backend retries and re-uploads of an identical package do not consume another review-package count.
 

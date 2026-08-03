@@ -1,6 +1,6 @@
 # Graph-Driven Development v1.1 Implementation Plan
 
-Status: Final bounded rework implemented; Package 3 verification in progress
+Status: Package 3 stopped the Graph run; ordinary follow-up repair completed locally
 Date: 2026-08-03
 Spec: `docs/specs/2026-08-03-graph-driven-development-v1-1.md`
 
@@ -250,4 +250,18 @@ Actions:
 5. If no accepted blocking/high finding remains, push the branch and wait for required PR checks on the exact remote head.
 6. If Package 3 has an accepted blocking/high finding, stop in `WAITING_HUMAN` or `FAILED`; do not create Package 4 or rework 3.
 
-Status: In progress.
+Status: Completed with `CHANGES_REQUESTED`; three High findings were accepted and the Graph run stopped without push.
+
+## Task 12: Separate ordinary follow-up repair
+
+Authorization: The user explicitly requested fixing the Package 3 findings without using Graph. This is a new task on branch `codex/fix-graph-review-bypasses`; it does not create Package 4 or consume a third Graph rework.
+
+Actions:
+
+1. Bind canonical terminal states and statuses to package, pending-High, and Reviewer-completion gates.
+2. Validate unique direct request manifest fields and compare declared algorithm/head/diff/context values with supplied inputs before hashing.
+3. Reject review completion when any current Reviewer is pending, non-PASS, unreconciled, or still blocking.
+4. Require extension authorization strictly after the recorded pause.
+5. Add adversarial regression tests and synchronize the Skill contracts.
+
+Status: Completed locally. All 77 unit tests and a fresh command-line package generate/verify smoke test pass. The standard Skill validator remains unavailable because its environment lacks PyYAML; an equivalent read-only structural validation passes. No commit or push has been performed for this separate task.

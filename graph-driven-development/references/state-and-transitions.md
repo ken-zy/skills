@@ -79,6 +79,8 @@ READY_FOR_AUTHORIZED_NEXT_ACTION, PR_CI, WAITING_FOR_MERGE,
 MERGED, CLEANED_UP, WAITING_HUMAN, DELIVERED, FAILED, CANCELLED
 ```
 
+If `state` itself is terminal, its `status` must match exactly. `DELIVERED`, `FAILED`, and `CANCELLED` statuses also require the matching terminal state. `status: WAITING_HUMAN` may preserve the non-terminal node where work paused, but `state: WAITING_HUMAN` cannot claim another status.
+
 ## Clocks
 
 Normal tasks have a 3,600-second active-work ceiling. High-risk tasks have a 10,800-second ceiling.
@@ -88,7 +90,7 @@ Normal tasks have a 3,600-second active-work ceiling. High-risk tasks have a 10,
 - Record wall-clock pause start/end and reason so excluded time is auditable.
 - Derive one absolute `mandatory_pause_at` from the active-time ledger for reporting.
 - Reaching the original ceiling always transitions to `WAITING_HUMAN` before any extension can take effect. It never resets counters or creates a fresh run automatically.
-- A later extension requires a new explicit user authorization after that pause. Persist `pause_evidence` with `status: WAITING_HUMAN`, `reason: mandatory_active_limit`, the exact original-limit `active_seconds`, and timezone-aware `paused_at`. Also record `authorized_by`, `authorization_ref`, the same `authorized_at_active_seconds`, timezone-aware `authorized_at`, a larger `new_active_limit_seconds`, and a timezone-aware `new_deadline` later than authorization.
+- A later extension requires a new explicit user authorization strictly after that pause. Persist `pause_evidence` with `status: WAITING_HUMAN`, `reason: mandatory_active_limit`, the exact original-limit `active_seconds`, and timezone-aware `paused_at`. Also record `authorized_by`, `authorization_ref`, the same `authorized_at_active_seconds`, a strictly later timezone-aware `authorized_at`, a larger `new_active_limit_seconds`, and a timezone-aware `new_deadline` later than authorization.
 - The new active limit must exceed both the original class ceiling and `authorized_at_active_seconds`. Reaching it forces another `WAITING_HUMAN` pause; extensions never lower reasoning, reset counters, or erase the initial pause evidence.
 
 Every scheduled status report includes current node, active time used, exact head, changed-file count, review round, used/remaining rework budget, largest risk/blocker, and whether task splitting is recommended.
@@ -124,7 +126,8 @@ A review candidate and every later review-complete/delivery state require all of
 head_sha == verified_head_sha == review_package_head_sha
 review_package_digest is non-empty
 package_digest_algorithm == graph-review-package-v1
-the package digest recomputes from the exact head and three component hashes
+the package request directly declares the same algorithm, sequence, head, diff hash, and context hash
+the package digest recomputes from that validated direct request and the exact supplied inputs
 review_package_changed_paths == review_package_diff_paths
 review_package_binary_paths is empty
 review_package_symlink_paths is a subset of the included diff paths
@@ -133,7 +136,7 @@ all reviewers for that head use review_package_digest
 
 Use `scripts/validate_review_diff.py` to prove exact diff-byte equality against the frozen base/head and to collect path evidence. Symlink target/mode changes are reviewable Git text and remain included. A binary changed path prevents creation of a safe complete package and routes to `WAITING_HUMAN` or a coherent task split.
 
-Use `scripts/compute_review_package_digest.py` for the versioned canonical digest. Store the final request file SHA separately from the canonical request SHA so the manifest does not depend on its own output.
+Use `scripts/compute_review_package_digest.py` for the versioned canonical digest. Security fields must each appear exactly once directly under `review_request`; nested, block-scalar, duplicate, misplaced, or stale declarations fail closed. Store the final request file SHA separately from the canonical request SHA so the manifest does not depend on its own output.
 
 Any repository content change after verification invalidates `verified_head_sha`, `review_package_head_sha`, and `review_package_digest` until tests/artifacts pass again and a new package is generated.
 
@@ -151,7 +154,7 @@ Before entering `READY_FOR_AUTHORIZED_NEXT_ACTION`, `PR_CI`, `WAITING_FOR_MERGE`
 - no Reviewer conversation appears in `implementation_author_conversation_ids`;
 - every Reviewer records `role: reviewer`, `read_only: true`, `authored_candidate: false`, and `selected_reasoning_level: Extra High`;
 - every Reviewer head and package digest match the current frozen candidate.
-- every completed Reviewer records final `verdict: PASS`, timezone-aware `completed_at`, `findings_reconciled: true`, and `blocking_high_remaining: false`; a placeholder, pending verdict, or unreconciled finding does not count.
+- every current Reviewer records final `verdict: PASS`, timezone-aware `completed_at`, `findings_reconciled: true`, and `blocking_high_remaining: false`; a placeholder, pending/non-PASS verdict, unreconciled finding, or remaining blocking/high flag prevents completion even when other PASS records meet the numeric minimum.
 
 Historical reviewers for an older head belong in separate history evidence, not the current `reviewers` list.
 

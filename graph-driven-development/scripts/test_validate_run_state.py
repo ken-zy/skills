@@ -294,6 +294,17 @@ class ValidateRunStateTests(unittest.TestCase):
             "cannot precede",
         )
 
+    def test_rejects_extension_authorized_at_pause_timestamp(self):
+        self.assert_invalid(
+            lambda state: state.update(
+                active_seconds=3600,
+                extension_authorization=extension(
+                    authorized_at="2026-08-03T12:00:00+08:00",
+                ),
+            ),
+            "strictly after",
+        )
+
     def test_rejects_delivered_with_pending_high(self):
         self.assert_invalid(
             lambda state: state.update(
@@ -302,6 +313,59 @@ class ValidateRunStateTests(unittest.TestCase):
             ),
             "cannot retain blocking/high",
         )
+
+    def test_rejects_delivered_state_with_active_status_and_missing_evidence(self):
+        def mutate(state):
+            state.update(
+                state="DELIVERED",
+                status="ACTIVE",
+                head_sha=None,
+                verified_head_sha=None,
+                review_package_head_sha=None,
+                review_package_digest=None,
+                package_digest_algorithm=None,
+                review_request_sha256=None,
+                review_request_canonical_sha256=None,
+                full_diff_sha256=None,
+                review_context_sha256=None,
+                review_diff_verified=False,
+                review_package_changed_paths=[],
+                review_package_diff_paths=[],
+                review_package_binary_paths=[],
+                review_package_symlink_paths=[],
+                review_round=0,
+                review_package_count=0,
+                reviewers=[],
+            )
+
+        state = valid_state()
+        mutate(state)
+        errors = VALIDATOR.validate_state(state)
+        self.assertTrue(any("terminal state/status" in error for error in errors), errors)
+        self.assertTrue(any("identical non-empty" in error for error in errors), errors)
+        self.assertTrue(any("completed PASS reviewer" in error for error in errors), errors)
+
+    def test_rejects_delivered_state_waiting_with_pending_high(self):
+        state = valid_state()
+        state.update(
+            state="DELIVERED",
+            status="WAITING_HUMAN",
+            accepted_blocking_high_pending=True,
+            reviewers=[],
+        )
+        errors = VALIDATOR.validate_state(state)
+        self.assertTrue(any("terminal state/status" in error for error in errors), errors)
+        self.assertTrue(any("cannot retain blocking/high" in error for error in errors), errors)
+        self.assertTrue(any("completed PASS reviewer" in error for error in errors), errors)
+
+    def test_valid_delivered_state_requires_matching_status_and_review(self):
+        state = valid_state()
+        state.update(
+            state="DELIVERED",
+            status="DELIVERED",
+            reviewers=[completed_reviewer("reviewer-1", "chatgpt-web")],
+        )
+        self.assertEqual([], VALIDATOR.validate_state(state))
 
     def test_rejects_package_three_pending_high_as_active(self):
         self.assert_invalid(
@@ -461,6 +525,25 @@ class ValidateRunStateTests(unittest.TestCase):
             reviewers=[completed_reviewer("reviewer-1", "chatgpt-web")],
         )
         self.assertEqual([], VALIDATOR.validate_state(state))
+
+    def test_rejects_nonpass_reviewer_beside_sufficient_pass_reviewers(self):
+        rejected = reviewer("reviewer-2", "grok-web")
+        rejected.update(
+            verdict="CHANGES_REQUESTED",
+            completed_at="2026-08-03T11:05:00+08:00",
+            findings_reconciled=False,
+            blocking_high_remaining=True,
+        )
+        self.assert_invalid(
+            lambda state: state.update(
+                state="READY_FOR_AUTHORIZED_NEXT_ACTION",
+                reviewers=[
+                    completed_reviewer("reviewer-1", "chatgpt-web"),
+                    rejected,
+                ],
+            ),
+            "every current reviewer",
+        )
 
     def test_high_risk_review_completion_requires_two_reviewers(self):
         self.assert_invalid(

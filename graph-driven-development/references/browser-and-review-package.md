@@ -167,7 +167,7 @@ Apply both path denylisting and content secret scanning. If a safe complete pack
 
 ## Package accounting
 
-Use the versioned algorithm ID `graph-review-package-v1`. Encode `review-request.yaml` as UTF-8 without BOM, with LF line endings and a final newline. It must contain exactly one scalar in this form:
+Use the versioned algorithm ID `graph-review-package-v1`. Encode `review-request.yaml` as UTF-8 without BOM, with LF line endings and a final newline. The fields `package_sequence`, `package_digest_algorithm`, `package_digest`, `full_diff_sha256`, `review_context_sha256`, and `head_commit` must each appear exactly once directly under `review_request`. These reserved manifest names may not be reused elsewhere in the file; use a distinct output label such as `returned_package_digest` when describing Reviewer output. Nested, block-scalar, duplicate, misplaced, or stale forms are invalid. The digest scalar has this exact form:
 
 ```yaml
   package_digest: "sha256:<64 lowercase hex>"
@@ -185,7 +185,7 @@ full_diff_sha256=<64 lowercase hex>
 review_context_sha256=<64 lowercase hex>
 ```
 
-The package digest is `sha256:` plus the SHA-256 of those manifest bytes. Use the read-only reference implementation:
+Before computing the package digest, require the direct request algorithm to equal `graph-review-package-v1`, sequence to be 1–3, and declared head/diff/context values to equal the supplied head and exact attachment hashes. The package digest is `sha256:` plus the SHA-256 of the manifest bytes. Use the read-only reference implementation:
 
 ```bash
 python3 scripts/compute_review_package_digest.py \

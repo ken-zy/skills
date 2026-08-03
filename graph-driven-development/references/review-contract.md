@@ -42,7 +42,7 @@ review_request:
     - "deploy"
 ```
 
-Both Reviewers must receive identical attachment digests and head SHA. Record the actual and canonical `review-request.yaml` hashes outside the request, backend, account plan when visible, model, selected reasoning level, fallback reason, fresh conversation URL/ID, start/completion time, and read-only confirmation. Neither request hash may appear inside the file it hashes. Reject a review whose conversation appears in `implementation_authors`.
+Both Reviewers must receive identical attachment digests and head SHA. The algorithm, sequence, digest, head, diff hash, and context hash are unique direct `review_request` fields and must match the supplied package inputs before upload. Their reserved field names may not be reused by nested schemas or output examples; use distinct labels such as `returned_package_digest` for Reviewer output. Record the actual and canonical `review-request.yaml` hashes outside the request, backend, account plan when visible, model, selected reasoning level, fallback reason, fresh conversation URL/ID, start/completion time, and read-only confirmation. Neither request hash may appear anywhere inside the file it hashes. Reject a review whose conversation appears in `implementation_authors`.
 
 Do not include the Writer's conclusions, expected verdict, suspected defects, desired fixes, or the other Reviewer's verdict.
 
@@ -62,7 +62,7 @@ Require:
 ```yaml
 verdict: "PASS"
 reviewed_head: "sha"
-package_digest: "sha256"
+returned_package_digest: "sha256"
 summary: ""
 findings: []
 evidence_request: []
@@ -80,9 +80,9 @@ Every finding uses:
   recommended_direction: ""
 ```
 
-Reject or request correction for a `blocking/high` finding without concrete location, claim, and evidence. Reject a verdict whose head or package digest differs from the immutable package.
+Reject or request correction for a `blocking/high` finding without concrete location, claim, and evidence. Reject a verdict whose head or returned package digest differs from the immutable package.
 
-After Codex verifies and reconciles the returned findings, persist completion evidence in run state: final `verdict: PASS`, timezone-aware `completed_at`, `findings_reconciled: true`, and `blocking_high_remaining: false`. A conversation record without all four fields remains pending and cannot satisfy the normal/high-risk Reviewer count.
+After Codex verifies and reconciles the returned findings, persist completion evidence in run state: final `verdict: PASS`, timezone-aware `completed_at`, `findings_reconciled: true`, and `blocking_high_remaining: false`. Every current Reviewer record must contain all four values before completion; one pending/non-PASS or unresolved record blocks completion even when enough other PASS records exist. Move historical or superseded attempts to separate evidence rather than leaving them in the current Reviewer list.
 
 Interpretation:
 

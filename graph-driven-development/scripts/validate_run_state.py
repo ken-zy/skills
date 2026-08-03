@@ -41,9 +41,11 @@ REVIEW_COMPLETION_STATES = {
     "WAITING_FOR_MERGE",
     "MERGED",
     "CLEANED_UP",
+    "DELIVERED",
 }
 PACKAGE_BOUND_STATES = REVIEW_STATES | REVIEW_COMPLETION_STATES
 ALLOWED_STATUSES = {"ACTIVE", "WAITING_HUMAN", "DELIVERED", "FAILED", "CANCELLED"}
+TERMINAL_STATE_STATUSES = {"WAITING_HUMAN", "DELIVERED", "FAILED", "CANCELLED"}
 ALLOWED_BACKENDS = {"chatgpt-web", "grok-web"}
 MODEL_PREFERENCE_BASELINE = ("ChatGPT Pro", "GPT-5.6 Sol", "GPT-5.5", "GPT-5.3", "o3")
 MODEL_AVAILABILITIES = {"available", "quota_exhausted", "unavailable", "reasoning_unsupported"}
@@ -71,6 +73,16 @@ def _parse_timezone_aware_iso(value: Any) -> datetime | None:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         return None
     return parsed
+
+
+def _is_completed_pass_reviewer(reviewer: Any) -> bool:
+    return (
+        isinstance(reviewer, dict)
+        and reviewer.get("verdict") == "PASS"
+        and _parse_timezone_aware_iso(reviewer.get("completed_at")) is not None
+        and reviewer.get("findings_reconciled") is True
+        and reviewer.get("blocking_high_remaining") is False
+    )
 
 
 def _string_list(
@@ -109,6 +121,10 @@ def validate_state(state: Any) -> list[str]:
         errors.append(f"status must be one of {sorted(ALLOWED_STATUSES)}")
     if phase not in ALLOWED_STATES:
         errors.append(f"state must be one of {sorted(ALLOWED_STATES)}")
+    if phase in TERMINAL_STATE_STATUSES and status != phase:
+        errors.append("terminal state/status must match exactly")
+    if status in {"DELIVERED", "FAILED", "CANCELLED"} and phase != status:
+        errors.append("terminal state/status must match exactly")
 
     for name, value in (
         ("active_seconds", active_seconds),
@@ -220,8 +236,8 @@ def validate_state(state: Any) -> list[str]:
             ):
                 errors.append("extension authorization active time must equal the paused ledger")
                 extension_valid = False
-            if pause_time is not None and authorized_at_time is not None and authorized_at_time < pause_time:
-                errors.append("extension authorization must occur after the recorded pause")
+            if pause_time is not None and authorized_at_time is not None and authorized_at_time <= pause_time:
+                errors.append("extension authorization must occur strictly after the recorded pause")
                 extension_valid = False
             if extension_valid:
                 effective_limit = new_limit
@@ -367,15 +383,18 @@ def validate_state(state: Any) -> list[str]:
     review_must_be_complete = phase in REVIEW_COMPLETION_STATES or status == "DELIVERED"
     if review_must_be_complete and isinstance(reviewers, list):
         required_count = 2 if task_class == "high_risk" else 1
-        completed_reviewers = [
-            reviewer
-            for reviewer in reviewers
-            if isinstance(reviewer, dict)
-            and reviewer.get("verdict") == "PASS"
-            and _parse_timezone_aware_iso(reviewer.get("completed_at")) is not None
-            and reviewer.get("findings_reconciled") is True
-            and reviewer.get("blocking_high_remaining") is False
+        incomplete_indexes = [
+            index
+            for index, reviewer in enumerate(reviewers)
+            if not _is_completed_pass_reviewer(reviewer)
         ]
+        if incomplete_indexes:
+            errors.append(
+                "review completion requires every current reviewer to be a completed PASS "
+                "reviewer with reconciled findings and no blocking/high remaining; "
+                f"invalid indexes: {incomplete_indexes}"
+            )
+        completed_reviewers = [reviewer for reviewer in reviewers if _is_completed_pass_reviewer(reviewer)]
         if len(completed_reviewers) < required_count:
             errors.append(
                 f"{task_class} review completion requires at least {required_count} "
