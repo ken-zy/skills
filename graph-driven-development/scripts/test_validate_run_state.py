@@ -44,6 +44,42 @@ def reviewer(conversation_id: str, backend: str) -> dict:
     }
 
 
+def completed_reviewer(conversation_id: str, backend: str) -> dict:
+    result = reviewer(conversation_id, backend)
+    result.update(
+        verdict="PASS",
+        completed_at="2026-08-03T11:00:00+08:00",
+        findings_reconciled=True,
+        blocking_high_remaining=False,
+    )
+    return result
+
+
+def extension(
+    *,
+    authorized_at_active_seconds: int = 3600,
+    new_active_limit_seconds: int = 5400,
+    paused_at_active_seconds: int = 3600,
+    paused_at: str = "2026-08-03T12:00:00+08:00",
+    authorized_at: str = "2026-08-03T12:05:00+08:00",
+    new_deadline: str = "2026-08-03T13:30:00+08:00",
+) -> dict:
+    return {
+        "authorized_by": "jdy",
+        "authorization_ref": "message-123",
+        "authorized_at_active_seconds": authorized_at_active_seconds,
+        "authorized_at": authorized_at,
+        "new_active_limit_seconds": new_active_limit_seconds,
+        "new_deadline": new_deadline,
+        "pause_evidence": {
+            "status": "WAITING_HUMAN",
+            "reason": "mandatory_active_limit",
+            "active_seconds": paused_at_active_seconds,
+            "paused_at": paused_at,
+        },
+    }
+
+
 def valid_state():
     return {
         "schema_version": 2,
@@ -88,6 +124,7 @@ def valid_state():
             },
         ],
         "model_inventory_observed_at": "2026-08-03T10:00:00+08:00",
+        "model_inventory_ambiguity": "",
         "selected_backend": "chatgpt-web",
         "selected_cognitive_model": "ChatGPT Pro",
         "required_backend": None,
@@ -119,6 +156,21 @@ class ValidateRunStateTests(unittest.TestCase):
 
     def test_rejects_schema_v1(self):
         self.assert_invalid(lambda state: state.update(schema_version=1), "schema_version")
+
+    def test_rejects_unknown_state(self):
+        self.assert_invalid(lambda state: state.update(state="UNKNOWN"), "state must be one of")
+
+    def test_rejects_ready_for_delivery_alias(self):
+        self.assert_invalid(
+            lambda state: state.update(state="READY_FOR_DELIVERY"),
+            "state must be one of",
+        )
+
+    def test_rejects_pr_checks_passed_alias(self):
+        self.assert_invalid(
+            lambda state: state.update(state="PR_CHECKS_PASSED"),
+            "state must be one of",
+        )
 
     def test_rejects_package_four(self):
         self.assert_invalid(lambda state: state.update(review_package_count=4), "cannot exceed 3")
@@ -191,26 +243,17 @@ class ValidateRunStateTests(unittest.TestCase):
         state = valid_state()
         state.update(
             active_seconds=3600,
-            extension_authorization={
-                "authorized_by": "jdy",
-                "authorization_ref": "message-123",
-                "authorized_at_active_seconds": 3600,
-                "new_active_limit_seconds": 5400,
-                "new_deadline": "2026-08-03T13:30:00+08:00",
-            },
+            extension_authorization=extension(),
         )
         self.assertEqual([], VALIDATOR.validate_state(state))
 
     def test_rejects_extension_before_initial_pause(self):
         self.assert_invalid(
             lambda state: state.update(
-                extension_authorization={
-                    "authorized_by": "jdy",
-                    "authorization_ref": "message-123",
-                    "authorized_at_active_seconds": 3500,
-                    "new_active_limit_seconds": 5400,
-                    "new_deadline": "2026-08-03T13:30:00+08:00",
-                }
+                extension_authorization=extension(
+                    authorized_at_active_seconds=3500,
+                    paused_at_active_seconds=3500,
+                )
             ),
             "after the mandatory pause",
         )
@@ -219,15 +262,36 @@ class ValidateRunStateTests(unittest.TestCase):
         self.assert_invalid(
             lambda state: state.update(
                 active_seconds=5400,
-                extension_authorization={
-                    "authorized_by": "jdy",
-                    "authorization_ref": "message-123",
-                    "authorized_at_active_seconds": 3600,
-                    "new_active_limit_seconds": 5400,
-                    "new_deadline": "2026-08-03T13:30:00+08:00",
-                },
+                extension_authorization=extension(),
             ),
             "mandatory pause at 5400",
+        )
+
+    def test_rejects_extension_without_pause_evidence(self):
+        def mutate(state):
+            value = extension()
+            value.pop("pause_evidence")
+            state["extension_authorization"] = value
+
+        self.assert_invalid(mutate, "pause_evidence must be an object")
+
+    def test_rejects_extension_deadline_before_authorization(self):
+        self.assert_invalid(
+            lambda state: state.update(
+                extension_authorization=extension(
+                    new_deadline="2026-08-03T12:04:00+08:00"
+                )
+            ),
+            "deadline must be later",
+        )
+
+    def test_rejects_extension_with_rolled_back_active_ledger(self):
+        self.assert_invalid(
+            lambda state: state.update(
+                active_seconds=3599,
+                extension_authorization=extension(),
+            ),
+            "cannot precede",
         )
 
     def test_rejects_delivered_with_pending_high(self):
@@ -296,11 +360,67 @@ class ValidateRunStateTests(unittest.TestCase):
         )
         self.assertEqual([], VALIDATOR.validate_state(state))
 
+    def test_rejects_lower_model_without_fallback_reason(self):
+        def mutate(state):
+            state["chatgpt_model_inventory"][0]["availability"] = "quota_exhausted"
+            state["selected_cognitive_model"] = "GPT-5.6 Sol"
+
+        self.assert_invalid(mutate, "requires a non-empty fallback reason")
+
+    def test_rejects_unknown_availability_value(self):
+        self.assert_invalid(
+            lambda state: state["chatgpt_model_inventory"][0].update(
+                availability="probably_unavailable"
+            ),
+            "availability must be one of",
+        )
+
     def test_rejects_inventory_rank_gap(self):
         self.assert_invalid(
             lambda state: state["chatgpt_model_inventory"][1].update(preference_rank=3),
             "preference_rank",
         )
+
+    def test_rejects_reversed_known_model_order(self):
+        def mutate(state):
+            state["chatgpt_model_inventory"].reverse()
+            for index, item in enumerate(state["chatgpt_model_inventory"]):
+                item["preference_rank"] = index
+            state["selected_cognitive_model"] = "GPT-5.6 Sol"
+
+        self.assert_invalid(mutate, "fixed policy preference order")
+
+    def test_rejects_unknown_model_during_active_work(self):
+        def mutate(state):
+            state["chatgpt_model_inventory"] = [
+                {
+                    "model": "Unknown Future Model",
+                    "preference_rank": 0,
+                    "reasoning_levels": ["Extra High"],
+                    "availability": "available",
+                }
+            ]
+            state["selected_cognitive_model"] = "Unknown Future Model"
+
+        self.assert_invalid(mutate, "require WAITING_HUMAN")
+
+    def test_accepts_unknown_model_only_as_waiting_ambiguity(self):
+        state = valid_state()
+        state.update(
+            status="WAITING_HUMAN",
+            selected_backend=None,
+            selected_cognitive_model=None,
+            model_inventory_ambiguity="Unknown model has no approved policy rank",
+            chatgpt_model_inventory=[
+                {
+                    "model": "Unknown Future Model",
+                    "preference_rank": 0,
+                    "reasoning_levels": ["Extra High"],
+                    "availability": "available",
+                }
+            ],
+        )
+        self.assertEqual([], VALIDATOR.validate_state(state))
 
     def test_review_candidate_can_wait_without_reviewers(self):
         state = valid_state()
@@ -322,8 +442,25 @@ class ValidateRunStateTests(unittest.TestCase):
                 state="READY_FOR_AUTHORIZED_NEXT_ACTION",
                 reviewers=[],
             ),
-            "requires at least 1 reviewer",
+            "requires at least 1 completed PASS reviewer",
         )
+
+    def test_placeholder_reviewer_does_not_complete_review(self):
+        self.assert_invalid(
+            lambda state: state.update(
+                state="READY_FOR_AUTHORIZED_NEXT_ACTION",
+                reviewers=[reviewer("placeholder", "chatgpt-web")],
+            ),
+            "completed PASS reviewer",
+        )
+
+    def test_valid_normal_review_completion(self):
+        state = valid_state()
+        state.update(
+            state="READY_FOR_AUTHORIZED_NEXT_ACTION",
+            reviewers=[completed_reviewer("reviewer-1", "chatgpt-web")],
+        )
+        self.assertEqual([], VALIDATOR.validate_state(state))
 
     def test_high_risk_review_completion_requires_two_reviewers(self):
         self.assert_invalid(
@@ -332,8 +469,20 @@ class ValidateRunStateTests(unittest.TestCase):
                 task_class="high_risk",
                 reviewers=[state["reviewers"][0]],
             ),
-            "requires at least 2 reviewer",
+            "requires at least 2 completed PASS reviewer",
         )
+
+    def test_valid_high_risk_review_completion(self):
+        state = valid_state()
+        state.update(
+            state="READY_FOR_AUTHORIZED_NEXT_ACTION",
+            task_class="high_risk",
+            reviewers=[
+                completed_reviewer("reviewer-1", "chatgpt-web"),
+                completed_reviewer("reviewer-2", "grok-web"),
+            ],
+        )
+        self.assertEqual([], VALIDATOR.validate_state(state))
 
     def test_rejects_stale_reviewer_head(self):
         self.assert_invalid(

@@ -15,6 +15,25 @@ from compute_review_package_digest import ALGORITHM, digest_from_hashes
 
 
 TASK_LIMITS = {"normal": 3_600, "high_risk": 10_800}
+ALLOWED_STATES = {
+    "PREFLIGHT",
+    "SPEC_READY",
+    "PLAN_READY",
+    "IMPLEMENTING",
+    "VERIFYING",
+    "REVIEW_CANDIDATE",
+    "REVIEWING",
+    "REWORKING",
+    "READY_FOR_AUTHORIZED_NEXT_ACTION",
+    "PR_CI",
+    "WAITING_FOR_MERGE",
+    "MERGED",
+    "CLEANED_UP",
+    "WAITING_HUMAN",
+    "DELIVERED",
+    "FAILED",
+    "CANCELLED",
+}
 REVIEW_STATES = {"REVIEW_CANDIDATE", "REVIEWING"}
 REVIEW_COMPLETION_STATES = {
     "READY_FOR_AUTHORIZED_NEXT_ACTION",
@@ -26,6 +45,9 @@ REVIEW_COMPLETION_STATES = {
 PACKAGE_BOUND_STATES = REVIEW_STATES | REVIEW_COMPLETION_STATES
 ALLOWED_STATUSES = {"ACTIVE", "WAITING_HUMAN", "DELIVERED", "FAILED", "CANCELLED"}
 ALLOWED_BACKENDS = {"chatgpt-web", "grok-web"}
+MODEL_PREFERENCE_BASELINE = ("ChatGPT Pro", "GPT-5.6 Sol", "GPT-5.5", "GPT-5.3", "o3")
+MODEL_AVAILABILITIES = {"available", "quota_exhausted", "unavailable", "reasoning_unsupported"}
+REVIEW_VERDICTS = {"PASS", "CHANGES_REQUESTED", "NEEDS_EVIDENCE", "BACKEND_FAILED"}
 PENDING_HIGH_TERMINAL_STATUSES = {"WAITING_HUMAN", "FAILED", "CANCELLED"}
 HEX_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 PACKAGE_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -39,14 +61,16 @@ def _is_sha256(value: Any) -> bool:
     return isinstance(value, str) and HEX_SHA256_RE.fullmatch(value) is not None
 
 
-def _timezone_aware_iso(value: Any) -> bool:
+def _parse_timezone_aware_iso(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value:
-        return False
+        return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
-        return False
-    return parsed.tzinfo is not None and parsed.utcoffset() is not None
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed
 
 
 def _string_list(
@@ -83,8 +107,8 @@ def validate_state(state: Any) -> list[str]:
         errors.append("task_class must be 'normal' or 'high_risk'")
     if status not in ALLOWED_STATUSES:
         errors.append(f"status must be one of {sorted(ALLOWED_STATUSES)}")
-    if not isinstance(phase, str) or not phase:
-        errors.append("state must be a non-empty string")
+    if phase not in ALLOWED_STATES:
+        errors.append(f"state must be one of {sorted(ALLOWED_STATES)}")
 
     for name, value in (
         ("active_seconds", active_seconds),
@@ -132,6 +156,9 @@ def validate_state(state: Any) -> list[str]:
                     extension_valid = False
             authorized_at = extension.get("authorized_at_active_seconds")
             new_limit = extension.get("new_active_limit_seconds")
+            authorized_at_time = _parse_timezone_aware_iso(extension.get("authorized_at"))
+            deadline = _parse_timezone_aware_iso(extension.get("new_deadline"))
+            pause_evidence = extension.get("pause_evidence")
             if not _is_non_negative_int(authorized_at):
                 errors.append(
                     "extension_authorization.authorized_at_active_seconds must be a "
@@ -140,6 +167,9 @@ def validate_state(state: Any) -> list[str]:
                 extension_valid = False
             elif effective_limit is not None and authorized_at < effective_limit:
                 errors.append("extension authorization must occur after the mandatory pause")
+                extension_valid = False
+            elif _is_non_negative_int(active_seconds) and active_seconds < authorized_at:
+                errors.append("active_seconds cannot precede the persisted extension authorization ledger")
                 extension_valid = False
             if not _is_non_negative_int(new_limit):
                 errors.append(
@@ -154,8 +184,44 @@ def validate_state(state: Any) -> list[str]:
             ):
                 errors.append("extended active limit must exceed the original limit and authorization point")
                 extension_valid = False
-            if not _timezone_aware_iso(extension.get("new_deadline")):
+            if authorized_at_time is None:
+                errors.append("extension_authorization.authorized_at must be timezone-aware ISO 8601")
+                extension_valid = False
+            if deadline is None:
                 errors.append("extension_authorization.new_deadline must be timezone-aware ISO 8601")
+                extension_valid = False
+            if authorized_at_time is not None and deadline is not None and deadline <= authorized_at_time:
+                errors.append("extension deadline must be later than its authorization")
+                extension_valid = False
+            pause_time: datetime | None = None
+            pause_active: Any = None
+            if not isinstance(pause_evidence, dict):
+                errors.append("extension_authorization.pause_evidence must be an object")
+                extension_valid = False
+            else:
+                if pause_evidence.get("status") != "WAITING_HUMAN":
+                    errors.append("extension pause evidence must record WAITING_HUMAN")
+                    extension_valid = False
+                if pause_evidence.get("reason") != "mandatory_active_limit":
+                    errors.append("extension pause evidence must record mandatory_active_limit")
+                    extension_valid = False
+                pause_active = pause_evidence.get("active_seconds")
+                if effective_limit is not None and pause_active != effective_limit:
+                    errors.append("extension pause evidence must use the original active-time limit")
+                    extension_valid = False
+                pause_time = _parse_timezone_aware_iso(pause_evidence.get("paused_at"))
+                if pause_time is None:
+                    errors.append("extension pause evidence paused_at must be timezone-aware ISO 8601")
+                    extension_valid = False
+            if (
+                _is_non_negative_int(authorized_at)
+                and _is_non_negative_int(pause_active)
+                and authorized_at != pause_active
+            ):
+                errors.append("extension authorization active time must equal the paused ledger")
+                extension_valid = False
+            if pause_time is not None and authorized_at_time is not None and authorized_at_time < pause_time:
+                errors.append("extension authorization must occur after the recorded pause")
                 extension_valid = False
             if extension_valid:
                 effective_limit = new_limit
@@ -289,21 +355,38 @@ def validate_state(state: Any) -> list[str]:
                 errors.append(
                     f"reviewers[{index}].selected_reasoning_level must be exactly 'Extra High'"
                 )
+            verdict = reviewer.get("verdict")
+            if verdict is not None and verdict not in REVIEW_VERDICTS:
+                errors.append(f"reviewers[{index}].verdict is not an allowed review verdict")
+            completed_at = reviewer.get("completed_at")
+            if completed_at is not None and _parse_timezone_aware_iso(completed_at) is None:
+                errors.append(f"reviewers[{index}].completed_at must be timezone-aware ISO 8601")
         if len(valid_conversation_ids) != len(set(valid_conversation_ids)):
             errors.append("reviewer conversation IDs must be distinct")
 
     review_must_be_complete = phase in REVIEW_COMPLETION_STATES or status == "DELIVERED"
     if review_must_be_complete and isinstance(reviewers, list):
         required_count = 2 if task_class == "high_risk" else 1
-        if len(reviewers) < required_count:
+        completed_reviewers = [
+            reviewer
+            for reviewer in reviewers
+            if isinstance(reviewer, dict)
+            and reviewer.get("verdict") == "PASS"
+            and _parse_timezone_aware_iso(reviewer.get("completed_at")) is not None
+            and reviewer.get("findings_reconciled") is True
+            and reviewer.get("blocking_high_remaining") is False
+        ]
+        if len(completed_reviewers) < required_count:
             errors.append(
-                f"{task_class} review completion requires at least {required_count} reviewer(s)"
+                f"{task_class} review completion requires at least {required_count} "
+                "completed PASS reviewer(s) with reconciled findings"
             )
 
     inventory = state.get("chatgpt_model_inventory", [])
     inventory_by_name: dict[str, dict[str, Any]] = {}
     inventory_index_by_name: dict[str, int] = {}
     inventory_names: list[str] = []
+    unknown_models: list[str] = []
     if not isinstance(inventory, list):
         errors.append("chatgpt_model_inventory must be a list")
     else:
@@ -322,6 +405,8 @@ def validate_state(state: Any) -> list[str]:
                 inventory_names.append(model)
                 inventory_by_name[model] = item
                 inventory_index_by_name[model] = index
+                if model not in MODEL_PREFERENCE_BASELINE:
+                    unknown_models.append(model)
             if item.get("preference_rank") != index:
                 errors.append(
                     f"chatgpt_model_inventory[{index}].preference_rank must equal {index}"
@@ -332,8 +417,30 @@ def validate_state(state: Any) -> list[str]:
                 errors.append(
                     f"chatgpt_model_inventory[{index}].reasoning_levels must be a list of strings"
                 )
-            if not isinstance(availability, str) or not availability:
-                errors.append(f"chatgpt_model_inventory[{index}].availability must be non-empty")
+            if availability not in MODEL_AVAILABILITIES:
+                errors.append(
+                    f"chatgpt_model_inventory[{index}].availability must be one of "
+                    f"{sorted(MODEL_AVAILABILITIES)}"
+                )
+
+    known_positions = [
+        MODEL_PREFERENCE_BASELINE.index(name)
+        for name in inventory_names
+        if name in MODEL_PREFERENCE_BASELINE
+    ]
+    if known_positions != sorted(known_positions):
+        errors.append("known ChatGPT models must follow the fixed policy preference order")
+
+    inventory_ambiguity = state.get("model_inventory_ambiguity")
+    if not isinstance(inventory_ambiguity, str):
+        errors.append("model_inventory_ambiguity must be a string")
+    elif unknown_models:
+        if status != "WAITING_HUMAN" or not inventory_ambiguity:
+            errors.append(
+                "unknown ChatGPT models require WAITING_HUMAN with explicit inventory ambiguity"
+            )
+    elif inventory_ambiguity:
+        errors.append("model_inventory_ambiguity must be empty when no unknown model is present")
 
     observed_at = state.get("model_inventory_observed_at")
     if inventory and (not isinstance(observed_at, str) or not observed_at):
@@ -354,6 +461,8 @@ def validate_state(state: Any) -> list[str]:
     elif selected_backend == "chatgpt-web" and selected_model is not None:
         if selected_model not in inventory_names:
             errors.append("selected ChatGPT model must appear in chatgpt_model_inventory")
+        elif selected_model not in MODEL_PREFERENCE_BASELINE:
+            errors.append("selected ChatGPT model must have an unambiguous policy rank")
         else:
             selected_index = inventory_index_by_name[selected_model]
             selected_item = inventory_by_name[selected_model]
@@ -377,6 +486,13 @@ def validate_state(state: Any) -> list[str]:
     fallback_reason = state.get("model_fallback_reason")
     if not isinstance(fallback_reason, str):
         errors.append("model_fallback_reason must be a string")
+    elif (
+        selected_backend == "chatgpt-web"
+        and selected_model in inventory_index_by_name
+        and inventory_index_by_name[selected_model] > 0
+        and not fallback_reason
+    ):
+        errors.append("a lower-priority ChatGPT model requires a non-empty fallback reason")
     elif fallback_reason and status == "ACTIVE" and selected_backend == "chatgpt-web":
         compatible = any(
             isinstance(item, dict)

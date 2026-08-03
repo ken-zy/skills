@@ -82,6 +82,8 @@ Every finding uses:
 
 Reject or request correction for a `blocking/high` finding without concrete location, claim, and evidence. Reject a verdict whose head or package digest differs from the immutable package.
 
+After Codex verifies and reconciles the returned findings, persist completion evidence in run state: final `verdict: PASS`, timezone-aware `completed_at`, `findings_reconciled: true`, and `blocking_high_remaining: false`. A conversation record without all four fields remains pending and cannot satisfy the normal/high-risk Reviewer count.
+
 Interpretation:
 
 - `PASS`: no blocking/high finding; retain medium/low findings as advisory.

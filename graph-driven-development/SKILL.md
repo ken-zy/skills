@@ -96,7 +96,7 @@ permissions:
   create_task_branch: allowed
   create_task_worktree: allowed
   checkpoint_commit: allowed_after_scoped_validation
-  push: allowed_after_ready_for_delivery
+  push: allowed_after_ready_for_authorized_next_action
   open_pull_request: allowed_after_push
   merge_pull_request: requires_separate_authorization
   cleanup_after_verified_merge: allowed
@@ -213,7 +213,7 @@ Enter N6 only when:
 
 Report objective, files, tests/artifacts, participant identities and independence, findings, counters, checkpoints, branch/worktree, delivery status, and every unperformed or separately authorized action.
 
-`READY_FOR_DELIVERY` requires that task changes are verified and checkpointed as permitted by the contract.
+`READY_FOR_AUTHORIZED_NEXT_ACTION` requires that task changes are verified, independently reviewed, and checkpointed as permitted by the contract.
 
 ## Publish, wait, and clean up
 
@@ -233,6 +233,6 @@ If merge, cleanliness, ownership, or exact target identity is uncertain, enter `
 
 ## Terminal behavior
 
-Use terminal states `WAITING_HUMAN`, `DELIVERED`, `FAILED`, or `CANCELLED`. Lifecycle gates such as `READY_FOR_DELIVERY`, `PR_CHECKS_PASSED`, `WAITING_FOR_MERGE`, and `MERGED` are non-terminal.
+Use terminal statuses `WAITING_HUMAN`, `DELIVERED`, `FAILED`, or `CANCELLED`. Lifecycle states such as `READY_FOR_AUTHORIZED_NEXT_ACTION`, `PR_CI`, `WAITING_FOR_MERGE`, and `MERGED` are non-terminal. Use only the canonical state vocabulary in [references/state-and-transitions.md](references/state-and-transitions.md); aliases are invalid.
 
 Do not promise automatic recovery. Reconstruct from the recorded worktree, branch, head, test/artifact evidence, package digest, counters, PR checks, and saved web conversation URLs/IDs.

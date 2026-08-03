@@ -1,6 +1,6 @@
 # Graph-Driven Development v1.1 Implementation Plan
 
-Status: PR review rework implemented; Package 2 verification pending
+Status: Package 2 findings accepted; final bounded rework in progress
 Date: 2026-08-03
 Spec: `docs/specs/2026-08-03-graph-driven-development-v1-1.md`
 
@@ -202,10 +202,52 @@ Actions:
 5. Send identical Package 2 materials to a fresh read-only ChatGPT Pro Web conversation with Extra High.
 6. Verify the returned head/digest and every finding. Push the changed PR head only after a valid `PASS` and then wait for required PR CI.
 
-Status: In progress.
+Status: Completed; Package 2 returned four accepted High findings and one advisory Medium finding.
 
 Current local evidence:
 
-- 45 unit tests pass across review-package and run-state suites, including rejection of request self-hashes.
+- Package 2 independently reproduced all attachment hashes and ran the then-current 45 unit tests successfully.
 - `git diff --check` and reference existence checks pass.
 - The standard `quick_validate.py` cannot import `yaml` in either available Python runtime (`ModuleNotFoundError: No module named 'yaml'`); no dependency was installed. An equivalent read-only structural check against the validator's exact rules passes.
+
+## Task 10: Apply the final bounded Package 2 rework
+
+Files:
+
+- Modify `graph-driven-development/scripts/validate_review_diff.py`
+- Modify `graph-driven-development/scripts/test_review_package.py`
+- Modify `graph-driven-development/scripts/validate_run_state.py`
+- Modify `graph-driven-development/scripts/test_validate_run_state.py`
+- Synchronize `graph-driven-development/SKILL.md`, relevant references, this plan, and the spec
+
+Actions:
+
+1. Derive changed paths from raw base/head tree records and independently parse paths from the supplied patch.
+2. Override submodule ignore behavior and inspect regular-file blobs directly so hostile Git configuration or attributes cannot hide changed paths or binary data.
+3. Enforce the exact canonical lifecycle state vocabulary and reject success-like aliases.
+4. Enforce fixed relative priority for known ChatGPT models; make unknown model priority an explicit `WAITING_HUMAN` ambiguity.
+5. Count only final reconciled `PASS` Reviewer records toward normal/high-risk completion.
+6. Require persisted mandatory-pause evidence and temporal ordering before an extension becomes valid.
+
+Verification:
+
+- Run hostile `.gitattributes` and `diff.ignoreSubmodules=all` diff tests.
+- Run lifecycle-alias, reversed/unknown-model, Reviewer-placeholder, and extension-timeline state tests.
+- Run both complete unit-test modules plus final structural, diff, and reference checks.
+
+Status: Implementation complete; checkpoint and Package 3 verification pending.
+
+This consumes `implementation_rework_used: 2`. No further implementation rework is allowed for this task.
+
+## Task 11: Build Package 3 and obtain the final verdict
+
+Actions:
+
+1. Commit the final bounded rework only after scoped and full local validation.
+2. Generate and mechanically validate Package 3 for the exact final head.
+3. Upload exactly the three immutable files to a fresh ChatGPT Pro Web conversation using `Extra High`.
+4. Independently verify the returned head, digest, verdict, and findings.
+5. If no accepted blocking/high finding remains, push the branch and wait for required PR checks on the exact remote head.
+6. If Package 3 has an accepted blocking/high finding, stop in `WAITING_HUMAN` or `FAILED`; do not create Package 4 or rework 3.
+
+Status: Pending.

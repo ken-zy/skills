@@ -48,6 +48,7 @@ Store state in the task plan or an optional atomically replaced `run.json`:
   "rework_trigger": null,
   "chatgpt_model_inventory": [],
   "model_inventory_observed_at": null,
+  "model_inventory_ambiguity": "",
   "selected_backend": null,
   "selected_cognitive_model": null,
   "required_reasoning_level": "Extra High",
@@ -67,7 +68,16 @@ Store state in the task plan or an optional atomically replaced `run.json`:
 }
 ```
 
-Additional evidence fields are allowed. Do not rename or reinterpret the fields above. `selected_backend` and any non-null `required_backend` use only `chatgpt-web` or `grok-web`; record ChatGPT account plan separately. A non-null selected model requires a selected allowed backend. Each `chatgpt_model_inventory` entry records its consecutive zero-based `preference_rank` in policy order.
+Additional evidence fields are allowed. Do not rename or reinterpret the fields above. `selected_backend` and any non-null `required_backend` use only `chatgpt-web` or `grok-web`; record ChatGPT account plan separately. A non-null selected model requires a selected allowed backend. Each `chatgpt_model_inventory` entry records its consecutive zero-based `preference_rank` in the fixed known-model policy order and an availability of `available`, `quota_exhausted`, `unavailable`, or `reasoning_unsupported`. Selecting a lower-ranked entry requires a non-empty fallback reason. An unknown visible model has no inferred rank: record it, set a non-empty `model_inventory_ambiguity`, leave it unselected, and enter `WAITING_HUMAN` until the policy is explicitly updated.
+
+Use only this canonical state vocabulary; arbitrary states and aliases are invalid:
+
+```text
+PREFLIGHT, SPEC_READY, PLAN_READY, IMPLEMENTING, VERIFYING,
+REVIEW_CANDIDATE, REVIEWING, REWORKING,
+READY_FOR_AUTHORIZED_NEXT_ACTION, PR_CI, WAITING_FOR_MERGE,
+MERGED, CLEANED_UP, WAITING_HUMAN, DELIVERED, FAILED, CANCELLED
+```
 
 ## Clocks
 
@@ -78,7 +88,7 @@ Normal tasks have a 3,600-second active-work ceiling. High-risk tasks have a 10,
 - Record wall-clock pause start/end and reason so excluded time is auditable.
 - Derive one absolute `mandatory_pause_at` from the active-time ledger for reporting.
 - Reaching the original ceiling always transitions to `WAITING_HUMAN` before any extension can take effect. It never resets counters or creates a fresh run automatically.
-- A later extension requires a new explicit user authorization after that pause. Record `authorized_by`, `authorization_ref`, `authorized_at_active_seconds`, `new_active_limit_seconds`, and a timezone-aware absolute `new_deadline`.
+- A later extension requires a new explicit user authorization after that pause. Persist `pause_evidence` with `status: WAITING_HUMAN`, `reason: mandatory_active_limit`, the exact original-limit `active_seconds`, and timezone-aware `paused_at`. Also record `authorized_by`, `authorization_ref`, the same `authorized_at_active_seconds`, timezone-aware `authorized_at`, a larger `new_active_limit_seconds`, and a timezone-aware `new_deadline` later than authorization.
 - The new active limit must exceed both the original class ceiling and `authorized_at_active_seconds`. Reaching it forces another `WAITING_HUMAN` pause; extensions never lower reasoning, reset counters, or erase the initial pause evidence.
 
 Every scheduled status report includes current node, active time used, exact head, changed-file count, review round, used/remaining rework budget, largest risk/blocker, and whether task splitting is recommended.
@@ -135,12 +145,13 @@ A checkpoint commit records a verified implementation unit. It is not a review c
 
 Before entering `READY_FOR_AUTHORIZED_NEXT_ACTION`, `PR_CI`, `WAITING_FOR_MERGE`, `MERGED`, `CLEANED_UP`, or `DELIVERED`:
 
-- normal tasks have at least one valid Reviewer;
-- high-risk tasks have at least two valid Reviewers;
+- normal tasks have at least one completed valid Reviewer;
+- high-risk tasks have at least two completed valid Reviewers;
 - conversation IDs are non-empty and distinct;
 - no Reviewer conversation appears in `implementation_author_conversation_ids`;
 - every Reviewer records `role: reviewer`, `read_only: true`, `authored_candidate: false`, and `selected_reasoning_level: Extra High`;
 - every Reviewer head and package digest match the current frozen candidate.
+- every completed Reviewer records final `verdict: PASS`, timezone-aware `completed_at`, `findings_reconciled: true`, and `blocking_high_remaining: false`; a placeholder, pending verdict, or unreconciled finding does not count.
 
 Historical reviewers for an older head belong in separate history evidence, not the current `reviewers` list.
 
