@@ -134,15 +134,23 @@ def _blob_is_binary(repo: Path, mode: bytes, object_id: bytes) -> bool:
     return False
 
 
-def _binary_paths(
+def _binary_evidence(
     repo: Path, records: list[tuple[bytes, bytes, bytes, bytes, bytes]]
-) -> list[bytes]:
-    binaries: list[bytes] = []
+) -> list[dict[str, str]]:
+    binaries: list[dict[str, str]] = []
     for old_mode, new_mode, old_object, new_object, path in records:
         if _blob_is_binary(repo, old_mode, old_object) or _blob_is_binary(
             repo, new_mode, new_object
         ):
-            binaries.append(path)
+            binaries.append(
+                {
+                    "path": path.decode("utf-8", "surrogateescape"),
+                    "old_mode": old_mode.decode("ascii"),
+                    "new_mode": new_mode.decode("ascii"),
+                    "old_object": old_object.decode("ascii"),
+                    "new_object": new_object.decode("ascii"),
+                }
+            )
     return binaries
 
 
@@ -175,16 +183,9 @@ def validate_diff(
         for record in records
         if record[0] == b"120000" or record[1] == b"120000"
     ]
-    binaries = _binary_paths(repo, records)
-    if binaries:
-        raise ValueError(
-            "binary changed paths block a safe complete review package: "
-            + ", ".join(_display(binaries))
-        )
+    binary_evidence = _binary_evidence(repo, records)
 
     generated = expected_diff(repo, base, head)
-    if b"\nGIT binary patch\n" in generated or b"\nBinary files " in generated:
-        raise ValueError("generated diff contains a non-textual patch marker")
     if supplied_diff != generated:
         raise ValueError(
             "full.diff bytes do not equal the deterministic complete Git diff "
@@ -205,7 +206,8 @@ def validate_diff(
         "diff_sha256": hashlib.sha256(supplied_diff).hexdigest(),
         "changed_paths": paths,
         "diff_paths": _display(diff_paths_raw),
-        "binary_paths": [],
+        "binary_paths": [item["path"] for item in binary_evidence],
+        "binary_evidence": binary_evidence,
         "symlink_paths": _display(symlinks),
         "complete": True,
     }

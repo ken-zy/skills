@@ -1,54 +1,21 @@
 # Review and Arbitration Contract
 
-Read this before interpreting a verdict.
+Read this before preparing a review request or interpreting a verdict.
 
-## Reviewer input manifest
+## Reviewer input
 
-Put the request in `review-request.yaml`; upload it with `full.diff` and `review-context.txt`:
+Upload the identical `review-request.json`, `full.diff`, and `review-context.txt` to every current Reviewer. Send the external Package v2 ID in the Browser message, together with:
 
-```yaml
-review_request:
-  review_id: "uuid"
-  package_sequence: 1
-  package_digest_algorithm: "graph-review-package-v1"
-  package_digest: "sha256:<64 lowercase hex>"
-  full_diff_sha256: "<64 lowercase hex>"
-  review_context_sha256: "<64 lowercase hex>"
-  backend: "chatgpt-web"
-  account_plan: "Pro"
-  model: "visible model name"
-  required_reasoning_level: "Extra High"
-  selected_reasoning_level: "Extra High"
-  exact_backend_required: false
-  exact_model_required: false
-  exact_reasoning_level_required: true
-  role: "reviewer"
-  risk_level: "normal"
-  objective: ""
-  in_scope: []
-  out_of_scope: []
-  acceptance_criteria: []
-  implementation_authors: []
-  base_commit: ""
-  head_commit: ""
-  test_evidence: []
-  artifact_evidence: []
-  risk_focus: []
-  prohibited_actions:
-    - "modify repository"
-    - "run side-effecting commands"
-    - "commit"
-    - "push"
-    - "deploy"
-```
+- backend, visible model, exact UI selection, separately exposed reasoning setting or `null`, and Browser evidence reference;
+- Reviewer role and read-only/non-authoring constraints;
+- exact reviewed head and Package ID;
+- instruction to assess only the frozen scope, acceptance criteria, complete diff, risks, and evidence.
 
-Both Reviewers must receive identical attachment digests and head SHA. The algorithm, sequence, digest, head, diff hash, and context hash are unique direct `review_request` fields and must match the supplied package inputs before upload. Their reserved field names may not be reused by nested schemas or output examples; use distinct labels such as `returned_package_digest` for Reviewer output. Record the actual and canonical `review-request.yaml` hashes outside the request, backend, account plan when visible, model, selected reasoning level, fallback reason, fresh conversation URL/ID, start/completion time, and read-only confirmation. Neither request hash may appear anywhere inside the file it hashes. Reject a review whose conversation appears in `implementation_authors`.
-
-Do not include the Writer's conclusions, expected verdict, suspected defects, desired fixes, or the other Reviewer's verdict.
+Do not include the Writer's desired verdict, suspected defect list, proposed fixes, or another Reviewer's conclusion. Reject a review conversation that appears in the implementation-author IDs.
 
 ## Reviewer output
 
-Require exactly one top-level verdict:
+Require one top-level verdict:
 
 ```text
 PASS
@@ -57,39 +24,45 @@ NEEDS_EVIDENCE
 BACKEND_FAILED
 ```
 
-Require:
+Require this shape:
 
-```yaml
-verdict: "PASS"
-reviewed_head: "sha"
-returned_package_digest: "sha256"
-summary: ""
-findings: []
-evidence_request: []
+```json
+{
+  "verdict": "PASS",
+  "reviewed_head": "<exact head>",
+  "returned_package_id": "sha256:<64 lowercase hex>",
+  "summary": "",
+  "findings": [],
+  "evidence_request": []
+}
 ```
 
-Every finding uses:
+Each finding uses:
 
-```yaml
-- finding_id: "stable-id"
-  severity: "blocking"  # blocking | high | medium | low
-  attribution: "implementation"  # implementation | plan | contract
-  location: "path:line"
-  claim: ""
-  evidence: ""
-  recommended_direction: ""
+```json
+{
+  "finding_id": "stable-id",
+  "severity": "high",
+  "attribution": "implementation",
+  "location": "path:line or exact artifact location",
+  "claim": "",
+  "evidence": "",
+  "recommended_direction": ""
+}
 ```
 
-Reject or request correction for a `blocking/high` finding without concrete location, claim, and evidence. Reject a verdict whose head or returned package digest differs from the immutable package.
+Allowed severities are `blocking`, `high`, `medium`, and `low`. Attribution is `implementation`, `plan`, or `contract`. A blocking/high finding needs a concrete location, claim, and evidence.
 
-After Codex verifies and reconciles the returned findings, persist completion evidence in run state: final `verdict: PASS`, timezone-aware `completed_at`, `findings_reconciled: true`, and `blocking_high_remaining: false`. Every current Reviewer record must contain all four values before completion; one pending/non-PASS or unresolved record blocks completion even when enough other PASS records exist. Move historical or superseded attempts to separate evidence rather than leaving them in the current Reviewer list.
+Reject a verdict whose head or returned Package ID differs from the immutable candidate.
 
 Interpretation:
 
-- `PASS`: no blocking/high finding; retain medium/low findings as advisory.
-- `CHANGES_REQUESTED`: verify every finding.
-- `NEEDS_EVIDENCE`: allow one bounded supplement without changing candidate inputs, then require a final verdict.
-- `BACKEND_FAILED`: record the failure and follow the browser/backend contract; do not substitute a new platform.
+- `PASS`: no blocking/high finding; retain medium/low items as advisory.
+- `CHANGES_REQUESTED`: Codex verifies every finding.
+- `NEEDS_EVIDENCE`: allow one bounded supplement that does not change candidate inputs, then require a final verdict.
+- `BACKEND_FAILED`: preserve the failure and follow Browser fallback policy; never substitute another platform.
+
+After reconciliation, the current Reviewer state records final `PASS`, `findings_reconciled: true`, and `blocking_high_remaining: false`. Preserve completion time as evidence even though the schema validator does not try to prove wall-clock truth.
 
 ## Finding verification
 
@@ -97,7 +70,7 @@ For every finding:
 
 1. verify the location against the reviewed snapshot;
 2. verify the claim against code, tests, artifacts, and frozen contract;
-3. classify as `accepted`, `advisory`, or `disputed`;
+3. classify it as `accepted`, `advisory`, or `disputed`;
 4. route accepted findings by severity and attribution;
 5. arbitrate disputed blocking/high findings.
 
@@ -111,41 +84,24 @@ Never downgrade an unverified blocking/high finding merely to unblock delivery.
 
 ## Arbitration
 
-Use a fresh read-only conversation distinct from the Writer, original Reviewer, and relevant implementation author. Preserve the two-tab cap and approved backend allowlist.
+Use a fresh read-only conversation distinct from Codex's Writer role, the original Reviewer, and any implementation-authoring conversation. Send the finding, frozen contract, reviewed head, Package ID, Reviewer evidence, and neutral counter-evidence. Do not authorize repository writes or new scope.
 
-Send neutrally:
+Require one of:
 
-```yaml
-arbitration_request:
-  finding: {}
-  frozen_contract: {}
-  reviewed_head: "sha"
-  package_digest: "sha256"
-  reviewer_evidence: ""
-  writer_counter_evidence: ""
-  implementation_authors: []
-  prohibited_actions:
-    - "modify repository"
-    - "introduce new scope"
-    - "redesign unrelated code"
+```text
+SUPPORT_FINDING
+OVERRULE_FINDING
+NEEDS_EVIDENCE
+BACKEND_FAILED
 ```
 
-Require:
-
-```yaml
-verdict: "SUPPORT_FINDING"  # SUPPORT_FINDING | OVERRULE_FINDING | NEEDS_EVIDENCE | BACKEND_FAILED
-finding_id: "stable-id"
-reasoning: ""
-decisive_evidence: ""
-```
-
-- `SUPPORT_FINDING`: return to implementation, planning, or `WAITING_HUMAN` according to attribution.
+- `SUPPORT_FINDING`: route by attribution to implementation, planning, or `WAITING_HUMAN`.
 - `OVERRULE_FINDING`: preserve both sides and classify `overruled_by_arbiter`.
 - `NEEDS_EVIDENCE`: allow one bounded supplement.
-- `BACKEND_FAILED`: preserve evidence and enter `WAITING_HUMAN` if no independent approved session remains.
+- `BACKEND_FAILED`: preserve evidence and pause if no independent approved session remains.
 
 ## Scope discipline
 
-Review only the frozen objective, acceptance criteria, complete diff, failure risks, and evidence. Do not block delivery by requesting a generic workflow engine, event sourcing, crash recovery framework, lock manager, generic source packager, or unrelated redesign.
+Review only the frozen objective, acceptance criteria, complete diff, risk evidence, and test/artifact evidence. Do not block delivery by requesting a generic workflow engine, event-sourcing system, recovery framework, lock manager, source packager, or unrelated redesign.
 
-Report a scope omission only when the frozen acceptance criteria cannot be satisfied safely without it. A material omission goes through the scope-expansion gate rather than being silently added during rework.
+Report a scope omission only when the frozen acceptance criteria cannot be satisfied safely without it. Material omissions use the scope-expansion gate instead of being silently added during rework.

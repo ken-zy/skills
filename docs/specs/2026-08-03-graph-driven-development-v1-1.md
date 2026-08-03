@@ -1,6 +1,6 @@
 # Graph-Driven Development v1.1 Optimization Spec
 
-Status: Package 3 stopped the Graph run; separately authorized ordinary follow-up repair completed locally
+Status: Merged; Package 3 stopped the Graph run and the separately authorized ordinary follow-up repair was committed, pushed, reviewed, and merged
 Date: 2026-08-03
 Owner: Codex
 Target: `graph-driven-development/`
@@ -279,4 +279,4 @@ Package 3 at head `e4d18207818cd544823a23280a98fe27e20de9e1` returned three acce
 - require every current Reviewer record to be a final reconciled PASS at completion;
 - require extension authorization time to be strictly later than the recorded pause.
 
-The ordinary repair is complete locally. It remains uncommitted and unpushed pending separate user authorization.
+The ordinary repair was completed outside Graph as authorized, committed as `2599908`, pushed, reviewed through its PR, and merged. This section remains historical evidence for why v1.2 simplifies the protocol.

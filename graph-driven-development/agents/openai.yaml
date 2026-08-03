@@ -1,4 +1,4 @@
 interface:
   display_name: "Graph-Driven Development"
-  short_description: "用网页模型、硬性预算与独立审查驱动隔离式开发"
-  default_prompt: "Use $graph-driven-development in a fresh task worktree with Codex as the only writer, preferred ChatGPT Pro/Grok Web reviewers plus same-site ChatGPT fallback at fixed Extra High, hard review/rework limits, and repository-derived gates."
+  short_description: "为高风险或明确 Graph 开发提供隔离、验证与独立审查"
+  default_prompt: "Use $graph-driven-development only for an explicitly requested Graph development task, risky implementation, or multi-stage external implementation plus independent review. Work in a fresh task worktree with Codex as the only writer, proportional normal/high-risk gates, repository-derived verification, and approved live-observed ChatGPT Web/Grok Web profiles with same-site ChatGPT fallback. Do not trigger merely because a model is named or for a one-shot review, explanation, diagnosis, or small isolated edit."

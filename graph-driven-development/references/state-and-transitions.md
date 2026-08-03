@@ -1,76 +1,71 @@
 # State and Transition Contract
 
-This file is normative. Read it before creating or resuming a run.
+This file is normative for new v1.2 runs. Historical v1.1 evidence is not migrated automatically.
 
-## Contents
+## Proportional persistence
 
-- Saved state
-- Clocks
-- Counters
-- Head, package, and diff invariants
-- Reviewer completion invariants
-- Allowed transitions
-- Required transition examples
-- Read-only validation
+- Normal Graph task: record the required state in the task plan or handoff; a standalone `run.json` is optional.
+- High-risk Graph task: persist the minimal snapshot before review and again before delivery.
 
-## Saved state
+Additional evidence fields are allowed, but the validator deliberately ignores facts it cannot prove from one JSON snapshot.
 
-Store state in the task plan or an optional atomically replaced `run.json`:
+## Schema v3
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "status": "ACTIVE",
   "state": "PREFLIGHT",
   "task_class": "normal",
-  "active_seconds": 0,
-  "mandatory_pause_at": null,
-  "extension_authorization": null,
+  "task_worktree": "/absolute/task/worktree",
+  "task_branch": "codex/task-slug",
+  "base_commit": "<exact base sha>",
   "head_sha": null,
   "verified_head_sha": null,
-  "review_package_head_sha": null,
-  "review_package_digest": null,
-  "package_digest_algorithm": null,
-  "review_request_sha256": null,
-  "review_request_canonical_sha256": null,
-  "full_diff_sha256": null,
-  "review_context_sha256": null,
-  "review_diff_verified": false,
-  "review_package_changed_paths": [],
-  "review_package_diff_paths": [],
-  "review_package_binary_paths": [],
-  "review_package_symlink_paths": [],
-  "review_round": 0,
+  "active_seconds": 0,
+  "active_limit_seconds": 3600,
+  "time_extension_authorization_ref": "",
+  "review_package_id": null,
   "review_package_count": 0,
+  "review_package_limit": 3,
   "implementation_rework_used": 0,
-  "plan_rework_used": 0,
+  "implementation_rework_limit": 2,
+  "budget_extension_authorization_ref": "",
   "accepted_blocking_high_pending": false,
-  "rework_trigger": null,
-  "chatgpt_model_inventory": [],
-  "model_inventory_observed_at": null,
-  "model_inventory_ambiguity": "",
-  "selected_backend": null,
-  "selected_cognitive_model": null,
-  "required_reasoning_level": "Extra High",
-  "selected_reasoning_level": "Extra High",
-  "model_fallback_reason": "",
-  "reasoning_level_selection_reason": "fixed_skill_policy",
-  "exact_backend_required": false,
-  "exact_model_required": false,
-  "exact_reasoning_level_required": true,
-  "required_backend": null,
-  "required_model": null,
-  "implementation_author_conversation_ids": [],
-  "reviewers": [],
-  "task_worktree": "",
-  "task_branch": "",
-  "base_commit": ""
+  "reviewers": []
 }
 ```
 
-Additional evidence fields are allowed. Do not rename or reinterpret the fields above. `selected_backend` and any non-null `required_backend` use only `chatgpt-web` or `grok-web`; record ChatGPT account plan separately. A non-null selected model requires a selected allowed backend. Each `chatgpt_model_inventory` entry records its consecutive zero-based `preference_rank` in the fixed known-model policy order and an availability of `available`, `quota_exhausted`, `unavailable`, or `reasoning_unsupported`. Selecting a lower-ranked entry requires a non-empty fallback reason. An unknown visible model has no inferred rank: record it, set a non-empty `model_inventory_ambiguity`, leave it unselected, and enter `WAITING_HUMAN` until the policy is explicitly updated.
+Default active limits are 3,600 seconds for `normal` and 10,800 seconds for `high_risk`. Default package and implementation-rework limits are 3 and 2.
 
-Use only this canonical state vocabulary; arbitrary states and aliases are invalid:
+An authorization may raise a saved limit. Record the new limit and a non-empty `time_extension_authorization_ref` or `budget_extension_authorization_ref`. Keep all counters; do not reset them or create a disguised fresh run. Authorization authenticity remains external evidence, not something JSON can prove.
+
+Reviewer records retain release evidence:
+
+```json
+{
+  "conversation_id": "stable browser conversation id",
+  "backend": "chatgpt-web",
+  "visible_model": "GPT-5.6 Sol Pro",
+  "selection_label": "Pro",
+  "reasoning_setting": null,
+  "selection_evidence_ref": "browser observation or screenshot reference",
+  "read_only": true,
+  "authored_candidate": false,
+  "head_sha": "<reviewed head>",
+  "package_id": "sha256:<64 lowercase hex>",
+  "verdict": "PASS",
+  "completed_at": "timezone-aware timestamp",
+  "findings_reconciled": true,
+  "blocking_high_remaining": false
+}
+```
+
+For ChatGPT `Extra High`, record `selection_label: "Extra High"` and `reasoning_setting: "Extra High"`. For Grok `Expert`, record the current visible Grok model, `selection_label: "Expert"`, and `reasoning_setting: null`. Exact model versions may advance without a schema change.
+
+If external conversations helped author the implementation, record their IDs in the optional `implementation_author_conversation_ids` evidence field. A current Reviewer ID must not appear there.
+
+## Canonical states and statuses
 
 ```text
 PREFLIGHT, SPEC_READY, PLAN_READY, IMPLEMENTING, VERIFYING,
@@ -79,90 +74,41 @@ READY_FOR_AUTHORIZED_NEXT_ACTION, PR_CI, WAITING_FOR_MERGE,
 MERGED, CLEANED_UP, WAITING_HUMAN, DELIVERED, FAILED, CANCELLED
 ```
 
-If `state` itself is terminal, its `status` must match exactly. `DELIVERED`, `FAILED`, and `CANCELLED` statuses also require the matching terminal state. `status: WAITING_HUMAN` may preserve the non-terminal node where work paused, but `state: WAITING_HUMAN` cannot claim another status.
+Statuses are `ACTIVE`, `WAITING_HUMAN`, `DELIVERED`, `FAILED`, or `CANCELLED`. A terminal status and terminal state must match exactly.
 
-## Clocks
+## Time and counters
 
-Normal tasks have a 3,600-second active-work ceiling. High-risk tasks have a 10,800-second ceiling.
+Increment `active_seconds` only during active task work. Exclude recorded human waits, required CI/merge queues, and unavailable required web sessions.
 
-- Increment `active_seconds` only while actively planning, implementing, verifying, packaging, reviewing, or reconciling.
-- Do not increment it during `WAITING_HUMAN`, required CI/merge queues, or an unavailable required web session.
-- Record wall-clock pause start/end and reason so excluded time is auditable.
-- Derive one absolute `mandatory_pause_at` from the active-time ledger for reporting.
-- Reaching the original ceiling always transitions to `WAITING_HUMAN` before any extension can take effect. It never resets counters or creates a fresh run automatically.
-- A later extension requires a new explicit user authorization strictly after that pause. Persist `pause_evidence` with `status: WAITING_HUMAN`, `reason: mandatory_active_limit`, the exact original-limit `active_seconds`, and timezone-aware `paused_at`. Also record `authorized_by`, `authorization_ref`, the same `authorized_at_active_seconds`, a strictly later timezone-aware `authorized_at`, a larger `new_active_limit_seconds`, and a timezone-aware `new_deadline` later than authorization.
-- The new active limit must exceed both the original class ceiling and `authorized_at_active_seconds`. Reaching it forces another `WAITING_HUMAN` pause; extensions never lower reasoning, reset counters, or erase the initial pause evidence.
+Reaching `active_limit_seconds` while active forces `WAITING_HUMAN`. The user may explicitly raise the limit; no strict timestamp choreography is required.
 
-Every scheduled status report includes current node, active time used, exact head, changed-file count, review round, used/remaining rework budget, largest risk/blocker, and whether task splitting is recommended.
+Increment `review_package_count` only for new package contents bound to a newly verified candidate. Sending one package to another Reviewer, retrying the same upload, reopening a conversation, or providing a bounded evidence supplement does not increment it.
 
-## Counters
+Increment `implementation_rework_used` once for each accepted batch of implementation `blocking/high` findings. Required PR-CI repairs caused by the implementation use the same counter. Medium/low advice does not.
 
-`review_package_count` is task-wide and cannot exceed 3. Increment it only when a newly verified head produces a new immutable package.
+The saved package/rework limits are pause thresholds, not permanent correctness ceilings. If a pending accepted blocking/high finding exhausts either saved limit, enter `WAITING_HUMAN`. Continue only after a raised limit is explicitly authorized and saved.
 
-Do not increment for:
+## Completion invariants
 
-- reconnecting to a saved conversation;
-- opening the same conversation URL again;
-- retrying an upload;
-- re-uploading the same digest;
-- sending the same package to the second Reviewer;
-- supplying the one allowed bounded evidence supplement without changing head.
+Before `READY_FOR_AUTHORIZED_NEXT_ACTION`, `PR_CI`, `WAITING_FOR_MERGE`, `MERGED`, `CLEANED_UP`, or `DELIVERED`:
 
-`implementation_rework_used` is task-wide and cannot exceed 2. Before returning from N5 to N2 for a batch of accepted blocking/high implementation findings, persist one increment and set `rework_trigger: accepted_blocking_high`. Medium/low findings are advisory and never trigger this transition. Batch all accepted findings from one round into one rework.
+- `head_sha` and `verified_head_sha` are identical and non-empty;
+- `review_package_id` is the current `sha256:` Package v2 ID;
+- normal tasks have at least one independent Reviewer; high-risk tasks have at least two;
+- current Reviewer conversation IDs are distinct and did not author the candidate;
+- each Reviewer used `chatgpt-web` or `grok-web`, recorded a non-empty visible model, exact UI selection, Browser evidence, backend-appropriate reasoning setting, read-only mode, and the current head/package;
+- every current Reviewer has final `PASS`, reconciled findings, and no blocking/high finding remaining;
+- `accepted_blocking_high_pending` is false.
 
-An implementation-caused required PR-CI failure is blocking implementation evidence and follows the same persist-before-N2 rule. Ordinary targeted-test repair inside an unfrozen N2 candidate does not consume a review rework or create a review round; it remains bounded by the active-time clock.
+Historical or superseded review attempts belong in separate evidence, not the current `reviewers` list.
 
-`plan_rework_used` cannot exceed 1. A material contract expansion is not hidden inside this counter; return to N0/N1 and obtain user confirmation when required.
+Any repository-content change after verification invalidates `verified_head_sha`, the current package ID, and all current Reviewer bindings until tests/artifacts pass again and a new package is generated.
 
-At package 3 or rework 2, the current review may finish. If Package 3 still has an accepted blocking/high finding, enter `FAILED` or the applicable `WAITING_HUMAN` immediately; Package 4 and rework 3 are forbidden.
-
-`review_round` identifies the candidate review cycle and normally equals `review_package_count`. Model fallback, backend retry, upload retry, and browser reconnection do not change either value.
-
-## Head, package, and diff invariants
-
-A review candidate and every later review-complete/delivery state require all of the following:
-
-```text
-head_sha == verified_head_sha == review_package_head_sha
-review_package_digest is non-empty
-package_digest_algorithm == graph-review-package-v1
-the package request directly declares the same algorithm, sequence, head, diff hash, and context hash
-the package digest recomputes from that validated direct request and the exact supplied inputs
-review_package_changed_paths == review_package_diff_paths
-review_package_binary_paths is empty
-review_package_symlink_paths is a subset of the included diff paths
-all reviewers for that head use review_package_digest
-```
-
-Use `scripts/validate_review_diff.py` to prove exact diff-byte equality against the frozen base/head and to collect path evidence. Symlink target/mode changes are reviewable Git text and remain included. A binary changed path prevents creation of a safe complete package and routes to `WAITING_HUMAN` or a coherent task split.
-
-Use `scripts/compute_review_package_digest.py` for the versioned canonical digest. Security fields must each appear exactly once directly under `review_request`; nested, block-scalar, duplicate, misplaced, or stale declarations fail closed. Store the final request file SHA separately from the canonical request SHA so the manifest does not depend on its own output.
-
-Any repository content change after verification invalidates `verified_head_sha`, `review_package_head_sha`, and `review_package_digest` until tests/artifacts pass again and a new package is generated.
-
-A checkpoint commit records a verified implementation unit. It is not a review candidate until all frozen candidate-level gates pass and the package exists.
-
-## Reviewer completion invariants
-
-`REVIEW_CANDIDATE` may legitimately have no completed verdict yet. Every reviewer record that exists must still be fresh, read-only, non-authoring, use an allowed backend, and match the current package head and digest.
-
-Before entering `READY_FOR_AUTHORIZED_NEXT_ACTION`, `PR_CI`, `WAITING_FOR_MERGE`, `MERGED`, `CLEANED_UP`, or `DELIVERED`:
-
-- normal tasks have at least one completed valid Reviewer;
-- high-risk tasks have at least two completed valid Reviewers;
-- conversation IDs are non-empty and distinct;
-- no Reviewer conversation appears in `implementation_author_conversation_ids`;
-- every Reviewer records `role: reviewer`, `read_only: true`, `authored_candidate: false`, and `selected_reasoning_level: Extra High`;
-- every Reviewer head and package digest match the current frozen candidate.
-- every current Reviewer records final `verdict: PASS`, timezone-aware `completed_at`, `findings_reconciled: true`, and `blocking_high_remaining: false`; a placeholder, pending/non-PASS verdict, unreconciled finding, or remaining blocking/high flag prevents completion even when other PASS records meet the numeric minimum.
-
-Historical reviewers for an older head belong in separate history evidence, not the current `reviewers` list.
-
-## Allowed transitions
+## Allowed flow
 
 ```text
 PREFLIGHT → SPEC_READY → PLAN_READY → IMPLEMENTING → VERIFYING
-VERIFYING → IMPLEMENTING              implementation defect and budget remains
+VERIFYING → IMPLEMENTING              implementation defect
 VERIFYING → PLAN_READY                frozen plan correction
 VERIFYING → REVIEW_CANDIDATE          exact head verified and package created
 REVIEW_CANDIDATE → REVIEWING
@@ -171,35 +117,21 @@ REWORKING → VERIFYING                 rework complete
 REVIEWING → READY_FOR_AUTHORIZED_NEXT_ACTION
 READY_FOR_AUTHORIZED_NEXT_ACTION → PR_CI   after authorized push and PR
 PR_CI → REWORKING                     implementation-caused CI failure
-PR_CI → WAITING_FOR_MERGE             all required CI passes on exact head
+PR_CI → WAITING_FOR_MERGE             required checks pass on exact head
 WAITING_FOR_MERGE → MERGED            authoritative merge confirmation
 MERGED → CLEANED_UP                   exact safe cleanup completed
 ```
 
-Any non-applicable document gate may be recorded as satisfied with evidence rather than silently skipped.
+Enter `WAITING_HUMAN` for a mandatory pause, exhausted saved budget with required work remaining, unavailable exact-required backend/profile, insufficient independent conversations, missing or ambiguous selection evidence, unsafe package transfer, material scope expansion, indeterminate required gate, or ambiguous destructive target.
 
-Transition to `WAITING_HUMAN` on a mandatory pause, exhausted counter, an unavailable exact-required backend/model, insufficient independent conversations after permitted fallback, unsupported/unconfirmed `Extra High`, unsafe review package, material contract expansion, indeterminate required gate, or ambiguous destructive target.
-
-Transition to `FAILED` only for a conclusive task failure that cannot be repaired within the frozen contract. Do not use `FAILED` to disguise a missing authorization or unavailable human/backend.
-
-`DELIVERED` and every success lifecycle gate require `accepted_blocking_high_pending: false`. At Package 3 with a pending accepted blocking/high finding, only `WAITING_HUMAN`, `FAILED`, or `CANCELLED` is valid.
-
-## Required transition examples
-
-1. Package 1 returns three accepted high findings: batch them, persist `implementation_rework_used: 1`, fix once, verify once, then create Package 2.
-2. Package 2 returns only medium/low findings: mark them advisory; do not return to N2 and do not increment rework or package counters.
-3. Package 3 returns an accepted blocking/high finding: record it, then enter `FAILED` or the applicable `WAITING_HUMAN`; Package 4 is forbidden.
-4. Browser control disconnects while uploading Package 2: recover the saved conversation and re-upload the same digest; round, package, and rework counters remain unchanged.
-5. Both Grok and ChatGPT Pro are quota-limited: refresh the ChatGPT Web inventory once, choose the highest-capability available model that confirms `Extra High`, and continue in fresh independent conversations. If no such model exists or an unavailable exact backend/model target applies, enter `WAITING_HUMAN`.
-6. A normal run reaches 3,600 active seconds: pause first. A later user message authorizes a 1,800-second extension at that ledger position, so record a new 5,400-second active limit and absolute deadline; reaching 5,400 forces another pause.
-7. A high-risk `REVIEW_CANDIDATE` may have zero completed reviewers while awaiting N4. It cannot advance past review completion until two valid independent reviewer records exist.
+Use `FAILED` only for a conclusive failure that cannot be repaired within the authorized contract. Do not use it to disguise missing authorization.
 
 ## Read-only validation
-
-Run:
 
 ```bash
 python3 scripts/validate_run_state.py path/to/run.json
 ```
 
-The validator checks a saved snapshot. It does not advance state, edit the file, execute Git, open a browser, or authorize any action. Passing it is necessary but not sufficient for delivery.
+The validator checks only schema/state values, saved limits and authorization references, mandatory pauses, completion head/package evidence, Reviewer release evidence, and pending blocking/high findings.
+
+It does not prove browser inventory, model ranking, real CI status, Git ancestry, worktree cleanliness, wall-clock history, or authorization authenticity. Check those against the relevant external source before claiming completion.
