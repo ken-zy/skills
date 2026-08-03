@@ -1,6 +1,6 @@
 # Graph-Driven Development v1.1 Optimization Spec
 
-Status: Package 2 findings accepted; final bounded rework in progress
+Status: Final bounded rework implemented; Package 3 verification in progress
 Date: 2026-08-03
 Owner: Codex
 Target: `graph-driven-development/`

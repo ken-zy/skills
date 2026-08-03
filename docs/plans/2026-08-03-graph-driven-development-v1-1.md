@@ -1,6 +1,6 @@
 # Graph-Driven Development v1.1 Implementation Plan
 
-Status: Package 2 findings accepted; final bounded rework in progress
+Status: Final bounded rework implemented; Package 3 verification in progress
 Date: 2026-08-03
 Spec: `docs/specs/2026-08-03-graph-driven-development-v1-1.md`
 
@@ -235,7 +235,7 @@ Verification:
 - Run lifecycle-alias, reversed/unknown-model, Reviewer-placeholder, and extension-timeline state tests.
 - Run both complete unit-test modules plus final structural, diff, and reference checks.
 
-Status: Implementation complete; checkpoint and Package 3 verification pending.
+Status: Completed in checkpoints `c61bbc2` and `7598192`; 61 unit tests pass.
 
 This consumes `implementation_rework_used: 2`. No further implementation rework is allowed for this task.
 
@@ -250,4 +250,4 @@ Actions:
 5. If no accepted blocking/high finding remains, push the branch and wait for required PR checks on the exact remote head.
 6. If Package 3 has an accepted blocking/high finding, stop in `WAITING_HUMAN` or `FAILED`; do not create Package 4 or rework 3.
 
-Status: Pending.
+Status: In progress.
