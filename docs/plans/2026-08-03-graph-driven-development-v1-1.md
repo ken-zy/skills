@@ -1,12 +1,12 @@
 # Graph-Driven Development v1.1 Implementation Plan
 
-Status: Completed
+Status: PR review rework implemented; Package 2 verification pending
 Date: 2026-08-03
 Spec: `docs/specs/2026-08-03-graph-driven-development-v1-1.md`
 
 ## Delivery boundary
 
-Implement the approved v1.1 workflow locally on branch `codex/optimize-graph-skill-v1-1`. This plan does not authorize commit, push, PR creation, merge, deploy, or cleanup.
+Implement the approved v1.1 workflow on branch `codex/optimize-graph-skill-v1-1`. The original local-only boundary was superseded by later explicit commit, push, and PR authorization; PR #7 already exists. The current rework authorization includes scoped checkpoint commits. A changed branch may be pushed only after the exact new head passes local gates and independent re-review. Merge, deploy, and production actions remain separately unauthorized.
 
 ## Task 1: Establish the durable workflow contract
 
@@ -139,4 +139,73 @@ Actions:
 Exit condition:
 
 - Local implementation is complete and verified as far as the environment permits.
-- No commit, push, PR, merge, or cleanup has occurred.
+- No merge, deploy, production action, or post-merge cleanup has occurred without its separate gate.
+
+## Task 7: Repair the immutable review package contract
+
+Files:
+
+- Modify `graph-driven-development/SKILL.md`
+- Modify `graph-driven-development/references/browser-and-review-package.md`
+- Modify `graph-driven-development/references/review-contract.md`
+- Add `graph-driven-development/scripts/compute_review_package_digest.py`
+- Add `graph-driven-development/scripts/validate_review_diff.py`
+- Add `graph-driven-development/scripts/test_review_package.py`
+
+Actions:
+
+1. Define `graph-review-package-v1` with exact canonical request replacement and manifest bytes.
+2. Record the actual final request SHA outside the self-referential request.
+3. Recompute exact deterministic Git diff bytes and path evidence.
+4. Include symlink target/mode changes and fail package creation on binary changed paths.
+5. Keep the scripts read-only, standard-library-only, and narrower than a generic packager.
+
+Verification:
+
+- Run the fixed digest test vector and mutation cases.
+- Prove an exact text diff passes, a symlink target change remains visible, a binary change fails closed, and a truncated diff fails.
+
+Status: Completed in checkpoint `4308ac9`.
+
+## Task 8: Enforce delivery, backend, pause, and Reviewer invariants
+
+Files:
+
+- Modify `graph-driven-development/references/state-and-transitions.md`
+- Modify `graph-driven-development/scripts/validate_run_state.py`
+- Modify `graph-driven-development/scripts/test_validate_run_state.py`
+
+Actions:
+
+1. Upgrade saved snapshots to schema version 2 and bind package evidence mechanically.
+2. Reject delivery/review completion with unresolved blocking/high findings.
+3. Enforce the backend allowlist independently of exact-match flags.
+4. Enforce consecutive model priority and reject premature fallback.
+5. Make an extension valid only after the original mandatory pause and before its new limit.
+6. Validate every Reviewer identity/head/digest immediately and require risk-class count at review completion.
+
+Verification:
+
+- Run adversarial unit tests for every accepted High and both Medium findings.
+- Preserve a valid waiting `REVIEW_CANDIDATE` with no completed Reviewer.
+
+Status: Completed in checkpoint `80db1e4`.
+
+## Task 9: Rebuild and re-review Package 2
+
+Actions:
+
+1. Run both test modules, the standard skill validator, `git diff --check`, reference checks, policy searches, and final diff inspection.
+2. Commit the synchronized spec/plan evidence.
+3. Generate `full.diff` for the exact base/new-head range and validate it with the new diff tool.
+4. Generate the three Package 2 attachments, run the secret scan, compute/inject/verify the package digest, and record actual attachment hashes.
+5. Send identical Package 2 materials to a fresh read-only ChatGPT Pro Web conversation with Extra High.
+6. Verify the returned head/digest and every finding. Push the changed PR head only after a valid `PASS` and then wait for required PR CI.
+
+Status: In progress.
+
+Current local evidence:
+
+- 44 unit tests pass across review-package and run-state suites.
+- `git diff --check` and reference existence checks pass.
+- The standard `quick_validate.py` cannot import `yaml` in either available Python runtime (`ModuleNotFoundError: No module named 'yaml'`); no dependency was installed. An equivalent read-only structural check against the validator's exact rules passes.

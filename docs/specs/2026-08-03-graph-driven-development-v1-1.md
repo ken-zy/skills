@@ -1,6 +1,6 @@
 # Graph-Driven Development v1.1 Optimization Spec
 
-Status: Implemented locally
+Status: Review rework implemented locally; awaiting independent re-review
 Date: 2026-08-03
 Owner: Codex
 Target: `graph-driven-development/`
@@ -60,9 +60,9 @@ Only active task work counts. Time in `WAITING_HUMAN`, required CI/merge queues,
 - accumulated `active_seconds`;
 - `paused_started_at` and `pause_reason` when paused;
 - one derived `mandatory_pause_at` for the current class;
-- any user-approved extension as a new absolute deadline plus its authorization evidence.
+- any post-pause user-approved extension as a new active-time limit and absolute deadline plus its authorization evidence.
 
-At the mandatory deadline, the next state is `WAITING_HUMAN`; no new implementation or review package may begin. A soft pause means stop starting a new implementation unit, summarize progress and risk, and finish only the smallest safe verification needed to preserve evidence.
+At the original mandatory deadline, the next state is always `WAITING_HUMAN`; no extension may silently bypass that pause. A later explicit authorization records the authorizer, message reference, active ledger position, larger active-time limit, and timezone-aware absolute deadline. Reaching the extended limit forces another pause. A soft pause means stop starting a new implementation unit, summarize progress and risk, and finish only the smallest safe verification needed to preserve evidence.
 
 ## 6. State model
 
@@ -86,12 +86,23 @@ Minimum persisted fields:
 
 ```json
 {
+  "schema_version": 2,
   "task_class": "normal|high_risk",
   "state": "PREFLIGHT",
   "head_sha": null,
   "verified_head_sha": null,
   "review_package_head_sha": null,
   "review_package_digest": null,
+  "package_digest_algorithm": null,
+  "review_request_sha256": null,
+  "review_request_canonical_sha256": null,
+  "full_diff_sha256": null,
+  "review_context_sha256": null,
+  "review_diff_verified": false,
+  "review_package_changed_paths": [],
+  "review_package_diff_paths": [],
+  "review_package_binary_paths": [],
+  "review_package_symlink_paths": [],
   "review_round": 0,
   "review_package_count": 0,
   "implementation_rework_used": 0,
@@ -109,6 +120,7 @@ Minimum persisted fields:
   "exact_reasoning_level_required": true,
   "required_backend": null,
   "required_model": null,
+  "implementation_author_conversation_ids": [],
   "reviewers": []
 }
 ```
@@ -124,6 +136,11 @@ Core invariants:
 7. When a hard cap or mandatory pause is reached, transition to `WAITING_HUMAN`; the workflow must not silently extend itself.
 8. `required_reasoning_level` and `selected_reasoning_level` are exactly `Extra High` for every external cognitive role.
 9. If a selected model cannot expose or confirm `Extra High`, transition to `WAITING_HUMAN`.
+10. `selected_backend` and any non-null `required_backend` are only `chatgpt-web` or `grok-web`; account plan, visible model, and reasoning level are separate fields.
+11. A selected ChatGPT model is the available Extra High-capable inventory entry with the lowest policy rank; an exact flag cannot legalize another platform or premature fallback.
+12. `DELIVERED` and review-complete lifecycle states cannot retain an accepted blocking/high finding. Package 3 with one pending uses only `WAITING_HUMAN`, `FAILED`, or `CANCELLED`.
+13. `REVIEW_CANDIDATE` may await verdicts, but review completion requires one valid Reviewer for normal work and two for high risk. Every recorded Reviewer is fresh, read-only, non-authoring, independent by conversation ID, and bound to the current head/package.
+14. `graph-review-package-v1` recomputes from the exact head, canonical request hash, exact diff hash, and exact context hash. Changed paths and diff paths match exactly; binary paths block package creation; symlink target/mode changes remain in the diff.
 
 ## 7. Implementation and verification lifecycle
 
@@ -164,7 +181,7 @@ When Grok or ChatGPT Pro is quota-limited, refresh the ChatGPT Web inventory and
 
 ## 9. ChatGPT model selection
 
-At cognitive-backend preflight, inspect the models currently visible in ChatGPT Web once and record model/mode, reasoning choices, availability, visible quota/recovery, and observation time. Refresh only when a preferred backend hits quota, the inventory is stale, or fallback is actually needed. The configured capability order is a 2026-08-03 synthetic baseline, not a claim that every account always exposes every model:
+At cognitive-backend preflight, inspect the models currently visible in ChatGPT Web once and record model/mode, consecutive zero-based preference rank, reasoning choices, availability, visible quota/recovery, and observation time. Refresh only when a preferred backend hits quota, the inventory is stale, or fallback is actually needed. The configured capability order is a 2026-08-03 synthetic baseline, not a claim that every account always exposes every model:
 
 1. ChatGPT Pro;
 2. GPT-5.6 Sol;
@@ -192,6 +209,10 @@ Each reviewer receives at most three uploaded files, regardless of how many sour
 
 The three-file limit is an upload-container rule, not a changed-file limit. `full.diff` can contain changes to any number of files. If a complete diff cannot fit the browser/tool limit, do not truncate it; split the task at a coherent boundary or enter `WAITING_HUMAN`.
 
+Generate and validate `full.diff` deterministically with Git binary/full-index output, external diff and text conversion disabled, stable prefixes, and rename detection disabled. Symlink target/mode changes are included. Any binary changed path blocks package creation before transfer rather than being silently omitted.
+
+Use `graph-review-package-v1` to break digest self-reference: canonicalize the unique quoted `package_digest` scalar to 64 ASCII zeroes, hash the canonical request plus exact diff/context bytes, and hash one exact LF-delimited manifest with the head SHA. Record the actual final request-file hash separately as transport evidence. The standard-library reference scripts provide a reproducible test vector and read-only verification.
+
 ## 11. Progressive disclosure layout
 
 `SKILL.md` remains the routing and gate document and should stay under 300 lines, ideally around 220–300. Detailed contracts move to:
@@ -212,5 +233,21 @@ A narrow `scripts/validate_run_state.py` validates a JSON snapshot against criti
 - Normal and high-risk mandatory pauses are exactly 1 hour and 3 hours of active work.
 - The task-wide caps are exactly three review packages and two implementation reworks.
 - Synthetic states prove rejection of package 4, rework 3, mismatched head/package, wrong reasoning level, and work after mandatory pause.
+- Synthetic states reject delivery with pending High findings, forbidden backends and aliases, premature model fallback, malformed extensions, stale/self-reviewing/duplicate Reviewer records, incomplete paths, binary packages, and non-reproducible digests.
 - The review contract clearly states that three uploads may represent changes to more than three source files.
 - The final diff contains no unrelated changes and does not include the untracked source prompt from the main checkout.
+
+## 13. PR #7 review rework
+
+The first immutable review package at head `1e351d4e864d56f751d882cef85d0de6fd61d844` returned `CHANGES_REQUESTED`. The verified disposition is:
+
+| Finding | Resolution |
+|---|---|
+| PR7-H1 package digest non-reproducible | Add `graph-review-package-v1`, canonical request hashing, exact manifest bytes, a reference script, and a fixed test vector. |
+| PR7-H2 complete diff omits paths | Include symlink changes, compare exact deterministic Git diff bytes, and fail closed on binary changed paths. |
+| PR7-H3 delivered with pending High | Reject every delivered/review-complete state with pending blocking/high findings and constrain Package 3 terminal status. |
+| PR7-H4 backend fallback bypass | Enforce the canonical backend allowlist and highest-priority available Extra High-capable ChatGPT selection. |
+| PR7-M1 extension unusable | Require the original pause, then validate a separately authorized higher active limit and deadline. |
+| PR7-M2 Reviewer binding incomplete | Validate every reviewer identity/head/digest and enforce risk-class count only at review completion, not while a candidate is merely waiting. |
+
+This is one accepted plan/contract correction and one batched implementation rework. Repository changes invalidate Package 1; the next verified candidate is Package 2 and requires a fresh independent verdict.
