@@ -1,4 +1,4 @@
 interface:
   display_name: "Graph-Driven Development"
-  short_description: "用 ChatGPT Pro 与 Grok 网页版驱动 worktree 开发、审查和 PR 交付"
-  default_prompt: "Use $graph-driven-development with only ChatGPT Pro web and Grok web through the Codex built-in Browser, preflight an isolated task worktree, verify real artifacts and repository-derived tests, coordinate independent review, require pull-request CI, and clean up the worktree after verified merge."
+  short_description: "用网页模型、硬性预算与独立审查驱动隔离式开发"
+  default_prompt: "Use $graph-driven-development in a fresh task worktree with Codex as the only writer, preferred ChatGPT Pro/Grok Web reviewers plus same-site ChatGPT fallback at fixed Extra High, hard review/rework limits, and repository-derived gates."
