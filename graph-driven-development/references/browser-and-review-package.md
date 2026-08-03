@@ -51,6 +51,8 @@ During cognitive-backend preflight, inspect the ChatGPT Web menu once and record
 
 Also record `model_inventory_observed_at`. Do not reopen the menu before every role. Refresh it only when Grok or ChatGPT Pro reports a quota limit, the observation is stale, or an actual fallback is needed. On refresh, list every currently visible model/mode, availability, visible limit or recovery time, and confirmed reasoning choices.
 
+Use only `available`, `quota_exhausted`, `unavailable`, or `reasoning_unsupported` for machine-validated inventory availability. A lower-ranked selected model requires a non-empty `model_fallback_reason` tied to the observed higher-model condition; an ambiguous condition pauses instead of being encoded as a made-up availability value.
+
 For selection:
 
 1. inspect and record all model names currently visible to the signed-in account;
@@ -129,8 +131,13 @@ Generate the exact diff bytes with this deterministic command shape:
 
 ```bash
 git -c core.quotePath=true -c diff.mnemonicPrefix=false -c diff.noprefix=false \
+  -c diff.ignoreSubmodules=none -c diff.orderFile=/dev/null \
+  -c diff.suppressBlankEmpty=false \
   diff --binary --full-index --no-ext-diff --no-textconv --no-color \
-  --no-renames <base>..<head>
+  --no-renames --no-relative --src-prefix=a/ --dst-prefix=b/ --line-prefix= \
+  --diff-algorithm=myers --no-indent-heuristic --unified=3 \
+  --inter-hunk-context=0 --submodule=short --ignore-submodules=none \
+  <base>..<head>
 ```
 
 The diff may contain any number of changed paths. Record its SHA-256. Never use a shortened display, summary-only patch, or silently omitted file. Validate the saved bytes before upload:
@@ -140,7 +147,7 @@ python3 scripts/validate_review_diff.py \
   --repo <repository-root> --base <base> --head <head> --diff-file <full.diff>
 ```
 
-The validator recomputes the exact bytes, compares the changed-path and diff-path sets, and reports symlink paths. Symlink target and mode changes stay in `full.diff`. Any binary changed path fails package creation before upload because a safe textual review package cannot claim completeness while omitting or blindly transferring it. Split at a coherent boundary or enter `WAITING_HUMAN`; do not produce a review package marked complete.
+The validator overrides repository/user submodule-ignore configuration, reads the base/head tree change records independently, parses paths back out of the supplied patch, and requires both path sequences to match exactly. It also inspects every old/new regular-file blob directly, so `.gitattributes`, textconv, or diff-driver settings cannot disguise a binary blob as reviewable text. Symlink and gitlink target/mode changes stay in `full.diff`. Any binary changed path fails package creation before upload because a safe textual review package cannot claim completeness while omitting or blindly transferring it. Split at a coherent boundary or enter `WAITING_HUMAN`; do not produce a review package marked complete.
 
 If the complete diff cannot be uploaded within the browser/provider limit:
 

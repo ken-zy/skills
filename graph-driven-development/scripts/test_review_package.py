@@ -116,6 +116,10 @@ class ReviewDiffTests(unittest.TestCase):
         self.git("commit", "-q", "-m", message)
         return self.git("rev-parse", "HEAD").decode().strip()
 
+    def commit_index(self, message: str) -> str:
+        self.git("commit", "-q", "-m", message)
+        return self.git("rev-parse", "HEAD").decode().strip()
+
     def test_complete_text_diff_passes(self):
         (self.repo / "a.txt").write_text("one\n", encoding="utf-8")
         base = self.commit_all("base")
@@ -163,6 +167,40 @@ class ReviewDiffTests(unittest.TestCase):
                 head=head,
                 supplied_diff=full_diff,
             )
+
+    def test_forced_text_attribute_cannot_hide_binary_blob(self):
+        (self.repo / ".gitattributes").write_text("*.bin diff\n", encoding="utf-8")
+        (self.repo / "asset.bin").write_bytes(b"\x00one")
+        base = self.commit_all("base")
+        (self.repo / "asset.bin").write_bytes(b"\x00two")
+        head = self.commit_all("head")
+        full_diff = DIFF.expected_diff(self.repo, base, head)
+        self.assertIn(b"\x00", full_diff)
+        with self.assertRaisesRegex(ValueError, "binary changed paths block"):
+            DIFF.validate_diff(
+                repo=self.repo,
+                base=base,
+                head=head,
+                supplied_diff=full_diff,
+            )
+
+    def test_ignore_submodules_config_cannot_hide_gitlink_change(self):
+        (self.repo / "seed.txt").write_text("seed\n", encoding="utf-8")
+        seed = self.commit_all("seed")
+        self.git("update-index", "--add", "--cacheinfo", f"160000,{seed},vendor/sub")
+        base = self.commit_index("base gitlink")
+        self.git("update-index", "--cacheinfo", f"160000,{base},vendor/sub")
+        head = self.commit_index("head gitlink")
+        self.git("config", "diff.ignoreSubmodules", "all")
+        full_diff = DIFF.expected_diff(self.repo, base, head)
+        result = DIFF.validate_diff(
+            repo=self.repo,
+            base=base,
+            head=head,
+            supplied_diff=full_diff,
+        )
+        self.assertEqual(["vendor/sub"], result["changed_paths"])
+        self.assertEqual(result["changed_paths"], result["diff_paths"])
 
     def test_truncated_diff_is_rejected(self):
         (self.repo / "a.txt").write_text("one\n", encoding="utf-8")

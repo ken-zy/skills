@@ -20,6 +20,16 @@ DIFF_OPTIONS = [
     "--no-textconv",
     "--no-color",
     "--no-renames",
+    "--no-relative",
+    "--src-prefix=a/",
+    "--dst-prefix=b/",
+    "--line-prefix=",
+    "--diff-algorithm=myers",
+    "--no-indent-heuristic",
+    "--unified=3",
+    "--inter-hunk-context=0",
+    "--submodule=short",
+    "--ignore-submodules=none",
 ]
 GIT_CONFIG = [
     "-c",
@@ -28,13 +38,35 @@ GIT_CONFIG = [
     "diff.mnemonicPrefix=false",
     "-c",
     "diff.noprefix=false",
+    "-c",
+    "diff.ignoreSubmodules=none",
+    "-c",
+    "diff.orderFile=/dev/null",
+    "-c",
+    "diff.suppressBlankEmpty=false",
 ]
+REGULAR_MODES = {b"100644", b"100755"}
 
 
 def _git(repo: Path, *args: str) -> bytes:
     command = ["git", "-C", str(repo), *GIT_CONFIG, *args]
     completed = subprocess.run(
         command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.decode("utf-8", "replace").strip()
+        raise ValueError(f"Git command failed: {' '.join(command)}: {detail}")
+    return completed.stdout
+
+
+def _git_with_input(repo: Path, data: bytes, *args: str) -> bytes:
+    command = ["git", "-C", str(repo), *GIT_CONFIG, *args]
+    completed = subprocess.run(
+        command,
+        input=data,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
@@ -57,11 +89,24 @@ def expected_diff(repo: Path, base: str, head: str) -> bytes:
     return _git(repo, "diff", *DIFF_OPTIONS, f"{base}..{head}")
 
 
-def _raw_path_evidence(repo: Path, base: str, head: str) -> tuple[list[bytes], list[bytes]]:
-    raw = _git(repo, "diff", "--raw", "-z", "--no-renames", f"{base}..{head}")
+def _raw_records(
+    repo: Path, base: str, head: str
+) -> list[tuple[bytes, bytes, bytes, bytes, bytes]]:
+    raw = _git(
+        repo,
+        "diff-tree",
+        "--no-commit-id",
+        "--raw",
+        "-r",
+        "-z",
+        "--no-renames",
+        "--ignore-submodules=none",
+        "--no-abbrev",
+        base,
+        head,
+    )
     parts = raw.split(b"\0")
-    changed: list[bytes] = []
-    symlinks: list[bytes] = []
+    records: list[tuple[bytes, bytes, bytes, bytes, bytes]] = []
     index = 0
     while index < len(parts) and parts[index]:
         header = parts[index]
@@ -71,25 +116,47 @@ def _raw_path_evidence(repo: Path, base: str, head: str) -> tuple[list[bytes], l
         if len(fields) != 5:
             raise ValueError("unexpected git diff --raw header")
         path = parts[index + 1]
-        changed.append(path)
-        if fields[0] == b"120000" or fields[1] == b"120000":
-            symlinks.append(path)
+        records.append((fields[0], fields[1], fields[2], fields[3], path))
         index += 2
-    return changed, symlinks
+    return records
 
 
-def _binary_paths(repo: Path, base: str, head: str) -> list[bytes]:
-    output = _git(repo, "diff", "--numstat", "-z", "--no-renames", f"{base}..{head}")
+def _blob_is_binary(repo: Path, mode: bytes, object_id: bytes) -> bool:
+    if mode not in REGULAR_MODES or set(object_id) == {ord("0")}:
+        return False
+    data = _git(repo, "cat-file", "blob", object_id.decode("ascii"))
+    if b"\0" in data:
+        return True
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        return True
+    return False
+
+
+def _binary_paths(
+    repo: Path, records: list[tuple[bytes, bytes, bytes, bytes, bytes]]
+) -> list[bytes]:
     binaries: list[bytes] = []
+    for old_mode, new_mode, old_object, new_object, path in records:
+        if _blob_is_binary(repo, old_mode, old_object) or _blob_is_binary(
+            repo, new_mode, new_object
+        ):
+            binaries.append(path)
+    return binaries
+
+
+def _patch_paths(repo: Path, patch: bytes) -> list[bytes]:
+    output = _git_with_input(repo, patch, "apply", "--numstat", "-z", "--allow-empty")
+    paths: list[bytes] = []
     for record in output.split(b"\0"):
         if not record:
             continue
         fields = record.split(b"\t", 2)
         if len(fields) != 3:
-            raise ValueError("unexpected git diff --numstat output")
-        if fields[0] == b"-" or fields[1] == b"-":
-            binaries.append(fields[2])
-    return binaries
+            raise ValueError("unexpected git apply --numstat output")
+        paths.append(fields[2])
+    return paths
 
 
 def _display(paths: list[bytes]) -> list[str]:
@@ -101,8 +168,14 @@ def validate_diff(
 ) -> dict[str, Any]:
     _verify_commit(repo, base, "base")
     _verify_commit(repo, head, "head")
-    changed, symlinks = _raw_path_evidence(repo, base, head)
-    binaries = _binary_paths(repo, base, head)
+    records = _raw_records(repo, base, head)
+    changed = [record[4] for record in records]
+    symlinks = [
+        record[4]
+        for record in records
+        if record[0] == b"120000" or record[1] == b"120000"
+    ]
+    binaries = _binary_paths(repo, records)
     if binaries:
         raise ValueError(
             "binary changed paths block a safe complete review package: "
@@ -110,11 +183,19 @@ def validate_diff(
         )
 
     generated = expected_diff(repo, base, head)
+    if b"\nGIT binary patch\n" in generated or b"\nBinary files " in generated:
+        raise ValueError("generated diff contains a non-textual patch marker")
     if supplied_diff != generated:
         raise ValueError(
             "full.diff bytes do not equal the deterministic complete Git diff "
             f"(supplied sha256={hashlib.sha256(supplied_diff).hexdigest()}, "
             f"expected sha256={hashlib.sha256(generated).hexdigest()})"
+        )
+
+    diff_paths_raw = _patch_paths(repo, supplied_diff)
+    if changed != diff_paths_raw:
+        raise ValueError(
+            "changed paths do not exactly equal paths independently parsed from full.diff"
         )
 
     paths = _display(changed)
@@ -123,7 +204,7 @@ def validate_diff(
         "head_sha": head,
         "diff_sha256": hashlib.sha256(supplied_diff).hexdigest(),
         "changed_paths": paths,
-        "diff_paths": list(paths),
+        "diff_paths": _display(diff_paths_raw),
         "binary_paths": [],
         "symlink_paths": _display(symlinks),
         "complete": True,
