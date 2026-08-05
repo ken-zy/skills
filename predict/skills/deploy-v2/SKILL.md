@@ -126,7 +126,9 @@ module mismatch, or incomplete task restoration is `ACTION_REQUIRED`; never retr
 Recovery accepts only the exact attempt ID and derives candidate/previous identity from its evidence. It never
 accepts an arbitrary release or database downgrade. From the second successful new-system release onward, a
 candidate failure may restore the exact previous full release on the migrated database. The first new-system
-cutover has no fabricated legacy baseline and no automatic rollback after effects.
+cutover has no fabricated legacy baseline and no automatic rollback after effects. Its exact-attempt recovery
+may repair only the frozen candidate; it can close out only after that candidate's complete topology is healthy
+and every task/order/position gate passes again. Any gap remains `ACTION_REQUIRED` with the active marker intact.
 
 ## 7. Interpret only the three public outcomes
 
