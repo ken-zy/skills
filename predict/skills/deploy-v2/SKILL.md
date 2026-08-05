@@ -1,108 +1,117 @@
 ---
 name: deploy-v2
-description: Deploy and maintain the predict-v2 repository on its dedicated AWS EC2 host. Use this skill whenever jdy asks how to deploy predict-v2, requests a predict-v2 production or preflight deployment, asks to update the EC2 checkout, configure the server's GitHub read access, verify the deployed version, or restart the predict-v2 control plane. Do not use the legacy deploy skill for predict-v2.
+description: Deploy and maintain the predict-v2 repository on its dedicated AWS EC2 host. Use this skill whenever jdy asks how to deploy predict-v2, requests a predict-v2 production or preflight deployment, asks to configure or accept the stable host bootstrap or GHCR pull identity, verify the deployed release, recover an exact deployment attempt, or restart the predict-v2 runtime topology. Do not use the legacy deploy skill for predict-v2.
 ---
 
-# predict-v2 deployment
+# predict-v2 artifact-first deployment
 
-Deploy `predict-v2` to its dedicated ARM64 EC2 host through the repository's live production runbook. This skill is the intent and safety router; it deliberately does not duplicate executable Git, SSH, or Compose deployment commands. Keeping one command source prevents a stale skill from silently undoing reviewed runbook changes.
+Use this skill only as the intent and safety router. Keep executable Git, SSH, registry, Compose, migration,
+service-switch, recovery, and secret-delivery sequences out of this file. Obtain every production command and
+public outcome definition from the live repository runbook.
 
-## 1. Resolve intent before acting
+## 1. Classify authorization
 
-Classify the request before running remote commands:
+Classify the request as exactly one or more of:
 
-- A question such as “服务器如何部署” asks for an explanation. Read the live documents and explain the process without modifying GitHub or the server.
-- An instruction such as “开始部署” or “执行部署” authorizes only the normal no-money deployment workflow in the live runbook and the operation sheet selected by the ROADMAP.
-- Enabling `worker-host`, setting `V2_WORKER_HOLD=0`, changing to `V2_ENVIRONMENT=production`, or performing a real trade requires separate, explicit approval from jdy. A general deployment instruction is not sufficient.
-- If the requested target, commit, environment, or money boundary is ambiguous, stop and ask jdy to confirm it.
+1. explain the deployment model;
+2. observe merge or release CI;
+3. install, upgrade, or accept the stable host bootstrap;
+4. prepare, rotate, or accept GHCR/runtime material;
+5. run a normal software deployment;
+6. recover one exact interrupted attempt;
+7. activate tasks, fund, sign, transfer, withdraw, or place orders.
 
-Never use `/Users/jdy/Documents/skills/predict/skills/deploy/SKILL.md` for this repository. That skill belongs to the legacy `predict_market` system and a different EC2 host.
+Treat every item as a separate authorization. Never infer bootstrap maintenance, credential work, recovery, or
+trading permission from a deploy request. Require the exact attempt and a separate authorization for recovery.
 
-## 2. Re-open the live sources of truth
+Handle explanation requests without GitHub writes, host connection, or local mutation. Connect to EC2 only for
+an explicitly requested live check or host action that the ROADMAP currently permits.
 
-Locate the checkout. Prefer the current Git root when it is `predict-v2`; otherwise use `/Users/jdy/Code/predict-v2` if it exists.
+## 2. Read live authority
 
-Before every deployment, read these live files rather than relying on commands copied into this skill:
+Read these sources before every action:
 
-1. `AGENTS.md` — repository safety and Git rules.
-2. `docs/design/ROADMAP.md` — current phase, blockers, and permitted next step.
-3. `docs/operations/2026-07-14-single-host-production-compose-runbook.md` — authoritative EC2 and Compose procedure.
-4. `deploy/docker-compose.prod.yml` — actual services, profiles, dependencies, ports, and defaults.
-5. The reviewed operation sheet named by the current ROADMAP step — the exact target-capture, deployment, and acceptance sequence for that operation.
+1. `AGENTS.md` and applicable global policies;
+2. `docs/design/ROADMAP.md` for the only current progress/frontier state;
+3. `docs/operations/2026-07-14-single-host-production-compose-runbook.md` for the only public command,
+   outcome, execution-order, recovery, and acceptance contract;
+4. `CONTEXT.md` and the deployment ADRs referenced by the runbook;
+5. the current authorized Issue or operation sheet named by ROADMAP;
+6. implementation files only as needed to verify the requested action.
 
-The live runbook and reviewed operation sheet are the only executable deployment command sources. Do not reconstruct a deployment sequence from memory or from an older conversation. If the repository files disagree with one another, stop and report the conflict. If they disagree with this skill, the repository documents win; update this skill only after jdy approves the new deployment contract.
+Stop on any disagreement. Never reconstruct a command from memory, an old chat, historical acceptance evidence,
+`deploy/ops.sh`, a Git checkout, or this skill. Never substitute a legacy entrypoint when ROADMAP says the stable
+bootstrap or release pipeline is not implemented or accepted.
 
-## 3. Command-source and release boundary
+## 3. Route the artifact-first flow
 
-- Capture the target dynamically from the reviewed remote branch exactly once per deployment round. Never write a release commit into this skill or a reusable operation sheet.
-- Require a clean local worktree, an immutable full target SHA on `origin/main`, required GitHub checks, and a ROADMAP state that permits the requested action.
-- Require the EC2 checkout to be clean and fast-forwardable to the captured target. A dirty checkout, detached target, non-fast-forward update, or SHA mismatch is a blocker; never reset or overwrite it automatically.
-- The production Compose contract has one Python runtime build owner. Build and service switching are separate phases; all required target images must exist before any running service is recreated.
-- Classify control-plane and frontend independently from their running image tags. Both already at target means zero build; both off target permits the reviewed new-target path; a mixed state is a blocker before checkout or build.
-- A missing target image under a no-build switch is a deployment failure. Never restore a combined build-and-up path as an improvised fallback.
-- The two repository PRs for a deployment-contract change must both be merged before deployment when the live ROADMAP or operation sheet says they are coupled.
+Explain the normal flow at this altitude only:
 
-## 4. Non-negotiable safety boundary
-
-- Connect only through `ssh predict-v2`; the remote checkout is `~/predict-v2`.
-- Never read `.env`, `.env.production`, or secret values.
-- Never run `env`, `printenv`, `set`, `docker inspect`, or `docker exec ... env`.
-- Never print values whose names contain `KEY`, `SECRET`, `TOKEN`, `PRIVATE`, or `PASSWORD`.
-- Runtime secrets remain under `/run/predict-v2/runtime-secrets`; verify only existence, non-empty size, owner, and mode.
-- Never write secrets to the repository, EBS-backed ordinary files, shell history, Compose YAML, or logs.
-- Never run `docker compose down -v`; it deletes the PostgreSQL named volume.
-- Never run `alembic downgrade base` against an existing database. The downgrade round trip is only for a brand-new empty volume when the live runbook explicitly permits it.
-- Never expose PostgreSQL port `5432` on the host.
-- `V2_FRONTEND_BIND_IP` may only be the host's Tailscale IPv4 (unset falls back to loopback, which is fail-safe). Never `0.0.0.0`; port 80 must never bind a public interface, and the AWS security group must not open 80/443 to the internet.
-- Do not enable the `host` profile during the default deployment.
-- Keep `V2_ENVIRONMENT=preflight`. Keep `worker-host` stopped.
-- No real-money canary is allowed until the live ROADMAP/runbook gates are satisfied, including off-host backup and restore validation where required.
-
-- Agents never run the 1Password CLI (`op`), locally or through SSH. If the live runbook requires a 1Password step, stop and instruct jdy to execute that exact step personally in Terminal.app outside tmux. 1Password SSH Agent use through `ssh predict-v2` remains allowed.
-- An EC2 reboot clears `/run`. Confirm `/run` is still tmpfs and only verify the required runtime-secret files by existence, non-empty size, owner, and mode. If a file is missing, stop for the jdy-only live-runbook procedure; do not materialize it yourself.
-- The default no-money deployment must not materialize wallet credentials because `worker-host` remains off.
-
-## 5. Required post-deployment evidence
-
-Use the bounded, non-secret checks from the live runbook and operation sheet. Do not substitute broad log dumps or environment inspection. A successful no-money deployment must prove:
-
-- remote checkout equals the captured target SHA and remains clean;
-- control-plane and frontend both run the exact captured target image tags;
-- control-plane health succeeds;
-- frontend is bound only to the Tailscale IPv4, `/` returns 200, and `/api/internal/x` returns 403;
-- PostgreSQL has no host-published port;
-- `worker-host` is not running and no wallet credential was materialized;
-- expected registry cardinality and operation-specific residue checks pass.
-
-For a worker-off preflight, an application-level degraded status caused only by intentionally absent worker heartbeats may be expected when the live runbook says so. Any failed HTTP request, unhealthy container, database error, exposed PostgreSQL port, publicly bound frontend port, running worker, image-tag mismatch, checkout mismatch, or secret-file gate failure stops the deployment.
-
-Do not broadly dump logs into the conversation. If diagnosis requires logs, keep the time and line range bounded and prevent URLs, credentials, headers, or secret values from entering the transcript.
-
-## 6. Failure and rollback handling
-
-- Stop at the first failed gate and report the exact failed command and non-secret evidence.
-- Do not improvise a destructive rollback, reset a dirty checkout, delete volumes, or reverse migrations.
-- Preserve the PostgreSQL volume and the last known image tag.
-- Before rollback, inspect whether the failed release applied a forward migration and whether the previous application image is schema-compatible.
-- Present a rollback plan to jdy and obtain approval before changing the remote checkout or recreating services with an earlier image.
-
-## 7. Report format
-
-Conclude with:
-
-```markdown
-部署结果：成功 / 已停止 / 失败
-目标 commit：<full SHA>
-服务器 commit：<full SHA or 未变更>
-环境：preflight
-control-plane：运行 / 未运行 / 未变更
-frontend：运行（仅绑定 Tailscale IP）/ 未运行 / 未变更
-worker-host：关闭
-真实交易：未启用
-数据库端口：未暴露 / 检查失败
-健康检查：<HTTP result and status>
-阻塞项：<none or exact blocker>
-下一步：<one concrete action>
+```text
+protected main release CI
+  -> four digest-bound private GHCR artifacts
+  -> pullback plus isolated full-stack rehearsal
+  -> serialized monotonic release-ready promotion
+  -> separately authorized no-argument stable bootstrap
+  -> one frozen manifest plus versioned deployment engine
 ```
 
-If the deployment changes the project's recorded phase or evidence, update only `docs/design/ROADMAP.md` through the repository's normal branch and PR workflow. Do not copy transient progress into `AGENTS.md` or this skill.
+Require no operator-supplied SHA, branch, generation, digest, checkout, or local config for normal deploy.
+Require runtime-digest changes to cover every configured runtime consumer. Treat frontend-only and
+already-current behavior exactly as the runbook defines. Keep task state plus the machine-level unreachable
+`place_order` gate as the trading boundary; never use worker-process absence as the money boundary.
+
+Do not reproduce the engine's internal rollout steps here. Verify their required evidence against the live
+runbook instead.
+
+## 4. Enforce pre-effect admission
+
+Before any host or production effect, confirm:
+
+- the requested Issue is a GitHub-native frontier with all blockers closed;
+- required release CI, rehearsal, and `RELEASE_READY` evidence exists;
+- required stable-bootstrap acceptance already exists;
+- jdy separately authorized this exact host action;
+- no unresolved active attempt or concurrent lock exists;
+- the runbook's manifest, material, disk, and authoritative-fact admission can pass without secret disclosure;
+- first-cutover versus normal previous-release semantics are explicit.
+
+Stop before effects when any item is absent. Never fall back to checkout deployment, local build, fixed apply,
+generation, doctor, old preflight, or manually assembled Compose steps.
+
+## 5. Protect credentials and trading boundaries
+
+Never run 1Password CLI locally or through SSH. Never read or print `.env`, secret values, wallet material,
+tokens, private keys, signed payloads, authorization headers, or broad process/container environments.
+
+For separately authorized GHCR identity maintenance, apply the exact package allowlist and negative acceptance
+tests from the live runbook. Keep the pull credential out of argv, environment, Compose, progress, exceptions,
+receipts, and logs. Never turn identity maintenance into a normal-deploy side effect.
+
+Do not create or rotate credentials, activate new tasks, add funds, sign, transfer, withdraw, or submit new
+orders during software deployment. Permit only the existing-material safety reads, buy cancellation, and
+sell/position adoption that the live runbook explicitly requires.
+
+## 6. Handle outcomes and recovery
+
+Use only `SUCCESS`, `FAILED`, and `ACTION_REQUIRED`, with the runbook's exact meanings. Treat internal phases,
+warnings, reason codes, and legacy results as evidence, never additional public outcomes.
+
+Preserve the active marker and stop normal retry on every `ACTION_REQUIRED`. Bind recovery to the exact attempt;
+reject arbitrary releases, digests, and database downgrade. Apply the runbook's no-fabricated-baseline rule to
+the first new-system cutover, and allow its recovery to close only after repairing the frozen candidate and
+revalidating every required task/order/position gate.
+
+## 7. Report bounded evidence
+
+Use only the runbook's narrow, non-secret checks. Prefer actual component digests, database revision, module
+health, network exposure, task ownership, and authoritative venue facts over pointers or receipts. Avoid broad
+logs and container metadata.
+
+Report the authorized action, public outcome or `未执行`, frozen manifest identity when available, runtime and
+frontend health, database revision, task/venue closeout, active-attempt state, untouched trading boundary, exact
+blocker, and one authorized next action.
+
+Do not modify ROADMAP, create/switch a branch, commit, push, or open a PR unless jdy separately authorizes those
+specific Git and documentation actions. If authorized, update progress only in `docs/design/ROADMAP.md`; never
+copy transient production state into this skill.
