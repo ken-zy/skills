@@ -60,6 +60,15 @@ Treat `release-ready` as artifact-ready only. It is not runtime-ready, migration
 successful deployment. Keep runtime, database, rollback, and recovery acceptance inside the separately
 authorized deployment attempt.
 
+For the one-time Issue #194 EC2 acquisition, trust the protected release workflow's ARM64, source, component,
+and immutable-artifact proof. Resolve `release-ready` once, freeze its manifest digest, pull that manifest and
+its three exact component digests, then stop. Treat successful digest-addressed OCI pulls as transfer-integrity
+acceptance; do not repeat ARM64/source/component validation or add bootstrap behavior rehearsal, failure
+injection, active negative-permission probes, broad leak-surface scans, sentinels, attestations, or receipts.
+Install the exact reviewed thin bootstrap by regular-file identity/owner/mode checks plus atomic replacement
+only when the canonical path is missing or not the approved version. Stop before EC2 effects if no exact
+reviewed install path exists.
+
 Require no operator-supplied SHA, branch, generation, digest, checkout, or local config for normal deploy.
 Require runtime-digest changes to cover every configured runtime consumer. Treat frontend-only and
 already-current behavior exactly as the runbook defines. Keep task state plus the machine-level unreachable
@@ -74,7 +83,8 @@ Before any host or production effect, confirm:
 
 - the requested Issue is a GitHub-native frontier with all blockers closed;
 - required four-artifact release CI and artifact-ready `release-ready` evidence exists;
-- required stable-bootstrap acceptance already exists;
+- for a normal deployment, required stable-bootstrap acceptance already exists; for Issue #194 itself, the
+  exact reviewed thin-bootstrap install path exists;
 - jdy separately authorized this exact host action;
 - no unresolved active attempt or concurrent lock exists;
 - the runbook's manifest, material, disk, and authoritative-fact admission can pass without secret disclosure;
@@ -88,9 +98,13 @@ generation, doctor, old preflight, or manually assembled Compose steps.
 Never run 1Password CLI locally or through SSH. Never read or print `.env`, secret values, wallet material,
 tokens, private keys, signed payloads, authorization headers, or broad process/container environments.
 
-For separately authorized GHCR identity maintenance, apply the exact package allowlist and negative acceptance
-tests from the live runbook. Keep the pull credential out of argv, environment, Compose, progress, exceptions,
-receipts, and logs. Never turn identity maintenance into a normal-deploy side effect.
+For separately authorized GHCR identity maintenance, require the dedicated account/package configuration to
+grant Read on exactly the four predict-v2 packages, no private source-repository collaborator role, and a PAT
+classic with only `read:packages`. Treat these as configuration facts and use successful exact-digest pulls as
+the positive acceptance; do not actively probe a non-allowlisted package, source repository, write, or delete.
+Keep the pull credential root-owned mode `0600` and out of argv, environment, Compose, progress, exceptions,
+receipts, and logs, but do not add broad scan machinery. Never turn identity maintenance into a normal-deploy
+side effect.
 
 Do not create or rotate credentials, activate new tasks, add funds, sign, transfer, withdraw, or submit new
 orders during software deployment. Permit only the existing-material safety reads, buy cancellation, and
