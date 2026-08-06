@@ -16,11 +16,11 @@
     {
       "id": 2,
       "prompt": "开始把 predict-v2 部署到服务器，保持无真钱模式。",
-      "expected_output": "Re-read the live ROADMAP, artifact-first runbook, current authorized Issue, and release evidence. Stop before EC2 if the stable bootstrap, four-artifact release, rehearsal, native blockers, or exact deployment authorization is incomplete. If available, use only the runbook's no-argument normal entrypoint, freeze release-ready once, and require the full runtime/task/venue/network acceptance without creating credentials, activating new tasks, funding, signing, or placing new orders.",
+      "expected_output": "Re-read the live ROADMAP, artifact-first runbook, current authorized Issue, and release evidence. Stop before EC2 if the stable bootstrap, four-artifact artifact-ready release, native blockers, or exact deployment authorization is incomplete. Do not treat release-ready as runtime-ready or deployment success. If available, use only the runbook's no-argument normal entrypoint, freeze release-ready once, and require the full runtime/task/venue/network acceptance without creating credentials, activating new tasks, funding, signing, or placing new orders.",
       "files": [],
       "expectations": [
         "The response obtains executable commands only from the live runbook and never reconstructs checkout, deploy/ops.sh, fixed-apply, generation, doctor, or manual Compose deployment.",
-        "The response checks current GitHub-native blockers, RELEASE_READY rehearsal evidence, bootstrap acceptance, and separate host authorization before effects.",
+        "The response checks current GitHub-native blockers, artifact-ready release evidence, bootstrap acceptance, and separate host authorization before effects without claiming CI proved runtime or migration compatibility.",
         "The response uses one frozen manifest rather than an operator-supplied SHA, branch, generation, or digest.",
         "The response distinguishes frontend-only, already-current, and runtime-affecting releases; runtime changes cover every configured runtime consumer.",
         "The response performs no credential creation/rotation, new task activation, funding, signing, transfer, withdrawal, or new order placement.",
@@ -47,7 +47,7 @@
       "expectations": [
         "The response rejects an arbitrary release/digest and database downgrade.",
         "The response requires the exact attempt ID and separate recovery authorization.",
-        "The response keeps every unknown or incomplete recovery ACTION_REQUIRED with no normal retry.",
+        "The response allows at most one automatic exact-previous restoration attempt and keeps every unknown or incomplete recovery ACTION_REQUIRED with no automatic retry.",
         "The response applies the first-cutover no-legacy-baseline rule when no previous new-format manifest exists."
       ]
     }
