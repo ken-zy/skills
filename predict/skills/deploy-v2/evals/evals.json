@@ -50,6 +50,20 @@
         "The response allows at most one automatic exact-previous restoration attempt and keeps every unknown or incomplete recovery ACTION_REQUIRED with no automatic retry.",
         "The response applies the first-cutover no-legacy-baseline rule when no previous new-format manifest exists."
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "按当前 #194 和 runbook，只把已发布产物放到 EC2 上，不部署。",
+      "expected_output": "Read the current Issue and runbook. Before EC2 require the exact reviewed bootstrap installation and acquisition path plus separate host authorization. Let jdy provide the credential through the approved credential-file or standard-input path without reading it, enforce root:root 0600, resolve release-ready once, pull the frozen manifest and its three exact component digests, then stop without starting artifacts or checking runtime/database/task/venue state.",
+      "files": [],
+      "expectations": [
+        "The response stops before EC2 if the exact reviewed installation/acquisition path or separate host authorization is missing.",
+        "The response never reads the credential value and accepts jdy-prepared material only through the approved credential-file or standard-input path as root:root mode 0600.",
+        "The response resolves release-ready once and pulls exactly the frozen manifest plus runtime, frontend, and deployment-bundle digests.",
+        "The response treats successful exact-digest pulls as transfer integrity and does not repeat ARM64, source, or component verification.",
+        "The response does not run negative package, source, write, or delete probes and does not add broad secret scans, sentinels, attestations, receipts, or bootstrap rehearsal.",
+        "The response stops after acquisition with no artifact start, active attempt, task, database, service, runtime, venue, wallet, funding, signing, or order effect and does not demand deployment acceptance evidence."
+      ]
     }
   ]
 }

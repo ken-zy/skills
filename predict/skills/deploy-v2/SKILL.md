@@ -16,10 +16,11 @@ Classify the request as exactly one or more of:
 1. explain the deployment model;
 2. observe merge or release CI;
 3. install, upgrade, or accept the stable host bootstrap;
-4. prepare, rotate, or accept GHCR/runtime material;
-5. run a normal software deployment;
-6. recover one exact interrupted attempt;
-7. activate tasks, fund, sign, transfer, withdraw, or place orders.
+4. accept or verify GHCR/runtime material prepared by jdy;
+5. acquire an approved release on the host without deploying it;
+6. run a normal software deployment;
+7. recover one exact interrupted attempt;
+8. activate tasks, fund, sign, transfer, withdraw, or place orders.
 
 Treat every item as a separate authorization. Never infer bootstrap maintenance, credential work, recovery, or
 trading permission from a deploy request. Require the exact attempt and a separate authorization for recovery.
@@ -60,6 +61,9 @@ Treat `release-ready` as artifact-ready only. It is not runtime-ready, migration
 successful deployment. Keep runtime, database, rollback, and recovery acceptance inside the separately
 authorized deployment attempt.
 
+When the current Issue and runbook authorize acquisition without deployment, follow only their bounded
+acquisition path. Do not continue into deployment admission, runtime verification, or recovery acceptance.
+
 Require no operator-supplied SHA, branch, generation, digest, checkout, or local config for normal deploy.
 Require runtime-digest changes to cover every configured runtime consumer. Treat frontend-only and
 already-current behavior exactly as the runbook defines. Keep task state plus the machine-level unreachable
@@ -70,12 +74,21 @@ runbook instead.
 
 ## 4. Enforce pre-effect admission
 
-Before any host or production effect, confirm:
+Before every host or production effect, confirm:
 
 - the requested Issue is a GitHub-native frontier with all blockers closed;
 - required four-artifact release CI and artifact-ready `release-ready` evidence exists;
-- required stable-bootstrap acceptance already exists;
 - jdy separately authorized this exact host action;
+
+For bootstrap installation or acquisition without deployment, require the exact reviewed install/acquisition
+path named by the current Issue and runbook. Stop before EC2 if it does not exist. Apply only the bounded
+regular-file, ownership, mode, atomic-replacement, credential, and exact-digest checks that those live sources
+require. After the authorized artifacts are present, stop without starting them or producing task, database,
+service, runtime, venue, wallet, funding, signing, or order effects, and without creating an active attempt.
+
+For normal deployment or exact-attempt recovery, additionally confirm:
+
+- required stable-bootstrap acceptance already exists;
 - no unresolved active attempt or concurrent lock exists;
 - the runbook's manifest, material, disk, and authoritative-fact admission can pass without secret disclosure;
 - first-cutover versus normal previous-release semantics are explicit.
@@ -88,9 +101,14 @@ generation, doctor, old preflight, or manually assembled Compose steps.
 Never run 1Password CLI locally or through SSH. Never read or print `.env`, secret values, wallet material,
 tokens, private keys, signed payloads, authorization headers, or broad process/container environments.
 
-For separately authorized GHCR identity maintenance, apply the exact package allowlist and negative acceptance
-tests from the live runbook. Keep the pull credential out of argv, environment, Compose, progress, exceptions,
-receipts, and logs. Never turn identity maintenance into a normal-deploy side effect.
+For separately authorized GHCR identity maintenance, jdy prepares the credential material and the Agent never
+reads its value. Require the dedicated account/package configuration to
+grant Read on exactly the four predict-v2 packages, no private source-repository collaborator role, and a PAT
+classic with only `read:packages`. Treat these as configuration facts and use successful exact-digest pulls as
+the positive acceptance; do not actively probe a non-allowlisted package, source repository, write, or delete.
+Accept it only through the credential-file or standard-input path approved by the live runbook, install it as
+`root:root` mode `0600`, and keep it out of argv, environment, Compose, progress, exceptions, receipts, and
+logs, but do not add broad scan machinery. Never turn identity maintenance into a normal-deploy side effect.
 
 Do not create or rotate credentials, activate new tasks, add funds, sign, transfer, withdraw, or submit new
 orders during software deployment. Permit only the existing-material safety reads, buy cancellation, and
@@ -116,9 +134,12 @@ Use only the runbook's narrow, non-secret checks. Prefer actual component digest
 health, network exposure, task ownership, and authoritative venue facts over pointers or receipts. Avoid broad
 logs and container metadata.
 
-Report the authorized action, public outcome or `未执行`, frozen manifest identity when available, runtime and
-frontend health, database revision, task/venue closeout, active-attempt state, untouched trading boundary, exact
-blocker, and one authorized next action.
+Report only evidence relevant to the authorized action. For acquisition without deployment, report the frozen
+manifest and exact component digests, successful presence on the host, the untouched deployment/trading
+boundary, the exact blocker if any, and one authorized next action; do not require runtime, database, task,
+venue, or active-attempt evidence. For deployment or recovery, report the public outcome or `未执行`, runtime
+and frontend health, database revision, task/venue closeout, active-attempt state, untouched trading boundary,
+exact blocker, and one authorized next action.
 
 Do not modify ROADMAP, create/switch a branch, commit, push, or open a PR unless jdy separately authorizes those
 specific Git and documentation actions. If authorized, update progress only in `docs/design/ROADMAP.md`; never
