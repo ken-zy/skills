@@ -84,7 +84,7 @@ For bootstrap installation or acquisition without deployment, require the exact 
 path named by the current Issue and runbook. Stop before EC2 if it does not exist. Apply only the bounded
 regular-file, ownership, mode, atomic-replacement, credential, and exact-digest checks that those live sources
 require. After the authorized artifacts are present, stop without starting them or producing task, database,
-service, runtime, venue, wallet, funding, signing, or order effects.
+service, runtime, venue, wallet, funding, signing, or order effects, and without creating an active attempt.
 
 For normal deployment or exact-attempt recovery, additionally confirm:
 
