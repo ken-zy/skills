@@ -50,11 +50,15 @@ Explain the normal flow at this altitude only:
 ```text
 protected main release CI
   -> four digest-bound private GHCR artifacts
-  -> pullback plus isolated full-stack rehearsal
+  -> ARM64 pullback plus source/component identity verification
   -> serialized monotonic release-ready promotion
   -> separately authorized no-argument stable bootstrap
   -> one frozen manifest plus versioned deployment engine
 ```
+
+Treat `release-ready` as artifact-ready only. It is not runtime-ready, migration-compatibility proof, or a
+successful deployment. Keep runtime, database, rollback, and recovery acceptance inside the separately
+authorized deployment attempt.
 
 Require no operator-supplied SHA, branch, generation, digest, checkout, or local config for normal deploy.
 Require runtime-digest changes to cover every configured runtime consumer. Treat frontend-only and
@@ -69,7 +73,7 @@ runbook instead.
 Before any host or production effect, confirm:
 
 - the requested Issue is a GitHub-native frontier with all blockers closed;
-- required release CI, rehearsal, and `RELEASE_READY` evidence exists;
+- required four-artifact release CI and artifact-ready `release-ready` evidence exists;
 - required stable-bootstrap acceptance already exists;
 - jdy separately authorized this exact host action;
 - no unresolved active attempt or concurrent lock exists;
@@ -101,6 +105,10 @@ Preserve the active marker and stop normal retry on every `ACTION_REQUIRED`. Bin
 reject arbitrary releases, digests, and database downgrade. Apply the runbook's no-fabricated-baseline rule to
 the first new-system cutover, and allow its recovery to close only after repairing the frozen candidate and
 revalidating every required task/order/position gate.
+
+For later releases, allow only the runbook's single exact-previous restoration attempt. Treat old-runtime/new-
+schema compatibility as an accepted residual risk, not as CI-proven. On restoration failure or ambiguity, keep
+the active attempt, return `ACTION_REQUIRED`, stop automatic retry, and require human intervention.
 
 ## 7. Report bounded evidence
 
