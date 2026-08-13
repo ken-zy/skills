@@ -6,7 +6,19 @@ import { getCleaners } from "./rules/cleaners";
 import { buildOutputPath, writeMarkdown } from "./writer";
 import { ensureDaemon, sendDaemonRequest } from "./cdp/daemon";
 import { waitForValidContent } from "./wait";
-import type { SiteRule } from "./types";
+import { isImageMode, loadPreferences } from "./config";
+import { ImagePersistenceError, persistMarkdownImages } from "./media/persist-images";
+import type { ImageMode } from "./media/persist-images";
+import type { ParseResult, SiteRule } from "./types";
+
+interface CliArgs {
+  url: string;
+  cdp: boolean;
+  wait: boolean;
+  timeout: number;
+  imageMode: ImageMode;
+  output?: string;
+}
 
 function printUsage(): void {
   console.error(`Usage: bun run scripts/main.ts <url> [options]
@@ -14,21 +26,43 @@ Options:
   --cdp           Force CDP (skip Level 1)
   --wait          Wait for valid content in CDP
   --timeout <ms>  Page load timeout (default: 30000)
+  --images <mode> Image handling: remote, piclist, or none (default: remote)
   -o <path>       Output file path`);
 }
 
-function parseArgs(args: string[]): { url: string; cdp: boolean; wait: boolean; timeout: number; output?: string } {
+function parseArgs(
+  args: string[],
+  defaults: { timeout: number; imageMode: ImageMode },
+): CliArgs {
   const positional: string[] = [];
   let cdp = false;
   let wait = false;
-  let timeout = 30000;
+  let timeout = defaults.timeout;
+  let imageMode = defaults.imageMode;
   let output: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
       case "--cdp": cdp = true; break;
       case "--wait": wait = true; break;
-      case "--timeout": timeout = parseInt(args[++i]); break;
+      case "--timeout": {
+        const value = args[++i];
+        timeout = Number.parseInt(value, 10);
+        if (!Number.isFinite(timeout) || timeout <= 0) {
+          console.error(`Invalid timeout: ${value}`);
+          process.exit(1);
+        }
+        break;
+      }
+      case "--images": {
+        const value = args[++i];
+        if (!isImageMode(value)) {
+          console.error(`Invalid image mode: ${value}`);
+          process.exit(1);
+        }
+        imageMode = value;
+        break;
+      }
       case "-o": output = args[++i]; break;
       case "--help": case "-h": printUsage(); process.exit(0);
       default:
@@ -45,7 +79,24 @@ function parseArgs(args: string[]): { url: string; cdp: boolean; wait: boolean; 
     process.exit(1);
   }
 
-  return { url: positional[0], cdp, wait, timeout, output };
+  return { url: positional[0], cdp, wait, timeout, imageMode, output };
+}
+
+async function persistAndWrite(
+  result: ParseResult,
+  fetchLevel: number,
+  args: CliArgs,
+  preferences: ReturnType<typeof loadPreferences>,
+): Promise<string> {
+  const markdown = await persistMarkdownImages(result.markdown, {
+    mode: args.imageMode,
+    sourceUrl: args.url,
+    piclistEndpoint: preferences.piclistEndpoint,
+    persistentHosts: preferences.persistentImageHosts,
+  });
+  const filePath = args.output
+    || buildOutputPath(result.metadata.title, preferences.defaultOutputDir);
+  return writeMarkdown(filePath, result.metadata, markdown, fetchLevel);
 }
 
 async function cdpFetch(
@@ -115,8 +166,12 @@ async function cdpFetch(
 }
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
-  const { url, cdp: forceCdp, wait, timeout, output } = args;
+  const preferences = loadPreferences();
+  const args = parseArgs(process.argv.slice(2), {
+    timeout: preferences.defaultTimeout,
+    imageMode: preferences.defaultImageMode,
+  });
+  const { url, cdp: forceCdp, wait, timeout } = args;
 
   try {
     new URL(url);
@@ -129,16 +184,28 @@ async function main(): Promise<void> {
 
   // Adapter dispatch
   if (rule.adapter) {
+    let result: ParseResult | undefined;
     try {
       const adapterModule = await import(`./adapters/${rule.adapter}.ts`);
-      const result = await adapterModule.extract(url, { timeout, ensureDaemon, sendDaemonRequest });
-      const filePath = output || buildOutputPath(result.metadata.title, "40_Reference/Articles");
-      const written = writeMarkdown(filePath, result.metadata, result.markdown, 2);
-      console.log(written);
-      process.exit(0);
+      result = await adapterModule.extract(url, {
+        timeout,
+        quality: rule.quality,
+        ensureDaemon,
+        sendDaemonRequest,
+      });
     } catch (e) {
       console.error(`[adapter:${rule.adapter}] Failed: ${(e as Error).message}`);
       console.error("Falling back to generic CDP extraction...");
+    }
+
+    if (result) {
+      try {
+        console.log(await persistAndWrite(result, 2, args, preferences));
+        return;
+      } catch (e) {
+        console.error(`Error: ${(e as Error).message}`);
+        process.exit(e instanceof ImagePersistenceError ? 4 : 1);
+      }
     }
   }
 
@@ -153,13 +220,12 @@ async function main(): Promise<void> {
       ),
     });
 
-    const filePath = output || buildOutputPath(result.metadata.title, "40_Reference/Articles");
-    const written = writeMarkdown(filePath, result.metadata, result.markdown, result.fetchLevel);
-    console.log(written);
-    process.exit(0);
+    console.log(await persistAndWrite(result, result.fetchLevel, args, preferences));
+    return;
   } catch (e) {
     const err = e as Error;
     console.error(`Error: ${err.message}`);
+    if (err instanceof ImagePersistenceError) process.exit(4);
     if (err.message.includes("Quality check failed")) process.exit(2);
     if (err.message.includes("CDP")) process.exit(3);
     process.exit(1);

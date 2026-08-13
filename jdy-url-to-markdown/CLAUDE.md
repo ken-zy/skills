@@ -18,5 +18,6 @@ URL to Markdown tool, used as a Claude Code skill.
 - `scripts/writer.ts` -- slug generation, YAML front matter, file output
 - `scripts/types.ts` -- shared TypeScript interfaces
 - `scripts/cdp/` -- CDP client (auto-launches Chrome profile_1) and daemon
-- `scripts/adapters/` -- YouTube, X/Twitter adapters
+- `scripts/adapters/` -- WeChat, YouTube, X/Twitter, ZSXQ adapters
+- `scripts/media/` -- site-independent image download, PicList upload, WebP verification, and Markdown URL rewrite
 - `scripts/rules/` -- site rules and cleaner functions

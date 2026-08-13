@@ -15,5 +15,6 @@ describe("CLI", () => {
       exitCode: 0,
       stderr: expect.stringContaining("Wait for valid content"),
     });
+    expect(stderr).toContain("--images <mode>");
   });
 });
