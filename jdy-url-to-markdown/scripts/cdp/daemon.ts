@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, unlinkSync } from "fs";
 import { homedir } from "os";
 import { resolve } from "path";
 import net from "net";
+import { StringDecoder } from "string_decoder";
 import { CDPConnection, getWsUrl } from "./client";
 
 const CACHE_DIR = resolve(homedir(), ".cache", "jdy-url-to-markdown");
@@ -53,9 +54,10 @@ export class CDPDaemon {
   }
 
   private handleConnection(socket: net.Socket): void {
+    const decoder = new StringDecoder("utf8");
     let buffer = "";
     socket.on("data", (chunk) => {
-      buffer += chunk.toString();
+      buffer += decoder.write(chunk);
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
       for (const line of lines) {
@@ -229,9 +231,10 @@ export async function connectDaemon(): Promise<net.Socket> {
 
 export function sendDaemonRequest(sock: net.Socket, method: string, params: any = {}): Promise<any> {
   return new Promise((resolve, reject) => {
+    const decoder = new StringDecoder("utf8");
     let buffer = "";
     const onData = (chunk: Buffer) => {
-      buffer += chunk.toString();
+      buffer += decoder.write(chunk);
       const idx = buffer.indexOf("\n");
       if (idx !== -1) {
         sock.off("data", onData);
