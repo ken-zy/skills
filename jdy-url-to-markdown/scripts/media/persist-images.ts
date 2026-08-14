@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "fs/promises";
+import { mkdtemp, rm, stat, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import { uploadToPicList, verifyPersistentImage } from "./piclist";
@@ -21,9 +21,10 @@ export interface PersistImagesOptions {
   fetchImpl?: FetchLike;
   piclistFetch?: FetchLike;
   tempRoot?: string;
+  gifConverter?: (sourcePath: string, targetPath: string) => Promise<void>;
 }
 
-const MARKDOWN_IMAGE = /!\[[^\]]*\]\(\s*(https?:\/\/[^\s)]+)([^)]*)\)/g;
+const MARKDOWN_IMAGE = /!\[[^\]]*\]\(\s*([^\s)]+)([^)]*)\)/g;
 const CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
   "image/gif": "gif",
   "image/jpeg": "jpg",
@@ -58,6 +59,49 @@ function isPersistent(url: string, hosts: string[]): boolean {
   } catch {
     return false;
   }
+}
+
+function resolveImageUrl(imageUrl: string, sourceUrl: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(imageUrl, sourceUrl);
+  } catch {
+    throw new Error(`Invalid image URL: ${imageUrl}`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Unsupported image URL protocol: ${imageUrl}`);
+  }
+  return parsed.toString();
+}
+
+async function convertGifToWebp(sourcePath: string, targetPath: string): Promise<void> {
+  let child: ReturnType<typeof Bun.spawn>;
+  try {
+    child = Bun.spawn(
+      ["gif2webp", "-q", "90", sourcePath, "-o", targetPath],
+      { stdout: "ignore", stderr: "pipe" },
+    );
+  } catch (error) {
+    throw new Error(`GIF conversion requires gif2webp on PATH: ${(error as Error).message}`);
+  }
+  const exitCode = await child.exited;
+  if (exitCode !== 0) {
+    const stderr = await new Response(child.stderr).text();
+    throw new Error(`gif2webp failed with exit ${exitCode}: ${stderr.trim()}`);
+  }
+}
+
+async function prepareUploadFile(
+  filePath: string,
+  gifConverter: (sourcePath: string, targetPath: string) => Promise<void>,
+): Promise<string> {
+  if (!filePath.toLowerCase().endsWith(".gif")) return filePath;
+  const targetPath = `${filePath.slice(0, -4)}.webp`;
+  await gifConverter(filePath, targetPath);
+  if ((await stat(targetPath)).size === 0) {
+    throw new Error(`gif2webp produced an empty file: ${targetPath}`);
+  }
+  return targetPath;
 }
 
 async function downloadImage(
@@ -96,37 +140,64 @@ export async function persistMarkdownImages(
   const endpoint = options.piclistEndpoint ?? "http://127.0.0.1:36677/upload";
   const persistentHosts = (options.persistentHosts ?? ["img.jdy.systems"])
     .map((host) => host.toLowerCase());
-  const uniqueUrls = [...new Set(collectImageUrls(markdown))]
-    .filter((url) => !isPersistent(url, persistentHosts));
-  if (uniqueUrls.length === 0) return markdown;
+  const replacements = new Map<string, string>();
+  const sourceUrlsByResolvedUrl = new Map<string, string[]>();
+  for (const sourceImageUrl of new Set(collectImageUrls(markdown))) {
+    const resolvedUrl = resolveImageUrl(sourceImageUrl, options.sourceUrl);
+    if (isPersistent(resolvedUrl, persistentHosts)) {
+      if (sourceImageUrl !== resolvedUrl) replacements.set(sourceImageUrl, resolvedUrl);
+      continue;
+    }
+    const sourceUrls = sourceUrlsByResolvedUrl.get(resolvedUrl) ?? [];
+    sourceUrls.push(sourceImageUrl);
+    sourceUrlsByResolvedUrl.set(resolvedUrl, sourceUrls);
+  }
+  if (sourceUrlsByResolvedUrl.size === 0) {
+    return replaceImageUrls(markdown, replacements);
+  }
 
   const fetchImpl = options.fetchImpl ?? fetch;
   const piclistFetch = options.piclistFetch ?? fetch;
   const tempDirectory = await mkdtemp(join(options.tempRoot ?? tmpdir(), "jdy-url-images-"));
-  const replacements = new Map<string, string>();
 
   try {
-    const downloaded: Array<{ imageUrl: string; filePath: string }> = [];
-    for (const [index, imageUrl] of uniqueUrls.entries()) {
+    const downloaded: Array<{
+      sourceUrls: string[];
+      filePath: string;
+    }> = [];
+    for (const [index, [resolvedUrl, sourceUrls]] of [
+      ...sourceUrlsByResolvedUrl.entries(),
+    ].entries()) {
       const filePath = await downloadImage(
-        imageUrl,
+        resolvedUrl,
         index + 1,
         tempDirectory,
         options.sourceUrl,
         fetchImpl,
       );
-      downloaded.push({ imageUrl, filePath });
+      downloaded.push({ sourceUrls, filePath });
     }
 
-    // Finish all source downloads before the first external write. This avoids
-    // partial R2 uploads when a later source image is missing or invalid.
-    for (const { imageUrl, filePath } of downloaded) {
+    // Finish every download and local conversion before the first external write.
+    // This avoids partial R2 uploads when a later source image is missing or invalid.
+    const prepared: typeof downloaded = [];
+    for (const { sourceUrls, filePath } of downloaded) {
+      prepared.push({
+        sourceUrls,
+        filePath: await prepareUploadFile(
+          filePath,
+          options.gifConverter ?? convertGifToWebp,
+        ),
+      });
+    }
+
+    for (const { sourceUrls, filePath } of prepared) {
       const persistedUrl = await uploadToPicList(filePath, {
         endpoint,
         fetchImpl: piclistFetch,
       });
       await verifyPersistentImage(persistedUrl, fetchImpl);
-      replacements.set(imageUrl, persistedUrl);
+      for (const sourceUrl of sourceUrls) replacements.set(sourceUrl, persistedUrl);
     }
 
     const result = replaceImageUrls(markdown, replacements);

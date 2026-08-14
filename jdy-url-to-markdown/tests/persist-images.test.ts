@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync } from "fs";
+import { copyFileSync, existsSync, mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -19,10 +19,10 @@ afterEach(() => {
   for (const root of tempRoots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-function imageResponse(): Response {
+function imageResponse(contentType = "image/png"): Response {
   return new Response(new Uint8Array([1, 2, 3]), {
     status: 200,
-    headers: { "content-type": "image/png" },
+    headers: { "content-type": contentType },
   });
 }
 
@@ -39,10 +39,85 @@ describe("persistMarkdownImages", () => {
 
   test("removes images in none mode and compacts blank lines", async () => {
     const result = await persistMarkdownImages(
-      "before\n\n![one](https://source.example/one.png)\n\nafter",
+      "before\n\n![one](/images/one.png)\n\nafter",
       { mode: "none", sourceUrl: "https://source.example/article" },
     );
     expect(result).toBe("before\n\nafter");
+  });
+
+  test("resolves root-relative image URLs before PicList upload", async () => {
+    const downloads: string[] = [];
+    const result = await persistMarkdownImages(
+      [
+        "![relative](/fabriziosalmi/certmate/raw/main/demo/certmate-cli.gif)",
+        "![absolute](https://github.com/fabriziosalmi/certmate/raw/main/demo/certmate-cli.gif)",
+      ].join("\n"),
+      {
+        mode: "piclist",
+        sourceUrl: "https://github.com/fabriziosalmi/certmate",
+        tempRoot: tempRoot(),
+        fetchImpl: async (input, init) => {
+          if (init?.method === "HEAD") {
+            return new Response(null, {
+              status: 200,
+              headers: { "content-type": "image/webp" },
+            });
+          }
+          downloads.push(String(input));
+          return imageResponse();
+        },
+        piclistFetch: async () => Response.json({
+          success: true,
+          result: ["https://img.jdy.systems/manual/certmate-cli.webp"],
+        }),
+      },
+    );
+
+    expect(downloads).toEqual([
+      "https://github.com/fabriziosalmi/certmate/raw/main/demo/certmate-cli.gif",
+    ]);
+    expect(result).toBe([
+      "![relative](https://img.jdy.systems/manual/certmate-cli.webp)",
+      "![absolute](https://img.jdy.systems/manual/certmate-cli.webp)",
+    ].join("\n"));
+  });
+
+  test("converts every GIF to WebP before the first PicList write", async () => {
+    const events: string[] = [];
+    let uploadNumber = 0;
+    await persistMarkdownImages([
+      "![one](https://source.example/one.gif)",
+      "![two](https://source.example/two.gif)",
+    ].join("\n"), {
+      mode: "piclist",
+      sourceUrl: "https://source.example/article",
+      tempRoot: tempRoot(),
+      fetchImpl: async (_input, init) => {
+        if (init?.method === "HEAD") {
+          return new Response(null, {
+            status: 200,
+            headers: { "content-type": "image/webp" },
+          });
+        }
+        return imageResponse("image/gif");
+      },
+      gifConverter: async (sourcePath, targetPath) => {
+        events.push("convert");
+        copyFileSync(sourcePath, targetPath);
+      },
+      piclistFetch: async (_input, init) => {
+        events.push("upload");
+        const file = (init?.body as FormData).get("list") as File;
+        expect(file.name).toEndWith(".webp");
+        uploadNumber += 1;
+        return Response.json({
+          success: true,
+          result: [`https://img.jdy.systems/manual/${uploadNumber}.webp`],
+        });
+      },
+    });
+
+    expect(events).toEqual(["convert", "convert", "upload", "upload"]);
   });
 
   test("uploads duplicate source URLs once and preserves occurrence order", async () => {

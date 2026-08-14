@@ -26,7 +26,7 @@ Options:
   --cdp           Force CDP (skip Level 1)
   --wait          Wait for valid content in CDP
   --timeout <ms>  Page load timeout (default: 30000)
-  --images <mode> Image handling: remote, piclist, or none (default: remote)
+  --images <mode> Image handling: remote, piclist, or none (default: EXTEND.md; fallback: remote)
   -o <path>       Output file path`);
 }
 

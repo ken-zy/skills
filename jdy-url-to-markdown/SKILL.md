@@ -19,6 +19,8 @@ Fetches any URL and converts it to clean Markdown with YAML front matter.
 2. CLI entry point = `{baseDir}/scripts/main.ts`
 3. Verify `bun` is on PATH. If not, tell user to install Bun: `curl -fsSL https://bun.sh/install | bash`
 4. `${CMD}` = `bun run {baseDir}/scripts/main.ts`
+5. For PicList archives containing GIFs, verify `gif2webp` is on `PATH`. Do not
+   install it automatically; report a missing converter as an image-persistence failure.
 
 ## Preferences (EXTEND.md)
 
@@ -34,7 +36,7 @@ Check EXTEND.md existence (priority order):
 |-----|---------|--------|-------------|
 | `default_output_dir` | `40_Reference/Articles` | path | Default output directory |
 | `default_timeout` | `30000` | ms | Default page load timeout |
-| `default_image_mode` | `remote` | `remote`, `piclist`, `none` | Default image handling mode |
+| `default_image_mode` | `remote` | `remote`, `piclist`, `none` | Default image handling mode; set `piclist` in vaults that forbid remote images |
 | `piclist_endpoint` | `http://127.0.0.1:36677/upload` | local URL | PicList-compatible upload endpoint |
 | `persistent_image_hosts` | `img.jdy.systems` | comma-separated hosts | Hosts that do not need re-uploading |
 
@@ -84,13 +86,31 @@ verification fails, do not write the Markdown file; retain temporary images for
 diagnosis and report the path. PicList may have uploaded a successful prefix of
 the image set, so do not attempt automatic R2 deletion.
 
+## Obsidian Vault Archives
+
+When the target vault requires every image to use `https://img.jdy.systems/*.webp`:
+
+1. Treat a request to save or archive an article as authorization to persist its
+   meaningful article images through the configured local PicList endpoint.
+2. Set `default_image_mode: piclist` in the vault's
+   `.jdy-url-to-markdown/EXTEND.md`, or pass `--images piclist` explicitly.
+3. Do not use `remote`. Use `none` only when the user explicitly requests a
+   text-only archive or the source contains no meaningful images.
+4. Resolve relative image URLs against the source page before downloading them.
+   Convert GIF sources to WebP with `gif2webp` before the first PicList write.
+5. Fail closed when PicList is unavailable, an upload response is ambiguous, or
+   the public result is not an HTTPS WebP on a configured persistent host. Do not
+   write or downgrade the article to text-only after an image failure.
+6. Do not retry or delete after PicList returns a non-WebP URL because the remote
+   write may already have happened. Retain temporary files and report the failure.
+
 ## Agent Quality Gate
 
 After every run, verify:
 1. Markdown title matches expected page content
 2. Body contains meaningful article text, not just navigation/errors
 3. No obvious failure signs (login walls, empty content, framework shells)
-4. With `--images piclist`, all image URLs use a configured persistent host and return `image/webp`
+4. With `--images piclist`, all image URLs, including originally relative URLs, use a configured persistent host and return `image/webp`
 
 If quality is poor:
 - Try `--cdp` to force browser rendering
