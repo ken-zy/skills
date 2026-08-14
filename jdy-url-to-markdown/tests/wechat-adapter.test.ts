@@ -57,6 +57,33 @@ describe("parseWechatHtml", () => {
     expect(result.markdown).toContain("![产品截图](https://mmbiz.qpic.cn/example/product.png)");
     expect(result.markdown).not.toMatch(/\n{3,}/);
   });
+
+  test("recovers a short title when a WeChat special page puts the body in title metadata", () => {
+    const title = "微信贴图号：我半个月做出百万爆款，现在入场还在红利早期";
+    const firstParagraph = "微信公众号最近悄悄上线了一个新功能，贴图，也就是大家说的微信版小绿书。";
+    const secondParagraph = "很多人以为这只是内容形式的变化，但背后其实是一个尚未被多数人发现的流量红利。";
+    const html = `<html>
+      <head>
+        <meta property="og:title" content="${title}\\n\\n${firstParagraph}\\n\\n${secondParagraph}">
+        <title>${title} ${firstParagraph} ${secondParagraph}</title>
+      </head>
+      <body>
+        <section id="js_content" class="rich_media_content">
+          <p>${title}</p>
+          <p>${firstParagraph}</p>
+          <p>${secondParagraph}</p>
+        </section>
+      </body>
+    </html>`;
+
+    const result = parseWechatHtml(html, ARTICLE_URL);
+
+    expect(result.metadata.title).toBe(title);
+    expect(result.metadata.title.length).toBeLessThanOrEqual(180);
+    expect(result.markdown.split("\n", 1)[0]).toBe(`# ${title}`);
+    expect(result.markdown).toContain(firstParagraph);
+    expect(result.markdown).toContain(secondParagraph);
+  });
 });
 
 describe("extract", () => {
@@ -104,5 +131,24 @@ describe("extract", () => {
     };
 
     await expect(extract(ARTICLE_URL, context)).rejects.toThrow("Quality check failed");
+  });
+
+  test("rejects a WeChat page when no trustworthy title can be recovered", async () => {
+    const body = "这是第一段完整正文，用于模拟标题元数据被正文污染且无法恢复标题的特殊页面。".repeat(8);
+    const html = `<html><head><meta property="og:title" content="${body}"><title>${body}</title></head>
+      <body><section id="js_content"><p>${body}</p><p>${body}</p></section></body></html>`;
+    const socket = { destroy() {} } as Socket;
+    const context = {
+      timeout: 30000,
+      ensureDaemon: async () => socket,
+      sendDaemonRequest: async (_sock: Socket, method: string) => {
+        if (method === "navigate") return { ok: true };
+        if (method === "getHTML") return { html };
+        throw new Error(`unexpected method: ${method}`);
+      },
+      quality: { singleParagraphMinChars: 600 },
+    };
+
+    await expect(extract(ARTICLE_URL, context)).rejects.toThrow("invalid or body-like title metadata");
   });
 });

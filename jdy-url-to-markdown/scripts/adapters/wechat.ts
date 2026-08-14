@@ -6,6 +6,7 @@ import type { ParseResult, QualityOptions } from "../types";
 
 const CONTENT_SELECTOR = "#js_content, .rich_media_content";
 const CONTENT_WAIT = `${CONTENT_SELECTOR}:4500`;
+const MAX_WECHAT_TITLE_LENGTH = 180;
 
 const NOISE_SELECTORS = [
   "script",
@@ -49,6 +50,66 @@ function isDiscardedImageSource(source: string): boolean {
     || normalized === "javascript:void(0)";
 }
 
+function compactWechatTitle(value: string): string {
+  return value
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function trustworthyWechatTitle(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const title = compactWechatTitle(value);
+  if (!title || title.length > MAX_WECHAT_TITLE_LENGTH) return undefined;
+  return title;
+}
+
+function recoverWechatTitle(document: any, content: Element): string | undefined {
+  const platformTitle = [
+    document.querySelector("#activity-name")?.textContent,
+    document.querySelector(".rich_media_title")?.textContent,
+  ].map(trustworthyWechatTitle).find(Boolean);
+  if (platformTitle) return platformTitle;
+
+  const metadataCandidates = [
+    document.querySelector('meta[property="og:title"]')?.getAttribute("content"),
+    document.querySelector('meta[name="og:title"]')?.getAttribute("content"),
+    document.querySelector("title")?.textContent,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+  for (const value of metadataCandidates) {
+    const hasDelimiter = /[\r\n]|\\[rn]/.test(value);
+    if (!hasDelimiter) {
+      const title = trustworthyWechatTitle(value);
+      if (title) return title;
+    }
+    if (!hasDelimiter) continue;
+    const firstSegment = value
+      .replace(/\\r\\n|\\n|\\r/g, "\n")
+      .split(/[\r\n]+/)
+      .map((segment) => segment.trim())
+      .find(Boolean);
+    const title = trustworthyWechatTitle(firstSegment);
+    if (title) return title;
+  }
+
+  const firstHeading = content.querySelector("h1, h2")?.textContent;
+  return trustworthyWechatTitle(firstHeading);
+}
+
+function normalizeWechatTitleMetadata(document: any, content: Element): void {
+  const title = recoverWechatTitle(document, content);
+  if (!title) return;
+
+  let ogTitle = document.querySelector('meta[property="og:title"]');
+  if (!ogTitle) {
+    ogTitle = document.createElement("meta");
+    ogTitle.setAttribute("property", "og:title");
+    document.head?.appendChild(ogTitle);
+  }
+  ogTitle.setAttribute("content", title);
+}
+
 /**
  * Normalize WeChat's article DOM before the shared HTML-to-Markdown parser runs.
  * This is intentionally DOM-based: once Turndown has run, lazy-image attributes
@@ -76,6 +137,8 @@ export function prepareWechatHtml(html: string): string {
     img.removeAttribute("data-backup-src");
   });
 
+  normalizeWechatTitleMetadata(document, content);
+
   return document.documentElement?.outerHTML || html;
 }
 
@@ -88,12 +151,24 @@ function compactWechatMarkdown(markdown: string): string {
     .trim();
 }
 
+function ensureWechatTitleHeading(markdown: string, title: string): string {
+  if (!title || title === "Untitled") return markdown;
+  const lines = markdown.split("\n");
+  const firstContentLine = lines.findIndex((line) => line.trim().length > 0);
+  if (firstContentLine < 0) return markdown;
+
+  const firstLine = lines[firstContentLine].trim();
+  if (firstLine === title) lines[firstContentLine] = `# ${title}`;
+  return lines.join("\n");
+}
+
 export function parseWechatHtml(html: string, url: string): ParseResult {
   const preparedHtml = prepareWechatHtml(html);
   const result = parse(preparedHtml, url, undefined, CONTENT_SELECTOR);
+  const compacted = compactWechatMarkdown(result.markdown);
   return {
     ...result,
-    markdown: compactWechatMarkdown(result.markdown),
+    markdown: ensureWechatTitleHeading(compacted, result.metadata.title),
   };
 }
 
@@ -106,6 +181,9 @@ export async function extract(url: string, ctx: AdapterContext): Promise<ParseRe
     });
 
     const result = parseWechatHtml(html, url);
+    if (result.metadata.title === "Untitled") {
+      throw new Error("Quality check failed: invalid or body-like title metadata");
+    }
     const quality = qualityCheck(result.markdown, ctx.quality);
     if (!quality.pass) {
       throw new Error(

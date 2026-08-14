@@ -223,6 +223,26 @@ function expandTableColspans(document: any): void {
   });
 }
 
+const MAX_METADATA_TITLE_LENGTH = 180;
+
+function normalizeMetadataTitle(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const title = value.replace(/\u00a0/g, " ").trim();
+  if (
+    !title
+    || title.length > MAX_METADATA_TITLE_LENGTH
+    || /[\r\n]/.test(title)
+    || /\\[rn]/.test(title)
+  ) {
+    return undefined;
+  }
+  return title.replace(/[ \t]+/g, " ");
+}
+
+function usableMetadataTitle(title: string): string | undefined {
+  return title === "Untitled" ? undefined : normalizeMetadataTitle(title);
+}
+
 function extractMetadata(doc: any, url: string): Metadata {
   const get = (sel: string, attr: string) => doc.querySelector(sel)?.getAttribute(attr)?.trim();
   const getMeta = (name: string) => get(`meta[property="${name}"]`, "content") || get(`meta[name="${name}"]`, "content");
@@ -233,7 +253,11 @@ function extractMetadata(doc: any, url: string): Metadata {
     try { jsonLd = JSON.parse(ldScript.textContent); } catch {}
   }
 
-  const title = getMeta("og:title") || jsonLd?.headline || doc.querySelector("title")?.textContent?.trim() || "Untitled";
+  const title = [
+    getMeta("og:title"),
+    jsonLd?.headline,
+    doc.querySelector("title")?.textContent,
+  ].map(normalizeMetadataTitle).find(Boolean) || "Untitled";
   const author = getMeta("article:author") || (typeof jsonLd?.author === "string" ? jsonLd.author : jsonLd?.author?.name) || getMeta("author") || undefined;
   const published = getMeta("article:published_time") || jsonLd?.datePublished || getMeta("date") || undefined;
   const site_name = getMeta("og:site_name") || undefined;
@@ -262,8 +286,9 @@ export function parse(
 
   if (selectedContent?.textContent?.trim()) {
     markdown = td.turndown(selectedContent.innerHTML);
-    if (metadata.title && !markdown.includes(metadata.title)) {
-      markdown = `# ${metadata.title}\n\n${markdown}`;
+    const titleText = usableMetadataTitle(metadata.title);
+    if (titleText && !markdown.includes(titleText)) {
+      markdown = `# ${titleText}\n\n${markdown}`;
     }
   } else {
     const reader = new Readability(readDoc as any, {
@@ -275,7 +300,8 @@ export function parse(
     if (article?.content) {
       markdown = td.turndown(article.content);
       // Readability sometimes strips the <h1> title; prepend it if missing
-      const titleText = article.title?.trim() || metadata.title;
+      const titleText = normalizeMetadataTitle(article.title)
+        || usableMetadataTitle(metadata.title);
       if (titleText && !markdown.includes(titleText)) {
         markdown = `# ${titleText}\n\n${markdown}`;
       }

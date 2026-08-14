@@ -76,7 +76,10 @@ If EXTEND.md not found, use defaults. No blocking setup flow required.
 
 The WeChat adapter normalizes lazy-loaded `data-src` images, removes structural
 QR/reward noise and placeholder media before reusing the shared parser and
-quality gate. File output remains centralized in the writer.
+quality gate. It also rejects body-like title metadata and recovers a short,
+single-line title from WeChat-specific title nodes or a clearly delimited first
+title segment. If no trustworthy title can be recovered, fail without writing.
+File output remains centralized in the writer.
 When a site rule requires its adapter for PicList, an adapter or CDP failure is
 fatal: do not downgrade to generic HTTP extraction because it may silently lose
 lazy-loaded images.
@@ -107,23 +110,28 @@ When the target vault requires every image to use `https://img.jdy.systems/*.web
    unavailable, an upload response is ambiguous, or the public result is not an
    HTTPS WebP on a configured persistent host. Do not write or downgrade the
    article to text-only after these failures.
-7. Treat reruns of the same canonical source URL as upgrades: replace the
-   existing note atomically only after content and image verification succeed.
-   Keep timestamp suffixes only for a different URL that collides on filename.
+7. Treat reruns of the same canonical source URL as upgrades to the canonical
+   raw archive note: replace that note atomically only after content and image
+   verification succeed. Do not overwrite article analyses, summaries or other
+   derivative notes merely because they share the source URL. Keep timestamp
+   suffixes only for a different URL that collides on filename.
 8. Do not retry or delete after PicList returns a non-WebP URL because the remote
    write may already have happened. Retain temporary files and report the failure.
 
 ## Agent Quality Gate
 
 After every run, verify:
-1. Markdown title matches expected page content
+1. Metadata title matches expected page content, is single-line, no longer than
+   180 characters and is not copied from the body. WeChat pages without a
+   trustworthy recoverable title must fail closed.
 2. Body contains meaningful article text, not just navigation/errors
 3. No obvious failure signs (login walls, empty content, framework shells)
 4. Body contains no Unicode replacement characters and every GFM table has a
    single-line header and consistent single-line rows
 5. With `--images piclist`, all image URLs, including originally relative URLs,
    use a configured persistent host and return `image/webp`
-6. Only one note contains the canonical source URL after a rerun
+6. Only one canonical raw archive note exists for the source URL after a rerun.
+   Derived analyses may share the URL and must remain outside overwrite scope.
 
 If quality is poor:
 - Try `--cdp` to force browser rendering

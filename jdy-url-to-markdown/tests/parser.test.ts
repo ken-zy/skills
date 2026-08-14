@@ -43,6 +43,41 @@ describe("parse", () => {
     expect(result.metadata.title).toBe("Fallback Title");
   });
 
+  test("rejects body-like OG titles and falls back to a sane title tag", () => {
+    const bodyLikeTitle = "This metadata value accidentally contains the entire article body. ".repeat(8);
+    const malformedHtml = `<html><head>
+      <meta property="og:title" content="${bodyLikeTitle}">
+      <title>Safe Fallback Title</title>
+    </head><body><article>
+      <p>This is the first complete paragraph with enough words to remain useful during parsing.</p>
+      <p>This is the second complete paragraph with enough words to prove the body is preserved.</p>
+    </article></body></html>`;
+
+    const result = parse(malformedHtml, "https://example.com/malformed-title");
+
+    expect(result.metadata.title).toBe("Safe Fallback Title");
+    expect(result.markdown).not.toContain(bodyLikeTitle);
+  });
+
+  test("does not prepend an Untitled heading when all title candidates are invalid", () => {
+    const bodyLikeTitle = "正文被错误写入标题字段且没有任何可靠的标题分隔符。".repeat(12);
+    const malformedHtml = `<html><head><meta property="og:title" content="${bodyLikeTitle}"></head>
+      <body><section id="js_content">
+        <p>这是第一段完整正文，用来确认没有可信标题时不会向 Markdown 插入 Untitled 标题。</p>
+        <p>这是第二段完整正文，用来确认正文仍然可以被共享解析器正常保留下来。</p>
+      </section></body></html>`;
+
+    const result = parse(
+      malformedHtml,
+      "https://example.com/no-title",
+      undefined,
+      "#js_content",
+    );
+
+    expect(result.metadata.title).toBe("Untitled");
+    expect(result.markdown).not.toStartWith("# Untitled");
+  });
+
   test("applies cleaners when provided", () => {
     const result = parse(html, "https://example.com/article", [(md) => md.replace(/Final paragraph.*/, "CLEANED")]);
     expect(result.markdown).toContain("CLEANED");
