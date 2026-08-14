@@ -1,5 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { generateSlug, buildFrontMatter, buildOutputPath } from "../scripts/writer";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+} from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import {
+  generateSlug,
+  buildFrontMatter,
+  buildOutputPath,
+  writeMarkdown,
+} from "../scripts/writer";
 
 describe("generateSlug", () => {
   test("converts English title to kebab-case", () => {
@@ -87,5 +102,61 @@ describe("buildOutputPath", () => {
   test("uses untitled for empty slug", () => {
     const path = buildOutputPath("\u{1F389}", "/out", new Date("2026-04-09T12:00:00Z"));
     expect(path).toBe("/out/20260409/untitled.md");
+  });
+});
+
+describe("writeMarkdown", () => {
+  test("atomically replaces the existing note for the same source URL", () => {
+    const root = mkdtempSync(join(tmpdir(), "jdy-writer-test-"));
+    try {
+      const firstPath = join(root, "article.md");
+      const first = writeMarkdown(
+        firstPath,
+        { url: "https://example.com/article#first", title: "Article" },
+        "old body",
+        1,
+      );
+      const second = writeMarkdown(
+        join(root, "renamed-article.md"),
+        { url: "https://example.com/article#second", title: "Renamed Article" },
+        "new body",
+        2,
+      );
+
+      expect(second).toBe(first);
+      expect(readFileSync(first, "utf-8")).toContain("new body");
+      expect(readFileSync(first, "utf-8")).not.toContain("old body");
+      expect(existsSync(join(root, "renamed-article.md"))).toBe(false);
+      expect(readdirSync(root).filter((name) => name.endsWith(".md"))).toHaveLength(1);
+      expect(readdirSync(root).filter((name) => name.includes(".tmp"))).toHaveLength(0);
+      expect(statSync(first).mode & 0o777).toBe(0o644);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("keeps timestamp conflict behavior for a different source URL", () => {
+    const root = mkdtempSync(join(tmpdir(), "jdy-writer-test-"));
+    try {
+      const path = join(root, "article.md");
+      const first = writeMarkdown(
+        path,
+        { url: "https://example.com/one", title: "Article" },
+        "first body",
+        1,
+      );
+      const second = writeMarkdown(
+        path,
+        { url: "https://example.com/two", title: "Article" },
+        "second body",
+        1,
+      );
+
+      expect(second).not.toBe(first);
+      expect(existsSync(first)).toBe(true);
+      expect(existsSync(second)).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

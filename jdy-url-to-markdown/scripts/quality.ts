@@ -36,6 +36,47 @@ function countChineseChars(text: string): number {
   return matches ? matches.length : 0;
 }
 
+function countUnescapedPipes(line: string): number {
+  let count = 0;
+  for (let index = 0; index < line.length; index++) {
+    if (line[index] !== "|") continue;
+    let backslashes = 0;
+    for (let cursor = index - 1; cursor >= 0 && line[cursor] === "\\"; cursor--) {
+      backslashes += 1;
+    }
+    if (backslashes % 2 === 0) count += 1;
+  }
+  return count;
+}
+
+function malformedTableLine(markdown: string): number | undefined {
+  const lines = markdown.split("\n");
+  const separator = /^\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*$/;
+
+  for (let index = 0; index < lines.length; index++) {
+    if (!separator.test(lines[index])) continue;
+    const expectedColumns = countUnescapedPipes(lines[index]) - 1;
+
+    let headerIndex = index - 1;
+    while (headerIndex >= 0 && !lines[headerIndex].trim()) headerIndex -= 1;
+    if (
+      headerIndex < 0
+      || countUnescapedPipes(lines[headerIndex]) - 1 !== expectedColumns
+    ) {
+      return index + 1;
+    }
+
+    for (let rowIndex = index + 1; rowIndex < lines.length; rowIndex++) {
+      const row = lines[rowIndex].trim();
+      if (!row) break;
+      if (!row.startsWith("|")) break;
+      if (countUnescapedPipes(row) - 1 !== expectedColumns) return rowIndex + 1;
+    }
+  }
+
+  return undefined;
+}
+
 function isUsefulParagraph(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed) return false;
@@ -53,6 +94,15 @@ function isUsefulParagraph(line: string): boolean {
 export function qualityCheck(markdown: string, options: QualityOptions = {}): QualityResult {
   const plainText = stripMarkdownMarkers(markdown);
   const charCount = plainText.length;
+  const replacementCharacterCount = (markdown.match(/\uFFFD/g) || []).length;
+
+  if (replacementCharacterCount > 0) {
+    return {
+      pass: false,
+      reason: `Unicode replacement character detected: ${replacementCharacterCount}`,
+      stats: { charCount, usefulParagraphs: 0 },
+    };
+  }
 
   if (charCount < 120) {
     return { pass: false, reason: `content too short: ${charCount} chars (min 120)`, stats: { charCount, usefulParagraphs: 0 } };
@@ -68,6 +118,15 @@ export function qualityCheck(markdown: string, options: QualityOptions = {}): Qu
     if (marker.test(markdown)) {
       return { pass: false, reason: `login wall marker detected: ${marker.source}`, stats: { charCount, usefulParagraphs: 0 } };
     }
+  }
+
+  const malformedLine = malformedTableLine(markdown);
+  if (malformedLine !== undefined) {
+    return {
+      pass: false,
+      reason: `malformed GFM table near line ${malformedLine}`,
+      stats: { charCount, usefulParagraphs: 0 },
+    };
   }
 
   const lines = markdown.split(/\n\n+/);

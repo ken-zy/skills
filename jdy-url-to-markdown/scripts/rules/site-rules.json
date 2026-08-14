@@ -1,6 +1,7 @@
 {
   "mp.weixin.qq.com": {
     "adapter": "wechat",
+    "requireAdapterForPicList": true,
     "startLevel": 1,
     "cdpActions": ["waitForSelector:#js_content,.rich_media_content:4500", "removeOverlays:.js_wechat_qrcode,.wx_tips,.rich_media_global_msg", "autoScroll"],
     "cleaners": ["wechat"],

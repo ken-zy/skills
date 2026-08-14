@@ -23,6 +23,52 @@ describe("qualityCheck", () => {
     expect(result.reason).toContain("too short");
   });
 
+  test("rejects Unicode replacement characters", () => {
+    const markdown = [
+      "# 微信文章",
+      "",
+      "这是第一段完整正文，包含足够多的中文字符，用来确认正文虽然足够长，但出现编码损坏时仍然必须失败。".repeat(3),
+      "",
+      "这是第二段完整正文，其中一个关键字被破坏成了 SpaceX��全员会，因此不能写入最终归档。".repeat(3),
+    ].join("\n");
+
+    const result = qualityCheck(markdown);
+
+    expect(result.pass).toBe(false);
+    expect(result.reason).toContain("replacement character");
+  });
+
+  test("rejects malformed GFM tables with split cells", () => {
+    const markdown = [
+      "# 微信文章",
+      "",
+      "这是第一段完整正文，用来确保质量检查不会因为普通正文过短而提前失败。".repeat(3),
+      "",
+      "|",
+      "板块",
+      "",
+      "|",
+      "营收",
+      "",
+      "|",
+      "| --- | --- |",
+      "|",
+      "星链",
+      "",
+      "|",
+      "113.87",
+      "",
+      "|",
+      "",
+      "这是第二段完整正文，用来确认损坏表格不能被足够长的正文掩盖。".repeat(3),
+    ].join("\n");
+
+    const result = qualityCheck(markdown);
+
+    expect(result.pass).toBe(false);
+    expect(result.reason).toContain("malformed GFM table");
+  });
+
   test("fails for anti-scraping markers", () => {
     const markdown = "# Page\n\nAccess Denied\n\nYou do not have permission to access this resource. This page is protected and requires authentication to view its contents. Please try again later.";
     const result = qualityCheck(markdown);

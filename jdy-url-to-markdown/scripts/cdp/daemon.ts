@@ -251,9 +251,14 @@ export async function ensureDaemon(): Promise<net.Socket> {
     return await connectDaemon();
   } catch {
     const daemonScript = resolve(import.meta.dir, "daemon-entry.ts");
-    const proc = Bun.spawn(["bun", "run", daemonScript], {
-      stdio: ["ignore", "ignore", "ignore"],
-    });
+    let proc: ReturnType<typeof Bun.spawn>;
+    try {
+      proc = Bun.spawn([process.execPath, "run", daemonScript], {
+        stdio: ["ignore", "ignore", "inherit"],
+      });
+    } catch (error) {
+      throw new Error(`Failed to launch CDP daemon: ${(error as Error).message}`);
+    }
     proc.unref();
 
     for (let i = 0; i < 20; i++) {
@@ -264,6 +269,8 @@ export async function ensureDaemon(): Promise<net.Socket> {
         return sock;
       } catch {}
     }
-    throw new Error("Failed to start CDP daemon");
+    throw new Error(
+      "Failed to start CDP daemon; verify that Chrome can launch and inspect the daemon stderr above",
+    );
   }
 }

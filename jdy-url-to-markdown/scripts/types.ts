@@ -28,6 +28,7 @@ export interface QualityOptions {
 export interface SiteRule {
   startLevel?: number;
   adapter?: string;
+  requireAdapterForPicList?: boolean;
   aliases?: string[];
   cdpActions?: string[];
   cleaners?: string[];

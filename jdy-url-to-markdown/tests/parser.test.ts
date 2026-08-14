@@ -84,4 +84,60 @@ describe("parse", () => {
     expect(result.markdown).toContain("first paragraph");
     expect(result.markdown).toContain("Section Two");
   });
+
+  test("normalizes block-heavy HTML tables into valid single-line GFM rows", () => {
+    const tableHtml = `<html>
+      <head><title>微信表格测试</title></head>
+      <body>
+        <section id="js_content">
+          <p>这是第一段完整正文，用来复现微信公众号编辑器在表格单元格中嵌套块元素的情况。</p>
+          <table>
+            <thead><tr><th><p>板块</p></th><th><p>营收</p></th></tr></thead>
+            <tbody>
+              <tr><td><p>星链</p></td><td><p>113.87</p></td></tr>
+              <tr><td><strong>合计</strong></td><td><p>186.74</p></td></tr>
+            </tbody>
+          </table>
+          <p>这是第二段完整正文，用来确认表格规范化不会吞掉表格之后的文章内容。</p>
+        </section>
+      </body>
+    </html>`;
+
+    const result = parse(
+      tableHtml,
+      "https://mp.weixin.qq.com/s/table-test",
+      undefined,
+      "#js_content",
+    );
+
+    expect(result.markdown).toContain([
+      "| 板块 | 营收 |",
+      "| --- | --- |",
+      "| 星链 | 113.87 |",
+      "| **合计** | 186.74 |",
+    ].join("\n"));
+    expect(result.markdown).toContain("表格之后的文章内容");
+  });
+
+  test("expands HTML colspan before normalizing table rows", () => {
+    const tableHtml = `<html>
+      <head><title>Colspan Table</title></head>
+      <body><article>
+        <p>This is the first complete paragraph with enough words to remain useful during table parsing.</p>
+        <table>
+          <tr><th colspan="2">Markdown</th></tr>
+          <tr><td>Filename extensions</td><td><p>.md</p><p>.markdown</p></td></tr>
+        </table>
+        <p>This is the second complete paragraph with enough words to prove content after the table is preserved.</p>
+      </article></body>
+    </html>`;
+
+    const result = parse(tableHtml, "https://example.com/colspan");
+
+    expect(result.markdown).toContain([
+      "| Markdown |  |",
+      "| --- | --- |",
+      "| Filename extensions | .md .markdown |",
+    ].join("\n"));
+  });
 });

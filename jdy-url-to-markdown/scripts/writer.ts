@@ -1,5 +1,14 @@
-import { existsSync, mkdirSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "fs";
+import { basename, dirname, join } from "path";
 import type { Metadata } from "./types";
 
 export function generateSlug(title: string): string {
@@ -61,17 +70,69 @@ export function resolveConflict(filePath: string): string {
   return `${base}-${suffix}.md`;
 }
 
+function canonicalSourceUrl(value: string): string {
+  try {
+    const parsed = new URL(value);
+    parsed.hash = "";
+    parsed.searchParams.sort();
+    return parsed.toString();
+  } catch {
+    return value.split("#", 1)[0];
+  }
+}
+
+function frontMatterUrl(filePath: string): string | undefined {
+  try {
+    const content = readFileSync(filePath, "utf-8");
+    const match = content.match(/^url:\s*("(?:\\.|[^"])*")\s*$/m);
+    if (!match) return undefined;
+    return JSON.parse(match[1]);
+  } catch {
+    return undefined;
+  }
+}
+
+function findExistingByUrl(filePath: string, sourceUrl: string): string | undefined {
+  const dir = dirname(filePath);
+  if (!existsSync(dir)) return undefined;
+  const canonical = canonicalSourceUrl(sourceUrl);
+
+  for (const name of readdirSync(dir).filter((entry) => entry.endsWith(".md")).sort()) {
+    const candidate = join(dir, name);
+    const candidateUrl = frontMatterUrl(candidate);
+    if (candidateUrl && canonicalSourceUrl(candidateUrl) === canonical) return candidate;
+  }
+  return undefined;
+}
+
+function atomicWrite(filePath: string, content: string): void {
+  const dir = dirname(filePath);
+  const mode = existsSync(filePath) ? statSync(filePath).mode & 0o777 : 0o644;
+  const tempPath = join(
+    dir,
+    `.${basename(filePath)}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`,
+  );
+  try {
+    writeFileSync(tempPath, content, { encoding: "utf-8", mode });
+    renameSync(tempPath, filePath);
+  } catch (error) {
+    try { unlinkSync(tempPath); } catch {}
+    throw error;
+  }
+}
+
 export function writeMarkdown(
   filePath: string,
   metadata: Metadata,
   markdown: string,
   fetchLevel: number,
 ): string {
-  const resolvedPath = resolveConflict(filePath);
-  const dir = dirname(resolvedPath);
+  const dir = dirname(filePath);
   mkdirSync(dir, { recursive: true });
+  const resolvedPath = findExistingByUrl(filePath, metadata.url)
+    ?? resolveConflict(filePath);
 
   const frontMatter = buildFrontMatter(metadata, fetchLevel);
-  writeFileSync(resolvedPath, frontMatter + "\n" + markdown, "utf-8");
+  atomicWrite(resolvedPath, frontMatter + "\n" + markdown);
   return resolvedPath;
 }

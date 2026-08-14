@@ -10,6 +10,7 @@ import { isImageMode, loadPreferences } from "./config";
 import { ImagePersistenceError, persistMarkdownImages } from "./media/persist-images";
 import type { ImageMode } from "./media/persist-images";
 import type { ParseResult, SiteRule } from "./types";
+import { shouldFailClosedOnAdapterError } from "./adapter-policy";
 
 interface CliArgs {
   url: string;
@@ -194,8 +195,17 @@ async function main(): Promise<void> {
         sendDaemonRequest,
       });
     } catch (e) {
-      console.error(`[adapter:${rule.adapter}] Failed: ${(e as Error).message}`);
-      console.error("Falling back to generic CDP extraction...");
+      const adapterError = e as Error;
+      console.error(`[adapter:${rule.adapter}] Failed: ${adapterError.message}`);
+      if (shouldFailClosedOnAdapterError(rule, args.imageMode)) {
+        console.error(
+          "Error: refusing generic fallback because this PicList archive requires the site adapter; no Markdown was written.",
+        );
+        if (adapterError.message.includes("Quality check failed")) process.exit(2);
+        if (/CDP|daemon|Chrome/i.test(adapterError.message)) process.exit(3);
+        process.exit(1);
+      }
+      console.error("Falling back to generic extraction...");
     }
 
     if (result) {

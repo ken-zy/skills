@@ -72,11 +72,14 @@ If EXTEND.md not found, use defaults. No blocking setup flow required.
 3. **Level 2** (fallback or forced): CDP daemon -> full JS rendering -> same pipeline
 4. **Adapters** (WeChat, YouTube, X/Twitter, ZSXQ): bypass generic extraction when platform-specific DOM/API handling is required
 5. **Media persistence** optionally downloads unique images, uploads them through PicList, verifies public WebP URLs, and rewrites Markdown
-6. **Writer** generates YAML front matter and saves to output path
+6. **Writer** generates YAML front matter and atomically saves to the output path; reruns reuse an existing note with the same canonical source URL
 
 The WeChat adapter normalizes lazy-loaded `data-src` images, removes structural
 QR/reward noise and placeholder media before reusing the shared parser and
 quality gate. File output remains centralized in the writer.
+When a site rule requires its adapter for PicList, an adapter or CDP failure is
+fatal: do not downgrade to generic HTTP extraction because it may silently lose
+lazy-loaded images.
 
 Use `--images piclist` for a durable archive when the user authorizes image
 uploads and PicList is running. Keep adapters limited to extraction and cleanup;
@@ -98,10 +101,16 @@ When the target vault requires every image to use `https://img.jdy.systems/*.web
    text-only archive or the source contains no meaningful images.
 4. Resolve relative image URLs against the source page before downloading them.
    Convert GIF sources to WebP with `gif2webp` before the first PicList write.
-5. Fail closed when PicList is unavailable, an upload response is ambiguous, or
-   the public result is not an HTTPS WebP on a configured persistent host. Do not
-   write or downgrade the article to text-only after an image failure.
-6. Do not retry or delete after PicList returns a non-WebP URL because the remote
+5. Reject Markdown containing Unicode replacement characters (`�`) or malformed
+   GFM tables. Normalize block-heavy table cells before the quality gate.
+6. Fail closed when the required site adapter or CDP is unavailable, PicList is
+   unavailable, an upload response is ambiguous, or the public result is not an
+   HTTPS WebP on a configured persistent host. Do not write or downgrade the
+   article to text-only after these failures.
+7. Treat reruns of the same canonical source URL as upgrades: replace the
+   existing note atomically only after content and image verification succeed.
+   Keep timestamp suffixes only for a different URL that collides on filename.
+8. Do not retry or delete after PicList returns a non-WebP URL because the remote
    write may already have happened. Retain temporary files and report the failure.
 
 ## Agent Quality Gate
@@ -110,12 +119,16 @@ After every run, verify:
 1. Markdown title matches expected page content
 2. Body contains meaningful article text, not just navigation/errors
 3. No obvious failure signs (login walls, empty content, framework shells)
-4. With `--images piclist`, all image URLs, including originally relative URLs, use a configured persistent host and return `image/webp`
+4. Body contains no Unicode replacement characters and every GFM table has a
+   single-line header and consistent single-line rows
+5. With `--images piclist`, all image URLs, including originally relative URLs,
+   use a configured persistent host and return `image/webp`
+6. Only one note contains the canonical source URL after a rerun
 
 If quality is poor:
 - Try `--cdp` to force browser rendering
 - Try `--wait` for login-required pages
-- Check stderr for quality check diagnostics
+- Check stderr for adapter, Chrome launch, daemon, and quality diagnostics
 
 ## Exit Codes
 
