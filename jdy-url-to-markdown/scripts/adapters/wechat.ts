@@ -19,6 +19,8 @@ const NOISE_SELECTORS = [
   ".rich_media_global_msg",
   ".qr_code_pc",
   ".reward_area",
+  ".wx_bottom_modal_group",
+  ".rich_media_meta_list_combine",
 ];
 
 interface AdapterContext {

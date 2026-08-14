@@ -30,6 +30,8 @@ describe("prepareWechatHtml", () => {
       <img alt="销量截图" src="data:image/svg+xml,placeholder" data-src="//mmbiz.qpic.cn/example/640?wx_fmt=png">
       <img alt="透明占位图" src="data:image/svg+xml,placeholder">
       <div class="reward_area">微信扫一扫赞赏作者</div>
+      <div class="wx_bottom_modal_group">最低赞赏 ¥0 1 2 3 4 5 6 7 8 9 0</div>
+      <div class="rich_media_meta_list_combine">浙江,2026年4月10日 20:03</div>
       <p>这是第二段完整正文，用来确认清理结构噪声后不会误删正常文章段落。</p>
     `);
 
@@ -39,6 +41,8 @@ describe("prepareWechatHtml", () => {
     expect(prepared).not.toContain("data:image/svg+xml");
     expect(prepared).not.toContain("二维码提示");
     expect(prepared).not.toContain("微信扫一扫赞赏作者");
+    expect(prepared).not.toContain("最低赞赏");
+    expect(prepared).not.toContain("2026年4月10日 20:03");
   });
 });
 
