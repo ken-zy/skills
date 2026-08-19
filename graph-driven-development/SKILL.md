@@ -1,6 +1,6 @@
 ---
 name: graph-driven-development
-description: Coordinate software delivery through an isolated, auditable graph when the user explicitly requests Graph for a development task, the implementation has material state/permission/authentication/concurrency/migration/recovery/external-effect risk, or a multi-stage external implementation plus independent review is required. Keep Codex as the only repository writer and use only ChatGPT Web or Grok Web through the Codex built-in Browser for cognitive roles. Do not trigger merely because ChatGPT Pro or Grok is named, multiple opinions are requested, or the task is a one-shot review, explanation, diagnosis, or small isolated edit.
+description: Coordinate software delivery through an isolated, auditable graph when the user explicitly requests Graph for a development task, the implementation has material state/permission/authentication/concurrency/migration/recovery/external-effect risk, or a multi-stage external implementation plus independent review is required. Keep Codex as the only repository writer and use only ChatGPT Web or Grok Web through the Codex built-in Browser or a connected Chrome browser for cognitive roles. Do not trigger merely because ChatGPT Pro or Grok is named, multiple opinions are requested, or the task is a one-shot review, explanation, diagnosis, or small isolated edit.
 ---
 
 # Graph-Driven Development
@@ -21,7 +21,7 @@ Codex is the Orchestrator and only Repository Writer. External models are read-o
 
 - Keep N0–N6 fixed. Risk classification is a gate inside PREFLIGHT/N0, not another node.
 - Create a fresh task branch and linked worktree for every Graph task.
-- Use only `chatgpt-web` and `grok-web` through the Codex built-in Browser for external cognitive roles. Never substitute Chrome, an API, CLI, local subagent, Claude, or another platform.
+- Use only `chatgpt-web` and `grok-web` through either the Codex built-in Browser or a connected Chrome browser controlled by Codex for external cognitive roles. Honor an explicit user browser choice; otherwise either allowed surface is valid. Never substitute a direct API, standalone Playwright, OpenCLI, a model CLI, local subagent, Claude, or another platform.
 - Keep model identity, UI selection, and separately exposed reasoning setting distinct. Use only an approved live-observed profile from the Browser reference; never invent `Pro + Extra High` or a cross-provider reasoning equivalence.
 - Let only Codex edit files, run repository mutations, and apply external proposals.
 - Never let an implementation-authoring conversation review or arbitrate its own candidate.

@@ -2,18 +2,29 @@
 
 Read this before assigning an external cognitive role or uploading review material.
 
-## Fixed access surface
+## Fixed access surfaces
 
-Use only these backends through the Codex built-in Browser:
+Use only these backends through either the Codex built-in Browser or a connected
+Chrome browser controlled by Codex:
 
 | Backend | Website | Allowed roles | Repository access |
 |---|---|---|---|
 | `chatgpt-web` | authenticated ChatGPT Web | Advisor, implementation author, Reviewer, Arbiter | selected read-only inputs |
 | `grok-web` | authenticated Grok Web | Advisor, implementation author, Reviewer, Arbiter | selected read-only inputs |
 
-Do not substitute Chrome, Playwright, OpenCLI, a direct API, model CLI, local subagent, Claude, or another platform. If the built-in Browser is unavailable, preserve evidence and enter `WAITING_HUMAN`.
+Both browser surfaces are valid for formal cognitive roles. Honor an explicit
+user browser choice. Otherwise prefer an already authenticated surface that can
+transfer the immutable package without changing it; a backend may use a
+different allowed surface from another backend. Do not substitute standalone
+Playwright, OpenCLI, a direct API, model CLI, local subagent, Claude, or another
+platform. If neither allowed browser surface can complete the role, preserve
+evidence and enter `WAITING_HUMAN`.
 
-Keep at most two task-controlled model conversations active. Record backend, role, account plan when visible, visible model, exact selection label, separately exposed reasoning setting or `null`, Browser evidence reference, conversation URL/ID, and status. Recover by URL/ID instead of creating unnecessary duplicates.
+Keep at most two task-controlled model conversations active. Record browser
+surface (`built-in-browser` or `connected-chrome`), backend, role, account plan
+when visible, visible model, exact selection label, separately exposed reasoning
+setting or `null`, Browser evidence reference, conversation URL/ID, and status.
+Recover by URL/ID instead of creating unnecessary duplicates.
 
 ## Model and reasoning policy
 
