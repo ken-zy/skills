@@ -1,12 +1,12 @@
 ---
 name: deploy-v2
-description: Deploy and maintain the predict-v2 repository on its dedicated AWS EC2 host. Use this skill whenever jdy asks how to deploy predict-v2, requests a predict-v2 production or preflight deployment, asks to configure or accept the stable host bootstrap or GHCR pull identity, verify the deployed release, recover an exact deployment attempt, or restart the predict-v2 runtime topology. Do not use the legacy deploy skill for predict-v2.
+description: Deploy and maintain the predict-v2 repository on its dedicated AWS EC2 host. Use this skill whenever jdy asks how to deploy predict-v2, requests a predict-v2 production or preflight deployment, asks to configure or accept the stable host bootstrap or GHCR pull identity, verify the deployed release, retry an interrupted deployment, or restart the predict-v2 runtime topology. Do not use the legacy deploy skill for predict-v2.
 ---
 
 # predict-v2 artifact-first deployment
 
 Use this skill only as the intent and safety router. Keep executable Git, SSH, registry, Compose, migration,
-service-switch, recovery, and secret-delivery sequences out of this file. Obtain every production command and
+service-switch, retry, and secret-delivery sequences out of this file. Obtain every production command and
 public outcome definition from the live repository runbook.
 
 ## 1. Classify authorization
@@ -19,14 +19,21 @@ Classify the request as exactly one or more of:
 4. accept or verify GHCR/runtime material prepared by jdy;
 5. acquire an approved release on the host without deploying it;
 6. run a normal software deployment;
-7. recover one exact interrupted attempt;
+7. retry the same no-argument deployment after repairing current facts or latest code;
 8. activate tasks, fund, sign, transfer, withdraw, or place orders.
 
-Treat every item as a separate authorization. Never infer bootstrap maintenance, credential work, recovery, or
-trading permission from a deploy request. Require the exact attempt and a separate authorization for recovery.
+Treat every item as a separate authorization. Never infer bootstrap maintenance, credential work, deployment
+retry, or trading permission from an earlier deploy request. Require a new explicit authorization before each
+production retry, even though the operator command remains the same no-argument entrypoint.
 
 Handle explanation requests without GitHub writes, host connection, or local mutation. Connect to EC2 only for
 an explicitly requested live check or host action that the ROADMAP currently permits.
+
+When Codex connects through the approved `ssh predict-v2` alias, allocate a local PTY so 1Password SSH Agent
+can complete its signing interaction. Treat `ssh-add -l` only as evidence that the expected public identity is
+available, not that a connection signature was approved. If signing hangs or reports agent communication
+failure, stop the bounded attempt and tell jdy explicitly to unlock 1Password and approve the SSH-key prompt;
+do not retry blindly or infer a host/deployment failure.
 
 ## 2. Read live authority
 
@@ -35,10 +42,9 @@ Read these sources before every action:
 1. `AGENTS.md` and applicable global policies;
 2. `docs/design/ROADMAP.md` for the only current progress/frontier state;
 3. `docs/operations/2026-07-14-single-host-production-compose-runbook.md` for the only public command,
-   outcome, execution-order, recovery, and acceptance contract;
+   outcome, execution-order, retry, and acceptance contract;
 4. `CONTEXT.md` and the deployment ADRs referenced by the runbook;
-5. the current authorized Issue or operation sheet named by ROADMAP;
-6. implementation files only as needed to verify the requested action.
+5. implementation files only as needed to verify the requested action.
 
 Stop on any disagreement. Never reconstruct a command from memory, an old chat, historical acceptance evidence,
 `deploy/ops.sh`, a Git checkout, or this skill. Never substitute a legacy entrypoint when ROADMAP says the stable
@@ -58,11 +64,11 @@ protected main release CI
 ```
 
 Treat `release-ready` as artifact-ready only. It is not runtime-ready, migration-compatibility proof, or a
-successful deployment. Keep runtime, database, rollback, and recovery acceptance inside the separately
+successful deployment. Keep runtime, database, fix-forward retry, and closeout acceptance inside the separately
 authorized deployment attempt.
 
-When the current Issue and runbook authorize acquisition without deployment, follow only their bounded
-acquisition path. Do not continue into deployment admission, runtime verification, or recovery acceptance.
+When the current ROADMAP and runbook allow acquisition without deployment, follow only their bounded
+acquisition path. Do not continue into deployment admission, runtime verification, or deployment closeout.
 
 Require no operator-supplied SHA, branch, generation, digest, checkout, or local config for normal deploy.
 Require runtime-digest changes to cover every configured runtime consumer. Treat frontend-only and
@@ -76,20 +82,21 @@ runbook instead.
 
 Before every host or production effect, confirm:
 
-- the requested Issue is a GitHub-native frontier with all blockers closed;
+- ROADMAP currently permits the exact requested host action and records no blocker to it;
 - required four-artifact release CI and artifact-ready `release-ready` evidence exists;
 - jdy separately authorized this exact host action;
 
 For bootstrap installation or acquisition without deployment, require the exact reviewed install/acquisition
-path named by the current Issue and runbook. Stop before EC2 if it does not exist. Apply only the bounded
+path named by ROADMAP and the runbook. Stop before EC2 if it does not exist. Apply only the bounded
 regular-file, ownership, mode, atomic-replacement, credential, and exact-digest checks that those live sources
 require. After the authorized artifacts are present, stop without starting them or producing task, database,
 service, runtime, venue, wallet, funding, signing, or order effects, and without creating an active attempt.
 
-For normal deployment or exact-attempt recovery, additionally confirm:
+For normal deployment or an authorized retry, additionally confirm:
 
 - required stable-bootstrap acceptance already exists;
-- no unresolved active attempt or concurrent lock exists;
+- no concurrent host or runtime-material lock exists; an unfinished database Attempt is input to the same
+  no-argument workflow, not a separate recovery command or permanent barrier;
 - the runbook's manifest, material, disk, and authoritative-fact admission can pass without secret disclosure;
 - first-cutover versus normal previous-release semantics are explicit.
 
@@ -114,19 +121,22 @@ Do not create or rotate credentials, activate new tasks, add funds, sign, transf
 orders during software deployment. Permit only the existing-material safety reads, buy cancellation, and
 sell/position adoption that the live runbook explicitly requires.
 
-## 6. Handle outcomes and recovery
+## 6. Handle outcomes and fix-forward retry
 
 Use only `SUCCESS`, `FAILED`, and `ACTION_REQUIRED`, with the runbook's exact meanings. Treat internal phases,
 warnings, reason codes, and legacy results as evidence, never additional public outcomes.
 
-Preserve the active marker and stop normal retry on every `ACTION_REQUIRED`. Bind recovery to the exact attempt;
-reject arbitrary releases, digests, and database downgrade. Apply the runbook's no-fabricated-baseline rule to
-the first new-system cutover, and allow its recovery to close only after repairing the frozen candidate and
-revalidating every required task/order/position gate.
+If `BOOTSTRAP_ADMISSION_REQUIRED` is traced through narrow non-secret evidence to an installed bootstrap library
+that cannot parse the current release manifest, stop deployment and route to a separately authorized atomic
+stable-bootstrap upgrade from the latest reviewed deployment bundle. When a support library changes, require the
+installer to create a fresh immutable library generation before replacing the launcher; never overwrite an
+existing generation in place. Treat this as failure repair, not a new normal-deploy preflight or public step.
 
-For later releases, allow only the runbook's single exact-previous restoration attempt. Treat old-runtime/new-
-schema compatibility as an accepted residual risk, not as CI-proven. On restoration failure or ambiguity, keep
-the active attempt, return `ACTION_REQUIRED`, stop automatic retry, and require human intervention.
+On every `ACTION_REQUIRED` or `FAILED`, stop automatic retry and preserve the database Attempt's current blocker.
+Repair current facts or latest code, obtain a new explicit deployment authorization, and rerun the same
+no-argument command; do not select an old release, invoke a separate recovery command, read a legacy active
+marker, downgrade the database, or add a second progress record. Apply the runbook's no-fabricated-baseline rule
+to the first new-system cutover and revalidate every required task/order/position gate before terminal closeout.
 
 ## 7. Report bounded evidence
 
@@ -137,7 +147,7 @@ logs and container metadata.
 Report only evidence relevant to the authorized action. For acquisition without deployment, report the frozen
 manifest and exact component digests, successful presence on the host, the untouched deployment/trading
 boundary, the exact blocker if any, and one authorized next action; do not require runtime, database, task,
-venue, or active-attempt evidence. For deployment or recovery, report the public outcome or `未执行`, runtime
+venue, or Deployment Attempt evidence. For deployment or retry, report the public outcome or `未执行`, runtime
 and frontend health, database revision, task/venue closeout, active-attempt state, untouched trading boundary,
 exact blocker, and one authorized next action.
 
