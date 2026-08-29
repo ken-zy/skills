@@ -6,6 +6,7 @@ import {
   ImagePersistenceError,
   persistMarkdownImages,
 } from "../scripts/media/persist-images";
+import { buildR2ArticleKeyPrefix } from "../scripts/media/r2-script";
 
 const tempRoots: string[] = [];
 
@@ -153,6 +154,40 @@ describe("persistMarkdownImages", () => {
     expect(result).toContain("![second](https://img.jdy.systems/manual/2.webp)");
     expect(result).toContain("![again](https://img.jdy.systems/manual/1.webp)");
     expect(result).toContain("![existing](https://img.jdy.systems/manual/existing.webp)");
+  });
+
+  test("uses stable web-articles keys in r2 mode", async () => {
+    const uploadedKeys: string[] = [];
+    const sourceUrl = "https://example.com/story?a=1&b=2";
+    const result = await persistMarkdownImages([
+      "![one](https://source.example/one.png)",
+      "![two](https://source.example/two.png)",
+    ].join("\n"), {
+      mode: "r2",
+      sourceUrl,
+      tempRoot: tempRoot(),
+      fetchImpl: async (_input, init) => {
+        if (init?.method === "HEAD") {
+          return new Response(null, {
+            status: 200,
+            headers: { "content-type": "image/webp" },
+          });
+        }
+        return imageResponse();
+      },
+      r2Uploader: async (_filePath, key) => {
+        uploadedKeys.push(key);
+        return `https://img.jdy.systems/${key}.webp`;
+      },
+    });
+    const prefix = buildR2ArticleKeyPrefix(sourceUrl);
+
+    expect(uploadedKeys).toEqual([
+      `${prefix}/img-001`,
+      `${prefix}/img-002`,
+    ]);
+    expect(result).toContain(`![one](https://img.jdy.systems/${prefix}/img-001.webp)`);
+    expect(result).toContain(`![two](https://img.jdy.systems/${prefix}/img-002.webp)`);
   });
 
   test("rejects on upload failure and retains temporary images", async () => {

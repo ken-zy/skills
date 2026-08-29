@@ -19,5 +19,5 @@ URL to Markdown tool, used as a Claude Code skill.
 - `scripts/types.ts` -- shared TypeScript interfaces
 - `scripts/cdp/` -- CDP client (auto-launches Chrome profile_1) and daemon
 - `scripts/adapters/` -- WeChat, YouTube, X/Twitter, ZSXQ adapters
-- `scripts/media/` -- site-independent image download, PicList upload, WebP verification, and Markdown URL rewrite
+- `scripts/media/` -- site-independent image download, classified R2-script/PicList upload, WebP verification, and Markdown URL rewrite
 - `scripts/rules/` -- site rules and cleaner functions

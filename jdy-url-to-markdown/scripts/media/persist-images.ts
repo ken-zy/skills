@@ -3,8 +3,9 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { uploadToPicList, verifyPersistentImage } from "./piclist";
 import type { FetchLike } from "./piclist";
+import { buildR2ArticleKeyPrefix, uploadWithR2Script } from "./r2-script";
 
-export type ImageMode = "remote" | "piclist" | "none";
+export type ImageMode = "remote" | "piclist" | "r2" | "none";
 
 export class ImagePersistenceError extends Error {
   constructor(message: string) {
@@ -17,9 +18,11 @@ export interface PersistImagesOptions {
   mode: ImageMode;
   sourceUrl: string;
   piclistEndpoint?: string;
+  r2UploadScript?: string;
   persistentHosts?: string[];
   fetchImpl?: FetchLike;
   piclistFetch?: FetchLike;
+  r2Uploader?: (filePath: string, key: string) => Promise<string>;
   tempRoot?: string;
   gifConverter?: (sourcePath: string, targetPath: string) => Promise<void>;
 }
@@ -138,6 +141,9 @@ export async function persistMarkdownImages(
   if (options.mode === "none") return removeImages(markdown);
 
   const endpoint = options.piclistEndpoint ?? "http://127.0.0.1:36677/upload";
+  const r2KeyPrefix = options.mode === "r2"
+    ? buildR2ArticleKeyPrefix(options.sourceUrl)
+    : undefined;
   const persistentHosts = (options.persistentHosts ?? ["img.jdy.systems"])
     .map((host) => host.toLowerCase());
   const replacements = new Map<string, string>();
@@ -191,11 +197,20 @@ export async function persistMarkdownImages(
       });
     }
 
-    for (const { sourceUrls, filePath } of prepared) {
-      const persistedUrl = await uploadToPicList(filePath, {
-        endpoint,
-        fetchImpl: piclistFetch,
-      });
+    for (const [index, { sourceUrls, filePath }] of prepared.entries()) {
+      const persistedUrl = options.mode === "r2"
+        ? await (options.r2Uploader ?? ((inputPath, key) => uploadWithR2Script(
+          inputPath,
+          key,
+          { scriptPath: options.r2UploadScript ?? "scripts/r2-upload.sh" },
+        )))(filePath, `${r2KeyPrefix!}/img-${String(index + 1).padStart(3, "0")}`)
+        : await uploadToPicList(filePath, {
+          endpoint,
+          fetchImpl: piclistFetch,
+        });
+      if (!isPersistent(persistedUrl, persistentHosts)) {
+        throw new Error(`Uploader returned a URL outside configured persistent hosts: ${persistedUrl}`);
+      }
       await verifyPersistentImage(persistedUrl, fetchImpl);
       for (const sourceUrl of sourceUrls) replacements.set(sourceUrl, persistedUrl);
     }

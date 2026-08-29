@@ -7,6 +7,7 @@ export interface Preferences {
   defaultTimeout: number;
   defaultImageMode: ImageMode;
   piclistEndpoint: string;
+  r2UploadScript: string;
   persistentImageHosts: string[];
 }
 
@@ -15,6 +16,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   defaultTimeout: 30000,
   defaultImageMode: "remote",
   piclistEndpoint: "http://127.0.0.1:36677/upload",
+  r2UploadScript: "scripts/r2-upload.sh",
   persistentImageHosts: ["img.jdy.systems"],
 };
 
@@ -30,7 +32,7 @@ function unquote(value: string): string {
 export function parseExtend(content: string): Partial<Preferences> {
   const values = new Map<string, string>();
   for (const line of content.split(/\r?\n/)) {
-    const match = line.match(/^\s*([a-z_]+)\s*:\s*(.*?)\s*$/);
+    const match = line.match(/^\s*([a-z0-9_]+)\s*:\s*(.*?)\s*$/);
     if (match) values.set(match[1], unquote(match[2]));
   }
 
@@ -58,6 +60,9 @@ export function parseExtend(content: string): Partial<Preferences> {
   const endpoint = values.get("piclist_endpoint");
   if (endpoint) preferences.piclistEndpoint = endpoint;
 
+  const r2UploadScript = values.get("r2_upload_script");
+  if (r2UploadScript) preferences.r2UploadScript = r2UploadScript;
+
   const hosts = values.get("persistent_image_hosts");
   if (hosts) {
     preferences.persistentImageHosts = hosts
@@ -70,7 +75,7 @@ export function parseExtend(content: string): Partial<Preferences> {
 }
 
 export function isImageMode(value: string): value is ImageMode {
-  return value === "remote" || value === "piclist" || value === "none";
+  return value === "remote" || value === "piclist" || value === "r2" || value === "none";
 }
 
 export function findExtendPath(

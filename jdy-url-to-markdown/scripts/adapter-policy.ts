@@ -5,5 +5,6 @@ export function shouldFailClosedOnAdapterError(
   rule: SiteRule,
   imageMode: ImageMode,
 ): boolean {
-  return imageMode === "piclist" && rule.requireAdapterForPicList === true;
+  return (imageMode === "piclist" || imageMode === "r2")
+    && rule.requireAdapterForPicList === true;
 }

@@ -27,7 +27,7 @@ Options:
   --cdp           Force CDP (skip Level 1)
   --wait          Wait for valid content in CDP
   --timeout <ms>  Page load timeout (default: 30000)
-  --images <mode> Image handling: remote, piclist, or none (default: EXTEND.md; fallback: remote)
+  --images <mode> Image handling: remote, piclist, r2, or none (default: EXTEND.md; fallback: remote)
   -o <path>       Output file path`);
 }
 
@@ -91,8 +91,9 @@ async function persistAndWrite(
 ): Promise<string> {
   const markdown = await persistMarkdownImages(result.markdown, {
     mode: args.imageMode,
-    sourceUrl: args.url,
+    sourceUrl: result.metadata.url || args.url,
     piclistEndpoint: preferences.piclistEndpoint,
+    r2UploadScript: preferences.r2UploadScript,
     persistentHosts: preferences.persistentImageHosts,
   });
   const filePath = args.output
@@ -199,7 +200,7 @@ async function main(): Promise<void> {
       console.error(`[adapter:${rule.adapter}] Failed: ${adapterError.message}`);
       if (shouldFailClosedOnAdapterError(rule, args.imageMode)) {
         console.error(
-          "Error: refusing generic fallback because this PicList archive requires the site adapter; no Markdown was written.",
+          "Error: refusing generic fallback because this persistent-image archive requires the site adapter; no Markdown was written.",
         );
         if (adapterError.message.includes("Quality check failed")) process.exit(2);
         if (/CDP|daemon|Chrome/i.test(adapterError.message)) process.exit(3);

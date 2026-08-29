@@ -9,6 +9,13 @@ describe("shouldFailClosedOnAdapterError", () => {
     }, "piclist")).toBe(true);
   });
 
+  test("requires the configured adapter for R2 script archives", () => {
+    expect(shouldFailClosedOnAdapterError({
+      adapter: "wechat",
+      requireAdapterForPicList: true,
+    }, "r2")).toBe(true);
+  });
+
   test("allows generic fallback outside PicList mode", () => {
     const rule = {
       adapter: "wechat",
