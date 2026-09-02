@@ -1,6 +1,6 @@
 ---
 name: deploy-v2
-description: Deploy and maintain the predict-v2 repository on its dedicated AWS EC2 host. Use this skill whenever jdy asks how to deploy predict-v2, requests a predict-v2 production or preflight deployment, asks to configure or accept the stable host bootstrap or GHCR pull identity, verify the deployed release, retry an interrupted deployment, or restart the predict-v2 runtime topology. Do not use the legacy deploy skill for predict-v2.
+description: Use when jdy asks about, checks, runs, repairs, retries, or verifies predict-v2 production deployment on its dedicated AWS EC2 host, including release artifacts, stable bootstrap, silent or interrupted SSH execution, one-shot deployment residue, GHCR pull identity, or runtime restart.
 ---
 
 # predict-v2 artifact-first deployment
@@ -19,12 +19,14 @@ Classify the request as exactly one or more of:
 4. accept or verify GHCR/runtime material prepared by jdy;
 5. acquire an approved release on the host without deploying it;
 6. run a normal software deployment;
-7. retry the same no-argument deployment after repairing current facts or latest code;
-8. activate tasks, fund, sign, transfer, withdraw, or place orders.
+7. diagnose an interrupted deployment or remove one exact one-shot deployment residue;
+8. retry the same no-argument deployment after repairing current facts or latest code;
+9. activate tasks, fund, sign, transfer, withdraw, or place orders.
 
 Treat every item as a separate authorization. Never infer bootstrap maintenance, credential work, deployment
-retry, or trading permission from an earlier deploy request. Require a new explicit authorization before each
-production retry, even though the operator command remains the same no-argument entrypoint.
+residue cleanup, retry, or trading permission from an earlier deploy request. Require a new explicit
+authorization before each production retry, even though the operator command remains the same no-argument
+entrypoint.
 
 Handle explanation requests without GitHub writes, host connection, or local mutation. Connect to EC2 only for
 an explicitly requested live check or host action that the ROADMAP currently permits.
@@ -121,7 +123,15 @@ Do not create or rotate credentials, activate new tasks, add funds, sign, transf
 orders during software deployment. Permit only the existing-material safety reads, buy cancellation, and
 sell/position adoption that the live runbook explicitly requires.
 
-## 6. Handle outcomes and fix-forward retry
+## 6. Handle silence, interruption, and one-shot residue
+
+For any quiet, interrupted, disconnected, apparently hung, or residue-blocked canonical deployment,
+**REQUIRED REFERENCE:** read [references/interrupted-deployment.md](references/interrupted-deployment.md) before
+sending a signal, interpreting `BOOTSTRAP_ADMISSION_REQUIRED`, cleaning a one-shot bundle, reporting an
+outcome, or proposing a retry. Use the reference only as a decision contract; obtain executable commands and
+acceptance definitions from the live runbook.
+
+## 7. Handle outcomes and fix-forward retry
 
 Use only `SUCCESS`, `FAILED`, and `ACTION_REQUIRED`, with the runbook's exact meanings. Treat internal phases,
 warnings, reason codes, and legacy results as evidence, never additional public outcomes.
@@ -138,7 +148,7 @@ no-argument command; do not select an old release, invoke a separate recovery co
 marker, downgrade the database, or add a second progress record. Apply the runbook's no-fabricated-baseline rule
 to the first new-system cutover and revalidate every required task/order/position gate before terminal closeout.
 
-## 7. Report bounded evidence
+## 8. Report bounded evidence
 
 Use only the runbook's narrow, non-secret checks. Prefer actual component digests, database revision, module
 health, network exposure, task ownership, and authoritative venue facts over pointers or receipts. Avoid broad
