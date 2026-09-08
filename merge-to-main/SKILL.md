@@ -19,7 +19,7 @@ description: Use when merging the current feature branch into main. Synchronize 
 
 ## 2. 共同步骤：同步最新 main 并验证
 
-复用已安装的 `merge-check` Skill（从当前会话的 Skill 列表定位）的 fetch、祖先判断与 rebase 方法，但按此处顺序先验证再推送。其“无需 rebase”仅结束同步步骤，不能跳过本 Skill 的验证和合并前复核。
+`merge-check` 负责检查当前分支是否包含最新 main，未包含时先 rebase，已包含时不重复操作，也不自动推送。本 Skill 复用其 fetch、固定 SHA 祖先判断与必要的 rebase 方法，并按下列顺序完成验证、推送及合并。基线已同步不能替代验证或合并前复核；需要改写已发布分支时，须先完成下列远端 head 记录与保护检查，再 rebase。
 
 1. 成功执行 `git fetch origin`，记录 `BASE_SHA=$(git rev-parse origin/main)`。若需要更新已发布的功能分支，在 rebase 前记录其远端 head，并确认本地已包含远端提交；否则停止，不能覆盖远端独有改动。保留该 head 供后续明确的 lease 检查使用。
 2. 检查 `git merge-base --is-ancestor "$BASE_SHA" HEAD`。返回 0 表示已包含最新 main，不做无意义的 rebase；返回 1 时，在已有授权范围内执行 `git rebase "$BASE_SHA"`；其他错误停止。冲突时停止并报告，不跳过提交或强行继续。
