@@ -4,6 +4,7 @@ import { resolve } from "path";
 export interface R2ScriptOptions {
   scriptPath: string;
   cwd?: string;
+  extension?: "webp" | "mp4";
 }
 
 function canonicalSourceUrl(sourceUrl: string): string {
@@ -37,7 +38,7 @@ export function buildR2ArticleKeyPrefix(sourceUrl: string): string {
   return `web-articles/${host}/${articleId}`;
 }
 
-function parseUploadUrl(stdout: string, key: string): string {
+function parseUploadUrl(stdout: string, key: string, extension = "webp"): string {
   const lines = stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (lines.length !== 1) {
     throw new Error("r2-upload.sh must output exactly one URL");
@@ -49,7 +50,7 @@ function parseUploadUrl(stdout: string, key: string): string {
   } catch {
     throw new Error("r2-upload.sh returned an invalid URL");
   }
-  if (parsed.protocol !== "https:" || parsed.pathname !== `/${key}.webp`) {
+  if (parsed.protocol !== "https:" || parsed.pathname !== `/${key}.${extension}` || parsed.search || parsed.hash || parsed.username || parsed.password) {
     throw new Error(`r2-upload.sh returned an unexpected object URL for ${key}`);
   }
   return parsed.toString();
@@ -75,5 +76,5 @@ export async function uploadWithR2Script(
   if (exitCode !== 0) {
     throw new Error(`r2-upload.sh failed with exit ${exitCode}: ${stderr.trim() || "unknown error"}`);
   }
-  return parseUploadUrl(stdout, key);
+  return parseUploadUrl(stdout, key, options.extension);
 }

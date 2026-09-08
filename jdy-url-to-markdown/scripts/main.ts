@@ -11,6 +11,7 @@ import { ImagePersistenceError, persistMarkdownImages } from "./media/persist-im
 import type { ImageMode } from "./media/persist-images";
 import type { ParseResult, SiteRule } from "./types";
 import { shouldFailClosedOnAdapterError } from "./adapter-policy";
+import { persistVideos, VideoPersistenceError, type VideoMode } from "./media/persist-videos";
 
 interface CliArgs {
   url: string;
@@ -18,6 +19,7 @@ interface CliArgs {
   wait: boolean;
   timeout: number;
   imageMode: ImageMode;
+  videoMode: VideoMode;
   output?: string;
 }
 
@@ -28,18 +30,20 @@ Options:
   --wait          Wait for valid content in CDP
   --timeout <ms>  Page load timeout (default: 30000)
   --images <mode> Image handling: remote, piclist, r2, or none (default: EXTEND.md; fallback: remote)
+  --videos <mode> Video handling: remote, r2, or none (default: follows image mode; configurable in EXTEND.md)
   -o <path>       Output file path`);
 }
 
 function parseArgs(
   args: string[],
-  defaults: { timeout: number; imageMode: ImageMode },
+  defaults: { timeout: number; imageMode: ImageMode; videoMode?: VideoMode },
 ): CliArgs {
   const positional: string[] = [];
   let cdp = false;
   let wait = false;
   let timeout = defaults.timeout;
   let imageMode = defaults.imageMode;
+  let videoMode = defaults.videoMode;
   let output: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
@@ -64,6 +68,15 @@ function parseArgs(
         imageMode = value;
         break;
       }
+      case "--videos": {
+        const value = args[++i];
+        if (value !== "remote" && value !== "r2" && value !== "none") {
+          console.error("Invalid video mode: expected remote, r2, or none");
+          process.exit(1);
+        }
+        videoMode = value;
+        break;
+      }
       case "-o": output = args[++i]; break;
       case "--help": case "-h": printUsage(); process.exit(0);
       default:
@@ -80,7 +93,7 @@ function parseArgs(
     process.exit(1);
   }
 
-  return { url: positional[0], cdp, wait, timeout, imageMode, output };
+  return { url: positional[0], cdp, wait, timeout, imageMode, videoMode: videoMode ?? (imageMode === "r2" ? "r2" : imageMode === "none" ? "none" : "remote"), output };
 }
 
 async function persistAndWrite(
@@ -89,7 +102,13 @@ async function persistAndWrite(
   args: CliArgs,
   preferences: ReturnType<typeof loadPreferences>,
 ): Promise<string> {
-  const markdown = await persistMarkdownImages(result.markdown, {
+  const videoMarkdown = await persistVideos(result.markdown, result.videos, {
+    mode: args.videoMode,
+    sourceUrl: result.metadata.url || args.url,
+    scriptPath: preferences.r2VideoUploadScript,
+    persistentHosts: preferences.persistentImageHosts,
+  });
+  const markdown = await persistMarkdownImages(videoMarkdown, {
     mode: args.imageMode,
     sourceUrl: result.metadata.url || args.url,
     piclistEndpoint: preferences.piclistEndpoint,
@@ -172,6 +191,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2), {
     timeout: preferences.defaultTimeout,
     imageMode: preferences.defaultImageMode,
+    videoMode: preferences.defaultVideoMode,
   });
   const { url, cdp: forceCdp, wait, timeout } = args;
 
@@ -198,9 +218,9 @@ async function main(): Promise<void> {
     } catch (e) {
       const adapterError = e as Error;
       console.error(`[adapter:${rule.adapter}] Failed: ${adapterError.message}`);
-      if (shouldFailClosedOnAdapterError(rule, args.imageMode)) {
+      if (shouldFailClosedOnAdapterError(rule, args.imageMode) || args.videoMode === "r2") {
         console.error(
-          "Error: refusing generic fallback because this persistent-image archive requires the site adapter; no Markdown was written.",
+          "Error: refusing generic fallback because this persistent-media archive requires the site adapter; no Markdown was written.",
         );
         if (adapterError.message.includes("Quality check failed")) process.exit(2);
         if (/CDP|daemon|Chrome/i.test(adapterError.message)) process.exit(3);
@@ -215,7 +235,7 @@ async function main(): Promise<void> {
         return;
       } catch (e) {
         console.error(`Error: ${(e as Error).message}`);
-        process.exit(e instanceof ImagePersistenceError ? 4 : 1);
+        process.exit(e instanceof VideoPersistenceError ? 5 : e instanceof ImagePersistenceError ? 4 : 1);
       }
     }
   }
@@ -237,6 +257,7 @@ async function main(): Promise<void> {
     const err = e as Error;
     console.error(`Error: ${err.message}`);
     if (err instanceof ImagePersistenceError) process.exit(4);
+    if (err instanceof VideoPersistenceError) process.exit(5);
     if (err.message.includes("Quality check failed")) process.exit(2);
     if (err.message.includes("CDP")) process.exit(3);
     process.exit(1);

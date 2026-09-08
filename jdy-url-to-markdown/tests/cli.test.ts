@@ -17,5 +17,6 @@ describe("CLI", () => {
     });
     expect(stderr).toContain("--images <mode>");
     expect(stderr).toContain("piclist, r2");
+    expect(stderr).toContain("--videos <mode>");
   });
 });

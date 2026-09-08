@@ -1,6 +1,6 @@
 ---
 name: jdy-url-to-markdown
-description: Fetch URLs and convert them to markdown using local HTTP or Chrome CDP, with classified R2-script or PicList image persistence. Supports site-specific cleanup for WeChat, Zhihu, and Xiaohongshu, plus YouTube transcripts and X/Twitter threads. Use when the user asks to read, extract, archive, or save a webpage or article.
+description: Fetch URLs and convert them to markdown using local HTTP or Chrome CDP, with classified R2 image and MP4 video persistence or PicList images. Supports site-specific cleanup for WeChat, Zhihu, and Xiaohongshu, plus YouTube transcripts and X/Twitter threads. Use when the user asks to read, extract, archive, or save a webpage or article.
 metadata:
   openclaw:
     requires:
@@ -21,6 +21,8 @@ Fetches any URL and converts it to clean Markdown with YAML front matter.
 4. `${CMD}` = `bun run {baseDir}/scripts/main.ts`
 5. For persistent archives containing GIFs, verify `gif2webp` is on `PATH`. Do not
    install it automatically; report a missing converter as an image-persistence failure.
+6. For R2 video archives, verify `ffprobe` and an existing Wrangler installation
+   (`npx --no-install wrangler --version`). Do not install dependencies automatically.
 
 ## Preferences (EXTEND.md)
 
@@ -40,6 +42,8 @@ Check EXTEND.md existence (priority order):
 | `piclist_endpoint` | `http://127.0.0.1:36677/upload` | local URL | PicList-compatible upload endpoint |
 | `r2_upload_script` | `scripts/r2-upload.sh` | path | Classified Agent uploader; relative paths resolve from the command working directory |
 | `persistent_image_hosts` | `img.jdy.systems` | comma-separated hosts | Hosts that do not need re-uploading |
+| `default_video_mode` | follows image mode | `remote`, `r2`, `none` | `r2` with image mode `r2`, `none` with image mode `none`, otherwise `remote` |
+| `r2_video_upload_script` | bundled `scripts/media/r2-upload-video.sh` | path | MP4 uploader; relative overrides resolve from the command working directory |
 
 If EXTEND.md not found, use defaults. No blocking setup flow required.
 
@@ -63,6 +67,12 @@ If EXTEND.md not found, use defaults. No blocking setup flow required.
     # Persist article images through the classified R2 script before writing
     ${CMD} <url> --images r2
 
+    # Explicitly persist both images and embedded MP4 videos to R2
+    ${CMD} <url> --images r2 --videos r2
+
+    # Intentionally omit videos while keeping their location and original-article link
+    ${CMD} <url> --images r2 --videos none
+
     # Use PicList's configured manual path policy instead
     ${CMD} <url> --images piclist
 
@@ -75,7 +85,7 @@ If EXTEND.md not found, use defaults. No blocking setup flow required.
 2. **Level 1** (default): local fetch() + Readability + Turndown -> quality check
 3. **Level 2** (fallback or forced): CDP daemon -> full JS rendering -> same pipeline
 4. **Adapters** (WeChat, YouTube, X/Twitter, ZSXQ): bypass generic extraction when platform-specific DOM/API handling is required
-5. **Media persistence** optionally downloads unique images, uploads them through the classified R2 script or PicList, verifies public WebP URLs, and rewrites Markdown
+5. **Media persistence** resolves video placeholders before images: downloads unique MP4s, validates them with ffprobe, uploads to R2, verifies public MIME/size/MP4 bytes, then persists images through the existing R2/PicList pipeline
 6. **Writer** generates YAML front matter and atomically saves to the output path; reruns reuse an existing note with the same canonical source URL
 
 The WeChat adapter normalizes lazy-loaded `data-src` images, removes structural
@@ -140,6 +150,48 @@ After every run, verify:
    use a configured persistent host and return `image/webp`
 6. Only one canonical raw archive note exists for the source URL after a rerun.
    Derived analyses may share the URL and must remain outside overwrite scope.
+7. For `--videos r2`, compare detected video count and positions with output
+   `<video>` elements. Every video must reference an HTTPS `.mp4` on a configured
+   persistent host. Image counts do NOT establish video completeness.
+
+## Embedded videos
+
+- Supports directly accessible HTTP(S) MP4 sources in HTML `<video src>` and
+  `<video><source src>` nodes, including WeChat's rendered `[data-mpvid]` players.
+  Outermost player containers are preserved once, in their article positions.
+- WeChat video iframes without a resolved MP4 remain explicit unresolved entries.
+  In R2 mode they fail closed before media uploads rather than being silently
+  dropped. Load the player in the permitted Chrome session and retry if needed.
+  `blob:`, HLS/DASH, DRM, authenticated media without a usable source, arbitrary
+  third-party iframe APIs, and downloading YouTube/X videos are not supported.
+  Existing YouTube transcript and X thread behavior stays unchanged.
+- Default with `--images r2`: videos also use R2. `--videos none` deliberately
+  leaves a numbered “未下载，请查看原文” link; `remote` keeps a direct player URL
+  when available and that same explicit notice otherwise. Never silently select
+  `none` after a persistence failure.
+- Bundled uploader uses the existing Wrangler credentials, `R2_BUCKET`
+  (default `obsidian-images`) and `IMG_SUBDOMAIN` (default `img.jdy.systems`).
+  Files keep MP4 format with `Content-Type: video/mp4`, under the article's stable
+  `web-articles/.../video-NNN.mp4` key, separate from `img-NNN.webp`.
+- MP4s are streamed to a unique OS temporary directory (never the Vault), limited
+  to 250 MiB per file for the bundled single-put workflow, with a 120-second
+  timeout per download attempt. Source reads retry at most three times; uploads
+  and ambiguous responses are not retried automatically. Downloads are validated
+  before the first video upload. No automatic remote deletion or rollback.
+- Output uses `<video controls preload="metadata" src="https://...mp4"></video>`.
+  Rendering depends on the Markdown viewer and video codecs. No transcoding or
+  adaptive streaming is performed.
+- Upload-script contract: arguments `<local-mp4> <classified-key-without-ext>`;
+  exactly one HTTPS URL ending in that exact key + `.mp4` on stdout. Keep the
+  input file on success and failure; the caller removes temporary video files
+  only after all video objects pass public verification. Video failures retain
+  temporary files and report video number/stage without logging signed URLs.
+- A failed run may leave uploaded videos even if later image persistence fails.
+  It must not replace the Markdown archive in that case. Never claim all media
+  were saved just because a Markdown file exists from an earlier run.
+- When a command yields a process/session ID, continue waiting on that session
+  until its actual exit code is known. Missing stdout during a running process
+  is neither a failed archive nor authorization to start duplicate uploads.
 
 If quality is poor:
 - Try `--cdp` to force browser rendering
@@ -153,3 +205,4 @@ If quality is poor:
 - 2: quality check failed (content too short or garbled)
 - 3: CDP daemon connection failed
 - 4: image persistence failed; Markdown was not written
+- 5: video persistence failed; Markdown was not written

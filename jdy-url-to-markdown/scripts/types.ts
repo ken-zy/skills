@@ -10,6 +10,12 @@ export interface Metadata {
 export interface ParseResult {
   markdown: string;
   metadata: Metadata;
+  videos?: VideoReference[];
+}
+
+export interface VideoReference {
+  marker: string;
+  url?: string;
 }
 
 export interface QualityResult {

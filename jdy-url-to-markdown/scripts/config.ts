@@ -9,6 +9,8 @@ export interface Preferences {
   piclistEndpoint: string;
   r2UploadScript: string;
   persistentImageHosts: string[];
+  defaultVideoMode?: "remote" | "r2" | "none";
+  r2VideoUploadScript?: string;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -58,6 +60,15 @@ export function parseExtend(content: string): Partial<Preferences> {
   }
 
   const endpoint = values.get("piclist_endpoint");
+  const videoMode = values.get("default_video_mode");
+  if (videoMode) {
+    if (videoMode !== "remote" && videoMode !== "r2" && videoMode !== "none") {
+      throw new Error("Invalid default_video_mode in EXTEND.md");
+    }
+    preferences.defaultVideoMode = videoMode;
+  }
+  const videoScript = values.get("r2_video_upload_script");
+  if (videoScript) preferences.r2VideoUploadScript = videoScript;
   if (endpoint) preferences.piclistEndpoint = endpoint;
 
   const r2UploadScript = values.get("r2_upload_script");

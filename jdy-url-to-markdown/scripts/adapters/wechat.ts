@@ -11,7 +11,6 @@ const MAX_WECHAT_TITLE_LENGTH = 180;
 const NOISE_SELECTORS = [
   "script",
   "style",
-  "iframe",
   "noscript",
   "template",
   ".js_wechat_qrcode",

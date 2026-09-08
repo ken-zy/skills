@@ -3,6 +3,7 @@ import { Readability } from "@mozilla/readability";
 import TurndownService from "turndown";
 import { gfm } from "turndown-plugin-gfm";
 import type { Metadata, ParseResult, Cleaner } from "./types";
+import { preserveVideoNodes } from "./media/video-nodes";
 
 interface ParsedTableRow {
   cells: string[];
@@ -193,6 +194,7 @@ function createTurndown(): TurndownService {
   td.addRule("collapseFigure", {
     filter: "figure",
     replacement(_content, node) {
+      if (node.querySelector("[data-jdy-video]")) return _content;
       const img = node.querySelector("img");
       const caption = node.querySelector("figcaption");
       if (!img) return _content;
@@ -276,6 +278,8 @@ export function parse(
   const metadata = extractMetadata(document, url);
 
   const { document: readDoc } = parseHTML(html);
+  const videoRoot = (contentSelector ? readDoc.querySelector(contentSelector) : null) || readDoc.body;
+  const videos = videoRoot ? preserveVideoNodes(readDoc, videoRoot, url) : [];
   expandTableColspans(readDoc);
   const td = createTurndown();
   let markdown: string;
@@ -306,7 +310,7 @@ export function parse(
         markdown = `# ${titleText}\n\n${markdown}`;
       }
     } else {
-      markdown = td.turndown(html);
+      markdown = td.turndown(readDoc.documentElement?.outerHTML || html);
     }
   }
 
@@ -318,5 +322,6 @@ export function parse(
 
   markdown = normalizeMarkdownTables(markdown);
 
-  return { markdown, metadata };
+  const retainedVideos = videos.filter(video => markdown.includes(video.marker));
+  return { markdown, metadata, ...(retainedVideos.length ? { videos: retainedVideos } : {}) };
 }
