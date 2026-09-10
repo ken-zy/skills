@@ -139,8 +139,9 @@ Accept it only through the credential-file or standard-input path approved by th
 logs, but do not add broad scan machinery. Never turn identity maintenance into a normal-deploy side effect.
 
 Do not create or rotate credentials, activate new tasks, add funds, sign, transfer, withdraw, or submit new
-orders during software deployment. Permit only the existing-material safety reads, buy cancellation, and
-sell/position adoption that the live runbook explicitly requires.
+orders during software deployment. Preserve all BUY/SELL orders under ADR 0023. Permit the existing-material
+safety reads and current-state adoption needed to resume only this deployment attempt's original tasks,
+as required by the live runbook; do not use historical BUY-zero instructions.
 
 ## 6. Handle silence, interruption, and one-shot residue
 
