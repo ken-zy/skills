@@ -56,8 +56,8 @@ bounded cleanup fails once, stop without rebooting or escalating deletion.
 After cleanup, reverify zero labeled residue, deployment and database closeout, exact service digests and health,
 network exposure, untouched task/trading boundaries, and current resource pressure. Cleanup never authorizes or
 requires a redeploy. When deployment effects are already convergent, do not rerun solely to manufacture a
-missing terminal SSH result. A retry still needs current evidence that deployment work remains and a new explicit
-authorization for the no-argument entrypoint.
+missing terminal SSH result. A retry still needs current evidence that deployment work remains and explicit
+authorization for the no-argument entrypoint; apply the scope and consumption rule in SKILL.md section 1.
 
 ## Report without fabricating success
 
