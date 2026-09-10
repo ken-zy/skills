@@ -21,12 +21,19 @@ Classify the request as exactly one or more of:
 6. run a normal software deployment;
 7. diagnose an interrupted deployment or remove one exact one-shot deployment residue;
 8. retry the same no-argument deployment after repairing current facts or latest code;
-9. activate tasks, fund, sign, transfer, withdraw, or place orders.
+9. prepare, authenticate, apply, or abort a wallet replacement;
+10. activate tasks, fund, sign, transfer, withdraw, or place orders.
 
 Treat every item as a separate authorization. Never infer bootstrap maintenance, credential work, deployment
 residue cleanup, retry, or trading permission from an earlier deploy request. Require a new explicit
 authorization before each production retry, even though the operator command remains the same no-argument
-entrypoint.
+entrypoint. An explicit authorization already given in this session for the diagnosed repair and one retry
+remains valid for that exact scope; do not ask again merely because preparation or read-only verification
+intervened. Once that retry runs, its authorization is consumed; another failure does not authorize a loop.
+
+Route wallet replacement to `docs/operations/wallet-replacement-runbook.md`. Bootstrap installation, software
+deployment, candidate materialization, authentication, and wallet apply are distinct steps; success in one does
+not prove the next is ready. Attribute a wallet reason code to its own operation, not to software deployment.
 
 Handle explanation requests without GitHub writes, host connection, or local mutation. Connect to EC2 only for
 an explicitly requested live check or host action that the ROADMAP currently permits.
@@ -39,7 +46,8 @@ do not retry blindly or infer a host/deployment failure.
 
 ## 2. Read live authority
 
-Read these sources before every action:
+Read the relevant current sources before acting; reuse sources already read in this session when unchanged.
+Refresh changed sections and live release/host facts at the corresponding admission boundary:
 
 1. `AGENTS.md` and applicable global policies;
 2. `docs/design/ROADMAP.md` for the only current progress/frontier state;
@@ -76,6 +84,17 @@ Require no operator-supplied SHA, branch, generation, digest, checkout, or local
 Require runtime-digest changes to cover every configured runtime consumer. Treat frontend-only and
 already-current behavior exactly as the runbook defines. Keep task state plus the machine-level unreachable
 `place_order` gate as the trading boundary; never use worker-process absence as the money boundary.
+
+When deployment is a prerequisite for a requested follow-up such as wallet replacement, compare the merged
+source, current artifact-ready release, and actually deployed components using the applicable runbooks. Check
+the required follow-up entrypoint/capability and known blockers before another deployment or human material
+preparation, using source evidence and already-authorized non-secret reads. Defer checks requiring credentials,
+signing, or effects to their authorized step; never describe them as read-only preflight.
+
+A moving `release-ready` tag alone does not justify another deployment. Check whether the follow-up actually
+requires a matching release. If it does, report that concrete mismatch and follow the authorized normal path;
+do not bypass it by choosing an old digest or fabricating a release marker. Existing wallet operation pins are
+governed by the wallet runbook. Do not introduce a new pinning protocol in this skill.
 
 Do not reproduce the engine's internal rollout steps here. Verify their required evidence against the live
 runbook instead.
@@ -143,7 +162,7 @@ installer to create a fresh immutable library generation before replacing the la
 existing generation in place. Treat this as failure repair, not a new normal-deploy preflight or public step.
 
 On every `ACTION_REQUIRED` or `FAILED`, stop automatic retry and preserve the database Attempt's current blocker.
-Repair current facts or latest code, obtain a new explicit deployment authorization, and rerun the same
+Repair current facts or latest code, apply the retry authorization rule in section 1, and rerun the same
 no-argument command; do not select an old release, invoke a separate recovery command, read a legacy active
 marker, downgrade the database, or add a second progress record. Apply the runbook's no-fabricated-baseline rule
 to the first new-system cutover and revalidate every required task/order/position gate before terminal closeout.
@@ -152,7 +171,8 @@ to the first new-system cutover and revalidate every required task/order/positio
 
 Use only the runbook's narrow, non-secret checks. Prefer actual component digests, database revision, module
 health, network exposure, task ownership, and authoritative venue facts over pointers or receipts. Avoid broad
-logs and container metadata.
+logs and container metadata. Reuse still-valid evidence and refresh facts affected by the action; do not rerun
+unchanged checks or deploy again solely to reproduce a receipt. Keep required acceptance gates intact.
 
 Report only evidence relevant to the authorized action. For acquisition without deployment, report the frozen
 manifest and exact component digests, successful presence on the host, the untouched deployment/trading
