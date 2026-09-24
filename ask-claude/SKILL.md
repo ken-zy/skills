@@ -1,6 +1,6 @@
 ---
 name: ask-claude
-description: Use when jdy explicitly invokes /ask-claude to consult Claude Code for a raw one-shot second opinion, diagnosis, review, or question from Codex.
+description: "仅在明确调用 /ask-claude 时，向 Claude Code 请求一次独立意见。"
 ---
 
 # ask-claude

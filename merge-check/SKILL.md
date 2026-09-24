@@ -1,6 +1,6 @@
 ---
 name: merge-check
-description: 检查当前开发分支是否基于最新 main；未包含最新 main 时先 rebase，已包含则不重复操作，不自动 push 或合并。
+description: "检查当前分支是否包含最新 main；需要时 rebase，不自动 push 或合并。"
 ---
 
 # merge-check

@@ -1,6 +1,6 @@
 ---
 name: cross-model-review
-description: Use when a design spec, implementation plan, or PR needs cross-model review before merging or executing
+description: "用户要求对设计、计划或 PR 进行跨模型评审时使用。"
 ---
 
 # Cross-Model Review

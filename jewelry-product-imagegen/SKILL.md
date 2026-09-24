@@ -1,6 +1,6 @@
 ---
 name: jewelry-product-imagegen
-description: "Use when generating ecommerce jewelry and accessory model-wearing product photos from local product folders under /Users/jdy/Downloads/耳环整理图, with fixed model references, product-appropriate wearing views, OpenCLI ChatGPT web generation, or Codex imagegen generation."
+description: "基于本地饰品素材和指定模特参考，生成电商佩戴展示图时使用。"
 ---
 
 # Jewelry Product ImageGen

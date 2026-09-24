@@ -1,6 +1,6 @@
 ---
 name: product-roundtable
-description: Use when making product decisions for the prediction market making system — evaluating new features or platforms, exploring strategic directions, or planning implementations. Triggers on keywords like roundtable, product decision, feature evaluation, should we, what next, how to implement, architecture decision
+description: "用户要求预测市场项目的产品圆桌讨论时，组织机会评估、决策或设计讨论。"
 ---
 
 # 产品圆桌会议
