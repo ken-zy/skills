@@ -1,6 +1,6 @@
 ---
 name: merge-to-main
-description: Use when merging the current feature branch into main. Synchronize with the latest main and validate the resulting revision before either a GitHub PR merge or an explicitly authorized local merge.
+description: "用户要求合并到 main 时，同步最新 main、验证并执行已授权的合并。"
 ---
 
 # merge-to-main

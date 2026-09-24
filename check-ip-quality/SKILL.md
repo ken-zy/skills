@@ -1,6 +1,6 @@
 ---
 name: check-ip-quality
-description: Evaluate public IP address quality, reputation, proxy/VPN risk, ASN ownership, DNSBL listings, reverse DNS, and basic reachability. Use when the user asks to check an IP, compare IP quality, assess whether an IP is suitable for accounts, proxies, email, ads, registration, login, scraping, API access, or asks about current egress IP reputation.
+description: "检查或比较公网 IP 的信誉、归属和代理风险时使用。"
 ---
 
 # Check IP Quality

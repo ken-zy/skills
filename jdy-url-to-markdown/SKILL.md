@@ -1,6 +1,6 @@
 ---
 name: jdy-url-to-markdown
-description: Fetch URLs and convert them to markdown using local HTTP or Chrome CDP, with classified R2 image and MP4 video persistence or PicList images. Supports site-specific cleanup for WeChat, Zhihu, and Xiaohongshu, plus YouTube transcripts and X/Twitter threads. Use when the user asks to read, extract, archive, or save a webpage or article.
+description: "读取或保存网页原文为 Markdown，支持微信公众号及图片、视频持久化。"
 metadata:
   openclaw:
     requires:

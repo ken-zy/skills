@@ -1,6 +1,6 @@
 ---
 name: server-status
-description: Use when checking production server health, diagnosing performance issues, or user says "查看服务器状态", "服务器状况", "server status". SSH to EC2 and output a comprehensive report file.
+description: "只读检查 Predict 生产服务、钱包 worker 和资源健康状态时使用。"
 ---
 
 # Server Status Check
