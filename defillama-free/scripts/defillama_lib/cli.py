@@ -186,7 +186,7 @@ def safe_cell(value):
 def csv_text(result):
     """One scalar field per row; no nested objects hidden inside CSV cells."""
     out = io.StringIO(newline='')
-    fields = ['record', 'entity', 'metric', 'kind', 'unit', 'status', 'field', 'value', 'period_start', 'period_end', 'observed_at', 'source_url', 'fetched_at']
+    fields = ['record_type', 'record', 'entity', 'metric', 'kind', 'unit', 'status', 'field', 'value', 'period_start', 'period_end', 'observed_at', 'source_url', 'fetched_at']
     writer = csv.DictWriter(out, fieldnames=fields); writer.writeheader()
     sources = {s['id']:s for s in result.get('sources', [])}
     def leaves(value, path=''):
@@ -198,15 +198,26 @@ def csv_text(result):
                 yield from leaves(child, f'{path}[{i}]')
         else:
             yield path, value
-    records = result.get('results', []) or [{'metric': 'response', 'status': result['status'], 'count': 0, 'capabilities':result.get('capabilities')}]
+    def write(row):
+        writer.writerow({k:safe_cell(v) for k,v in row.items()})
+    # Query universe, truncation, warnings and capability gaps are part of the
+    # export contract, even when the result set is empty.
+    metadata = {k:v for k,v in result.items() if k not in ('results', 'sources', 'raw')}
+    for field, value in leaves(metadata):
+        write(dict(record_type='metadata', status=result['status'], field=field, value=value))
+    for source in result.get('sources', []):
+        for field, value in leaves(source):
+            write(dict(record_type='source', record=source['id'], status=source.get('status', 'ok'), field=field, value=value,
+                       source_url=source.get('url'), fetched_at=source.get('fetched_at')))
+    records = result.get('results', [])
     for index, record in enumerate(records):
         entity = record.get('entity') or {}
         name = entity.get('slug') or entity.get('name') or entity.get('id') if isinstance(entity, dict) else str(entity)
         linked = [sources.get(s, {}) for s in record.get('source_ids', [])] or [{}]
         for field, value in leaves(record):
             for source in linked:
-                row = dict(record=index, entity=name, metric=record.get('metric'), kind=record.get('kind'), unit=record.get('unit'), status=record.get('status'), field=field, value=value, period_start=record.get('period_start'), period_end=record.get('period_end'), observed_at=record.get('observed_at'), source_url=source.get('url'), fetched_at=source.get('fetched_at'))
-                writer.writerow({k:safe_cell(v) for k,v in row.items()})
+                row = dict(record_type='result', record=index, entity=name, metric=record.get('metric'), kind=record.get('kind'), unit=record.get('unit'), status=record.get('status'), field=field, value=value, period_start=record.get('period_start'), period_end=record.get('period_end'), observed_at=record.get('observed_at'), source_url=source.get('url'), fetched_at=source.get('fetched_at'))
+                write(row)
     return out.getvalue()
 
 

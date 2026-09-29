@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -6,6 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from defillama_lib.providers import Provider, API, STABLE, YIELDS, COINS, number
 from defillama_lib.client import FetchError
+from defillama_lib import cli
 
 CANONICAL = {'id': '711', 'slug': 'polymarket-international', 'name': 'Polymarket International',
              'parentProtocol': 'parent#polymarket', 'chains': ['Polygon'], 'category': 'Prediction Market'}
@@ -166,6 +168,88 @@ class ProvidersTests(unittest.TestCase):
         metadata = output['records'][0]['metadata']
         self.assertEqual(metadata['currentChainSupply']['Ethereum']['circulating']['peggedUSD'], 2)
         self.assertNotIn('chainBalances', metadata)
+
+    def execute(self, words, responses):
+        args = cli.validate(dict(cli.DEFAULTS, **vars(cli.parser().parse_args(words))))
+        result = cli.execute(args, client=FakeClient(responses))
+        json.dumps(result, allow_nan=False)
+        return result
+
+    def test_malformed_list_rows_preserve_good_records_through_cli(self):
+        pool = {'pool': 'good', 'symbol': 'USDC', 'project': 'good', 'chain': 'Polygon',
+                'tvlUsd': 12, 'apy': 2, 'apyBase': 2, 'apyReward': 0}
+        cases = [
+            (['chains'], {'api.llama.fi/v2/chains': [None, 'bad', {'name': None}, {'name': 'Polygon', 'tvl': 12}]}),
+            (['open-interest'], {'api.llama.fi/overview/open-interest': {'protocols': [None, 'bad', {'slug': 'good', 'total24h': 12}]}}),
+            (['yields'], {'yields.llama.fi/pools': {'data': [None, 'bad', {**pool, 'chain': []}, pool]}}),
+        ]
+        for words, responses in cases:
+            with self.subTest(words=words):
+                result = self.execute(words, responses)
+                self.assertEqual(result['status'], 'partial')
+                self.assertTrue(any(r['value'] == 12 for r in result['results']))
+                bad = [r for r in result['results'] if r['status'] == 'unavailable']
+                self.assertTrue(bad)
+                self.assertTrue(all(r['value'] is None and r['source_ids'] and r['reason'] for r in bad))
+                self.assertTrue(all(s['url'].startswith('https://') for s in result['sources']))
+
+    def test_primitive_payloads_become_structured_cli_failures(self):
+        cases = [(['chains'], 'api.llama.fi/v2/chains'),
+                 (['yields'], 'yields.llama.fi/pools'),
+                 (['open-interest'], 'api.llama.fi/overview/open-interest'),
+                 (['stablecoins'], 'stablecoins.llama.fi/stablecoincharts/all')]
+        for words, key in cases:
+            for malformed in (None, 'bad', 12):
+                with self.subTest(words=words, malformed=malformed):
+                    result = self.execute(words, {key: malformed})
+                    self.assertEqual(result['status'], 'unavailable')
+                    self.assertTrue(result['sources'][0]['url'].startswith('https://'))
+                    self.assertTrue(all(r.get('value') is None for r in result['results']))
+
+    def test_stablecoin_nested_damage_preserves_history_and_metadata(self):
+        responses = {
+            'stablecoins.llama.fi/stablecoins': {'peggedAssets': [None, {'id': '1'}]},
+            'stablecoins.llama.fi/stablecoin/1': {'id': '1', 'name': 'Tether', 'chainBalances': {
+                'Broken': [], 'Ethereum': {'tokens': [None, {'date': None},
+                    {'date': '1767225600', 'circulating': {'peggedUSD': 12}}]}}},
+            'stablecoins.llama.fi/stablecoincharts/all': [None, {'date': {}},
+                {'date': '1767225600', 'totalCirculatingUSD': {'peggedUSD': 12}}]}
+        result = self.execute(['stablecoins', '1', '--start', '2026-01-01', '--end', '2026-01-01'], responses)
+        self.assertEqual(result['status'], 'partial')
+        metadata = next(r for r in result['results'] if r['metric'] == 'stablecoin-metadata')
+        self.assertEqual(metadata['metadata']['currentChainSupply']['Ethereum']['circulating']['peggedUSD'], 12)
+        self.assertTrue(any(r.get('value') == 12 for r in result['results']))
+        self.assertTrue(all(r['source_ids'] for r in result['results']))
+
+    def test_pool_history_skips_bad_rows_without_discarding_good_observations(self):
+        pool = '747c1d2a-c668-4682-b9f9-296708a3dd90'
+        client = FakeClient({'yields.llama.fi/chart/' + pool: {'data': [None, 'bad',
+            {'timestamp': 'bad'}, {'timestamp': '2026-01-01T00:00:00Z', 'tvlUsd': 12, 'apy': 0}]}})
+        result = Provider(client).dispatch('yields', {'pool': pool})
+        self.assertEqual(result['series'][0]['points'], [[1767225600, 12]])
+        self.assertEqual(len(result['records']), 3)
+        self.assertTrue(all(r['status'] == 'unavailable' for r in result['records']))
+
+    def test_pool_iso_fractional_seconds_normalize_without_accepting_numeric_fractions(self):
+        pool = '747c1d2a-c668-4682-b9f9-296708a3dd90'
+        client = FakeClient({'yields.llama.fi/chart/' + pool: {'data': [
+            {'timestamp': '2022-09-05T23:00:30.679Z', 'tvlUsd': 12},
+            {'timestamp': '2026-01-01T08:00:30.175+08:00', 'tvlUsd': 15},
+            {'timestamp': 1767225630.175, 'tvlUsd': 99},
+            {'timestamp': '2026-01-01T08:00:30.175', 'tvlUsd': 99}]}})
+        result = Provider(client).dispatch('yields', {'pool': pool})
+        self.assertEqual(result['series'][0]['points'], [[1662418830, 12], [1767225630, 15]])
+        self.assertEqual(len(result['records']), 2)
+        self.assertTrue(all(r['status'] == 'unavailable' for r in result['records']))
+
+    def test_huge_integer_and_aggregate_overflow_are_missing_not_crashes(self):
+        self.assertIsNone(number(10 ** 400))
+        self.assertIsNone(Provider._usd_total({'a': 1e308, 'b': 1e308}))
+        result = self.execute(['chains'], {'api.llama.fi/v2/chains': [
+            {'name': 'Good', 'tvl': 12}, {'name': 'Huge', 'tvl': 10 ** 400}]})
+        self.assertEqual(result['status'], 'partial')
+        self.assertEqual(result['results'][0]['value'], 12)
+        self.assertIsNone(result['results'][1]['value'])
 
     def test_nonfinite_and_boolean_values_never_numbers(self):
         for value in (True, False, float('nan'), float('inf'), '12', None):

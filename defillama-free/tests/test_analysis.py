@@ -53,6 +53,11 @@ class AnalysisTests(unittest.TestCase):
             self.assertEqual(row["source_observations"], source["points"])
             self.assertEqual(row["alignment"]["participants"], [])
             self.assertEqual(row["status"], "unavailable")
+            returned = row["coverage"]["returned_observations"]
+            self.assertEqual(returned["input_count"], 29)
+            self.assertEqual(returned["valid_timestamp_count"], 29)
+            self.assertEqual(returned["finite_value_count"], 29)
+            self.assertEqual(row["coverage"]["current"]["observed_days"], 0)
 
     def test_drifting_rolling_collection_and_mixed_comparison(self):
         rolling = fixture(time_semantics="rolling_window", timestamp_role="sample_time", values=[12] * 10)
@@ -146,6 +151,30 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(rows[2]["reason"], "HTTP failure")
         rows = analyze_series([a, b], days=[7], now=NOW, align="metric")
         self.assertNotEqual(rows[0]["period_end"], rows[1]["period_end"])
+
+    def test_wholly_null_old_series_cannot_drag_valid_alignment_backward(self):
+        for kind in ("flow", "stock"):
+            for align in ("all", "metric"):
+                usable = fixture(kind=kind)
+                unusable = fixture(kind=kind, values=[None] * 10)
+                rows = analyze_series([usable, unusable], days=[7], now=NOW, align=align)
+                self.assertEqual(rows[0]["alignment"]["chosen_end_date"], "2024-02-29")
+                self.assertEqual(len(rows[0]["alignment"]["participants"]), 1)
+                self.assertEqual(rows[0]["value"], 70 if kind == "flow" else 10)
+                self.assertIsNone(rows[1]["value"])
+                self.assertEqual(rows[1]["status"], "unavailable")
+                self.assertIn("excluded from common alignment", rows[1]["reason"])
+                self.assertEqual(rows[1]["coverage"]["returned_observations"]["finite_value_count"], 0)
+
+    def test_earlier_valid_and_latest_null_still_align_to_latest_null(self):
+        for kind in ("flow", "stock"):
+            usable = fixture(kind=kind)
+            with_gap = fixture(kind=kind, values=[10] * 27 + [None])
+            rows = analyze_series([usable, with_gap], days=[7], now=NOW)
+            self.assertEqual(rows[0]["alignment"]["chosen_end_date"], "2024-02-28")
+            self.assertEqual(len(rows[0]["alignment"]["participants"]), 2)
+            self.assertIsNone(rows[1]["value"])
+            self.assertEqual(rows[1]["status"], "partial")
 
     def test_duplicates_do_not_doublecount_and_conflicts_fail(self):
         source = fixture()

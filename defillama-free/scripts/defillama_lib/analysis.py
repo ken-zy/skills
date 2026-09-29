@@ -102,6 +102,11 @@ def _normalize(series: dict, now: float) -> dict:
         eligible = False
     return {"series": series, "points": points, "eligible": eligible,
             "invalid": invalid, "warnings": list(dict.fromkeys(warnings)),
+            "returned_observations": {
+                "input_count": len(raw), "valid_timestamp_count": len(seen),
+                "finite_value_count": sum(finite_number(value) for value in seen.values()),
+                "scope": "entire source series; unique observation timestamps, not calendar-window coverage",
+            },
             "latest_stamp": latest_stamp}
 
 
@@ -120,6 +125,7 @@ def _window(normalized: dict, first: date, last: date, today: date) -> dict:
     value = (partial_sum if flow else points[last][1]) if complete else None
     return {"value": value, "complete": bool(complete),
             "expected_days": len(wanted), "observed_days": len(observed),
+            "coverage_basis": "eligible comparison observations; not raw returned-point count",
             "missing_dates": missing, "partial_sum": partial_sum,
             "observed_at": _instant(points[last][0]) if not flow and last in points else None}
 
@@ -139,8 +145,9 @@ def analyze_series(series_list: list[dict], days: list[int] | None = None,
     """Return complete/partial windows, preserving every unavailable requested series.
 
     ``rate`` behaves as an instantaneous observation; it is never daily-averaged.
-    A null latest observation participates in alignment, so missing data cannot
-    silently move the comparison back to an older favorable date.
+    A null latest observation participates if earlier usable completed data exists,
+    so missing data cannot silently move that series back to an older favorable
+    date. A wholly unusable series cannot move otherwise valid comparisons back.
     """
     now = datetime.now(UTC).timestamp() if now is None else now
     if not finite_number(now) or now <= 0:
@@ -165,7 +172,8 @@ def analyze_series(series_list: list[dict], days: list[int] | None = None,
     groups: dict[str, list[tuple[dict, date]]] = {}
     for n in normalized:
         past = [d for d in n["points"] if d < today]
-        if n["eligible"] and not n["invalid"] and past:
+        n["has_usable_completed"] = any(finite_number(n["points"][d][1]) for d in past)
+        if n["eligible"] and not n["invalid"] and n["has_usable_completed"]:
             key = n["series"].get("metric", "") if align == "metric" else "all"
             groups.setdefault(key, []).append((n, max(past)))
     result = []
@@ -196,11 +204,12 @@ def analyze_series(series_list: list[dict], days: list[int] | None = None,
                    "time_semantics": s.get("time_semantics", "unknown"),
                    "timestamp_role": s.get("timestamp_role", "unknown"),
                    "semantic_evidence": s.get("semantic_evidence"),
-                   "status": "ok" if complete else "partial" if n["eligible"] and not n["invalid"] else "unavailable",
+                   "status": "ok" if complete else "partial" if n["eligible"] and not n["invalid"] and n["has_usable_completed"] else "unavailable",
                    "coverage": {"current": current, "previous": previous,
                                 "current_complete": current["complete"], "previous_complete": previous["complete"],
                                 "upstream_health": s.get("upstream_health", {}),
-                                "scope": "returned-point completeness; not proof of upstream collection completeness"},
+                                "returned_observations": n["returned_observations"],
+                                "scope": "eligible comparison coverage and source observation counts; neither proves upstream collection completeness"},
                    "alignment": {"mode": "explicit" if explicit else align, "chosen_end_date": chosen.isoformat(),
                                  "participants": [{"entity": a["series"].get("entity", {}), "metric": a["series"].get("metric"), "latest_completed_date": d.isoformat()} for a, d in participants],
                                  "latest_timestamp": n["latest_stamp"],
@@ -208,6 +217,8 @@ def analyze_series(series_list: list[dict], days: list[int] | None = None,
                    "warnings": list(n["warnings"])}
             if not n["eligible"] or n["invalid"]:
                 row["reason"] = s.get("reason") or ("Invalid series observations" if n["invalid"] else "Verified calendar intervals unavailable")
+            elif not n["has_usable_completed"]:
+                row["reason"] = "No finite completed observations; excluded from common alignment"
             if s.get("kind") == "flow" and not n["eligible"]:
                 # Raw values retain their upstream timestamp and semantics, never
                 # acquire inferred midnight intervals or zero substitutions.

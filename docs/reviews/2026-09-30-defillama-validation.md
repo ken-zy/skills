@@ -4,7 +4,7 @@ Validated on 2026-09-30 Asia/Shanghai (2026-09-29 UTC), Python 3.14.6. Runtime u
 
 ## Offline
 
-- `python3 -m unittest discover -s defillama-free/tests`: 66 tests passed.
+- `python3 -m unittest discover -s defillama-free/tests`: 84 tests passed.
 - CLI `--help`, offline `capabilities`, invalid input/overwrite handling and JSON/CSV exports checked.
 - Official skill-creator `quick_validate.py`: Skill is valid.
 - `git diff --check`: clean.
@@ -13,7 +13,9 @@ The external validator required PyYAML absent from both installed Python runtime
 
 ## Real API checks
 
-`python3 defillama-free/tests/live_smoke.py --run`: all 20 checks passed at 2026-09-29T17:25:49Z. This invokes actual CLI subprocesses and checks raw data separately; no fixed-price assertions.
+`python3 defillama-free/tests/live_smoke.py --run`: all 28 checks passed at 2026-09-29T17:56:54Z. Every CLI subprocess used `--no-cache`; successful linked sources were checked for `cached=false` and `fetched_at` within that subprocess’s start/end interval. Required endpoints need usable data, and Polymarket values and changes were independently recomputed from raw responses. No fixed-price assertions.
+
+This supersedes the initial 20-check run at 17:25:49Z: its harness allowed cache hits and did not prove fresh network access for every required endpoint. The strengthened harness has nine offline regression tests, including rejected cached/empty/failed required results. Its first fresh run correctly rejected a fractional-ISO timestamp parsing regression in yield history; after the parser fix and a dedicated test, all 28 checks passed.
 
 - Polymarket International id711: TVL and volume complete 7-day comparisons; fees/revenue/supply-side retrieved but strict calendar calculations deliberately unavailable because aggregation semantics remain unknown.
 - Independent recomputation matched TVL current349465540/prior356194007 USD and volume current483004381/prior537918572 USD. These are dated verification observations, not current-value promises. Volume window `[2026-09-22T00:00:00Z,2026-09-29T00:00:00Z)`.

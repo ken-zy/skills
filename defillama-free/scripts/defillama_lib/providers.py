@@ -9,7 +9,7 @@ from urllib.parse import quote, urlencode
 
 from .client import FetchError
 
-PROVIDER_ERRORS = (FetchError, ValueError, TypeError, KeyError, AttributeError)
+PROVIDER_ERRORS = (FetchError, ValueError, TypeError, KeyError)
 
 API = 'https://api.llama.fi'
 STABLE = 'https://stablecoins.llama.fi'
@@ -28,7 +28,12 @@ PM_VOLUME_EVIDENCE = {
 
 
 def number(value):
-    return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) else None
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    try:
+        return value if math.isfinite(value) else None
+    except OverflowError:
+        return None
 
 
 def component(value):
@@ -127,9 +132,41 @@ class Provider:
         self.out['raw'][source['id']] = data
         return data, source['id']
 
+    def _bad_row(self, sid, metric, index, reason):
+        self._record({'row_index': index}, metric, source_ids=[sid], status='unavailable',
+                     reason=reason)
+
+    def _objects(self, rows, sid, metric, text_fields=()):
+        if not isinstance(rows, list):
+            raise ValueError('Expected list for ' + metric)
+        valid = []
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                self._bad_row(sid, metric, index, 'Malformed row: expected object')
+            elif any(not isinstance(row.get(key), str) or not row[key] for key in text_fields):
+                self._bad_row(sid, metric, index, 'Malformed row: invalid identity text field')
+            else:
+                valid.append(row)
+        return valid
+
+    @staticmethod
+    def _epoch(value):
+        if isinstance(value, str):
+            if not value.isdigit() or len(value) > 12:
+                return None
+            value = int(value)
+        numeric = number(value)
+        if numeric is None or numeric <= 0 or int(numeric) != numeric:
+            return None
+        if numeric > datetime.now(timezone.utc).timestamp() + 600:
+            return None
+        return int(numeric)
+
     def _record(self, ent, metric, value=None, source_ids=None, status='ok', **extra):
         row = {'entity': ent, 'metric': metric, 'value': value, 'source_ids': source_ids or [],
                'status': status, 'observed_at': None, **extra}
+        if status == 'unavailable':
+            row.setdefault('reason', 'Missing or invalid metric value')
         stamp = row.get('observed_at')
         if stamp is not None and (number(stamp) is None or stamp <= 0 or int(stamp) != stamp
                                   or stamp > datetime.now(timezone.utc).timestamp() + 600):
@@ -176,7 +213,7 @@ class Provider:
         if not any(s['id'] == sid for s in self.out['sources']):
             self.out['sources'].append(source)
             self.out['raw'][sid] = raw
-        return rows, sid
+        return self._objects(rows, sid, 'protocol-catalogue', ('slug', 'name')), sid
 
     def _resolve(self, slug):
         component(slug)
@@ -266,8 +303,16 @@ class Provider:
             elif stable:
                 if not isinstance(data, list):
                     raise ValueError('Expected stablecoin USD history list')
-                values = [[int(row['date']), self._usd_total(row.get('totalCirculatingUSD'))] for row in data]
+                values = []
+                for index, row in enumerate(self._objects(data, sid, 'stablecoin-cap')):
+                    stamp = self._epoch(row.get('date'))
+                    if stamp is None:
+                        self._bad_row(sid, 'stablecoin-cap', index, 'Invalid history timestamp')
+                        continue
+                    values.append([stamp, self._usd_total(row.get('totalCirculatingUSD'))])
             else:
+                if not isinstance(data, dict):
+                    raise ValueError('Expected aggregate chart object')
                 values = points(data.get('totalDataChart'))
             self._series(ent, metric, 'stock' if metric in ('tvl', 'stablecoin-cap') else 'flow', values, sid,
                          data if isinstance(data, dict) else ent)
@@ -279,7 +324,7 @@ class Provider:
         if not isinstance(mapping, dict) or not mapping:
             return None
         values = [number(x) for x in mapping.values()]
-        return sum(values) if all(x is not None for x in values) else None
+        return number(sum(values)) if all(x is not None for x in values) else None
 
     def _market(self, args):
         ent = {'id': 'global', 'name': 'Global'}
@@ -291,7 +336,8 @@ class Provider:
         rows, sid = self._get(API + '/v2/chains')
         if not isinstance(rows, list):
             raise ValueError('Invalid chain list')
-        matches = [r for r in rows if isinstance(r, dict) and r.get('name', '').casefold() == requested.casefold()]
+        rows = self._objects(rows, sid, 'chain-catalogue', ('name',))
+        matches = [r for r in rows if r['name'].casefold() == requested.casefold()]
         if len(matches) != 1:
             raise ValueError('Exact chain name not found or ambiguous')
         return matches[0], sid
@@ -301,7 +347,7 @@ class Provider:
             data, sid = self._get(API + '/v2/chains')
             if not isinstance(data, list):
                 raise ValueError('Invalid chain list')
-            for row in data:
+            for row in self._objects(data, sid, 'tvl', ('name',)):
                 val = number(row.get('tvl'))
                 self._record({'id': row.get('chainId'), 'name': row.get('name')}, 'tvl', val, [sid],
                              status='ok' if val is not None else 'unavailable', kind='stock', unit='USD')
@@ -328,27 +374,44 @@ class Provider:
             coin_id = str(coin_id)
             if not coin_id.isdigit():
                 raise ValueError('Stablecoin ID must be numeric')
-            listed, _ = self._get(STABLE + '/stablecoins?includePrices=true')
+            listed, list_sid = self._get(STABLE + '/stablecoins?includePrices=true')
             if not isinstance(listed, dict) or not isinstance(listed.get('peggedAssets'), list):
                 raise ValueError('Invalid stablecoin catalogue')
-            found = [r for r in listed['peggedAssets'] if str(r.get('id')) == coin_id]
+            found = [r for r in self._objects(listed['peggedAssets'], list_sid, 'stablecoin-catalogue')
+                     if str(r.get('id')) == coin_id]
             if len(found) != 1:
                 raise ValueError('Stablecoin ID not found')
             data, sid = self._get(STABLE + '/stablecoin/' + component(coin_id))
-            if str(data.get('id')) != coin_id:
+            if not isinstance(data, dict) or str(data.get('id')) != coin_id:
                 raise ValueError('Stablecoin identity mismatch')
             ent = {'id': coin_id, 'name': data.get('name'), 'chains': [chain] if chain else data.get('chains')}
             distribution = {}
             balances = data.get('chainBalances', {})
-            if isinstance(balances, dict):
+            if not isinstance(balances, dict):
+                self._bad_row(sid, 'stablecoin-chain-supply', None, 'Invalid chainBalances object')
+            else:
                 for name, balance in balances.items():
                     if chain and name.casefold() != chain.casefold():
                         continue
                     history = balance.get('tokens') if isinstance(balance, dict) else None
-                    if isinstance(history, list) and history:
-                        latest = max((r for r in history if isinstance(r, dict)),
-                                     key=lambda r: int(r.get('date', 0)), default={})
-                        distribution[name] = {key: latest.get(key) for key in ('date', 'circulating')}
+                    if not isinstance(history, list):
+                        self._bad_row(sid, 'stablecoin-chain-supply', name, 'Invalid chain token history')
+                        continue
+                    dated = []
+                    for index, row in enumerate(self._objects(history, sid, 'stablecoin-chain-supply')):
+                        stamp = self._epoch(row.get('date'))
+                        if stamp is None:
+                            self._bad_row(sid, 'stablecoin-chain-supply', index, 'Invalid chain supply timestamp')
+                        else:
+                            dated.append((stamp, row))
+                    if dated:
+                        stamp, latest = max(dated, key=lambda pair: pair[0])
+                        circulating = latest.get('circulating')
+                        supply = ({key: number(value) for key, value in circulating.items()}
+                                  if isinstance(circulating, dict) else None)
+                        if supply is None:
+                            self._bad_row(sid, 'stablecoin-chain-supply', name, 'Invalid circulating supply object')
+                        distribution[name] = {'date': stamp, 'circulating': supply}
             self._record(ent, 'stablecoin-metadata', source_ids=[sid], metadata={
                 **{k: data.get(k) for k in ('symbol', 'pegType', 'pegMechanism', 'price')},
                 'currentChainSupply': distribution, 'supplyUnit': 'native peg units; not USD valuation'})
@@ -365,16 +428,22 @@ class Provider:
             if not isinstance(data, list):
                 raise ValueError('Invalid pool chart')
             ent = {'id': pool, 'name': pool}
-            for metric, kind, unit in [('tvlUsd', 'stock', 'USD'), ('apy', 'rate', '%'), ('apyBase', 'rate', '%'), ('apyReward', 'rate', '%')]:
-                values = []
-                for row in data:
-                    stamp = row.get('timestamp')
-                    if isinstance(stamp, str):
+            observations = []
+            for index, row in enumerate(self._objects(data, sid, 'pool-history')):
+                stamp = row.get('timestamp')
+                if isinstance(stamp, str):
+                    try:
                         dt = datetime.fromisoformat(stamp.replace('Z', '+00:00'))
-                        if dt.tzinfo is None:
-                            raise ValueError('Pool timestamp lacks timezone')
-                        stamp = int(dt.timestamp())
-                    values.append([stamp, number(row.get(metric))])
+                        stamp = int(dt.timestamp()) if dt.tzinfo is not None else None
+                    except (ValueError, OverflowError):
+                        stamp = None
+                stamp = self._epoch(stamp)
+                if stamp is None:
+                    self._bad_row(sid, 'pool-history', index, 'Invalid or timezone-less pool timestamp')
+                    continue
+                observations.append((stamp, row))
+            for metric, kind, unit in [('tvlUsd', 'stock', 'USD'), ('apy', 'rate', '%'), ('apyBase', 'rate', '%'), ('apyReward', 'rate', '%')]:
+                values = [[stamp, number(row.get(metric))] for stamp, row in observations]
                 self._series(ent, metric, kind, values, sid, unit=unit)
             return
         payload, sid = self._get(YIELDS + '/pools')
@@ -382,7 +451,7 @@ class Provider:
         if not isinstance(data, list):
             raise ValueError('Invalid pools list')
         chosen = []
-        for row in data:
+        for row in self._objects(data, sid, 'yield-pool', ('pool', 'symbol', 'project', 'chain')):
             if args.get('chain') and str(row.get('chain')).casefold() != args['chain'].casefold():
                 continue
             if args.get('project') and row.get('project') != args['project']:
@@ -454,7 +523,7 @@ class Provider:
                                       {'excludeTotalDataChart': 'true', 'excludeTotalDataChartBreakdown': 'true'}))
         if not isinstance(data, dict) or not isinstance(data.get('protocols'), list):
             raise ValueError('Invalid OI overview')
-        rows = data['protocols']
+        rows = self._objects(data['protocols'], sid, 'open-interest', ('slug',))
         if args.get('slug'):
             rows = [r for r in rows if r.get('slug') == args['slug']]
             if len(rows) != 1:

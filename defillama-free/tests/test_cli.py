@@ -60,8 +60,22 @@ class CliTests(unittest.TestCase):
         result = {'status':'partial','sources':[{'id':'s','url':'https://api.llama.fi/protocol/x','fetched_at':'2026-01-01T00:00:00Z'}], 'results':[{'entity':{'name':' =BAD()'},'metric':'fees','value':None,'status':'unavailable','reason':'missing','source_ids':['s']}]}
         records = list(csv.DictReader(io.StringIO(cli.csv_text(result))))
         self.assertTrue(any(r['field']=='value' and r['value']=='' for r in records))
-        self.assertTrue(all(r['source_url'].startswith('https://') for r in records))
-        self.assertTrue(all(r['entity'].startswith("'") for r in records))
+        results = [r for r in records if r['record_type']=='result']
+        self.assertTrue(all(r['source_url'].startswith('https://') for r in results))
+        self.assertTrue(all(r['entity'].startswith("'") for r in results))
+
+    def test_csv_preserves_query_truncation_warnings_and_empty_metadata(self):
+        payload = {'status':'partial','schema_version':'1.0','generated_at':'2026-01-01T00:00:00Z',
+                   'command':'search','requested_scope':{'query':'poly','limit':1},
+                   'effective_scope':{'entities':[]},'listing':{'count':4,'truncated':True},
+                   'warnings':['=untrusted warning'],'results':[], 'sources':[]}
+        rows = list(csv.DictReader(io.StringIO(cli.csv_text(payload))))
+        meta = {r['field']:r['value'] for r in rows if r['record_type']=='metadata'}
+        self.assertEqual(meta['requested_scope.query'], 'poly')
+        self.assertEqual(meta['listing.count'], '4')
+        self.assertEqual(meta['listing.truncated'], 'True')
+        self.assertEqual(meta['warnings[0]'], "'=untrusted warning")
+        self.assertEqual(meta['status'], 'partial')
 
     def test_listing_truncation_and_partial_status_retained(self):
         bundle = {'records':[{'entity':{'id':'x'},'metric':'tvl','value':0,'status':'ok'}, {'metric':'apy','value':None,'status':'unavailable'}], 'count':500,'truncated':True}
