@@ -21,9 +21,9 @@ description: |
 - **CoinGecko 插件** — BTC/ETH 的 USD 价格、市值、涨跌幅、全球加密市值与占比
 - **Binance 插件** — BTC/ETH 现货价格，按双源行情规则换汇、核对并告警
 
-### Layer 2: Chrome CDP
-- `fred.stlouisfed.org/series/{series_id}` — 利率/国债收益率/CPI/PCE/就业数据/GDP/美元指数
-- `defillama.com` — 稳定币总市值/全球加密 TVL/DeFi 总量/DEX 交易量
+### Layer 2: 官网数据
+- **FRED：内置浏览器** — 先读取并执行 [FRED 浏览器规则](references/fred-browser.md)，访问 `https://fred.stlouisfed.org/series/{series_id}` — 利率/国债收益率/CPI/PCE/就业数据/GDP/美元指数
+- **DefiLlama：Chrome CDP** — `defillama.com` — 稳定币总市值/全球加密 TVL/DeFi 总量/DEX 交易量
 
 ### Layer 3: Web Search
 - 经济数据发布日历、FOMC 声明、市场评论
@@ -44,7 +44,7 @@ description: |
 - `calendar` — 仅未来 2 周数据发布日历
 
 ### Step 2: Fetch Traditional Macro Data
-通过 Chrome CDP（`fred.stlouisfed.org/series/{series_id}`）获取：
+通过内置浏览器访问 FRED 官网，按 [FRED 浏览器规则](references/fred-browser.md)读取：
 
 **利率环境:**
 - 联邦基金利率 (FEDFUNDS)
@@ -142,6 +142,7 @@ description: |
 
 ## Quality Checklist
 
+- [ ] FRED 数据从内置浏览器官网页面读取，已标注数据期间、单位及来源；未获取项明确说明
 - [ ] 所有 FRED 数据系列正确引用（ID 对应正确指标）
 - [ ] 当前值和前值都已获取（可计算变化）
 - [ ] 当前价格已尝试 CoinGecko + Binance 插件，输出价差/时间/核验状态，超阈值告警未遗漏

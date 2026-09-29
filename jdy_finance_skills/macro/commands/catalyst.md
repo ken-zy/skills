@@ -1,7 +1,7 @@
 ---
 description: 催化剂日历 — 财报/经济数据/FOMC/代币解锁/空投快照/协议升级
 argument-hint: "[tickers_or_tokens...] [horizon: 2w|month|quarter]"
-allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, WebSearch, WebFetch
+allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, mcp__cua_repl__*, WebSearch, WebFetch
 ---
 
 # Catalyst Calendar
@@ -20,9 +20,9 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - 涉及当前价格时必须先读取 [双源行情规则](../skills/macro-dashboard/references/plugin-market-data.md)，默认价差 ≥1% 告警，缺源/不同步时明确标记。
 - 新闻和日历没有引用当前价格时不额外查价；事件仍以原始公告为准。插件缺失时提示连接，不回退旧 MCP 或自行配置 API Key。
 
-### Layer 2: Chrome CDP
-- `fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）
-- `defillama.com/protocol/{protocol}` — 协议 TVL 变动、DeFi 事件
+### Layer 2: 官网数据
+- **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）
+- **DefiLlama：Chrome CDP** — `defillama.com/protocol/{protocol}` — 协议 TVL 变动、DeFi 事件
 
 ### Layer 3: Web Search
 - 财报日历、FOMC 日期、代币解锁日历、空投日期、加密会议

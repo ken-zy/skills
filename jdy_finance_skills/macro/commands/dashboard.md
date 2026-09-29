@@ -1,7 +1,7 @@
 ---
 description: 宏观经济看板 — 利率/通胀/就业/市场情绪/加密宏观/经济日历
 argument-hint: "[scope: rates|inflation|jobs|sentiment|crypto-macro|calendar|all]"
-allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, WebSearch, WebFetch
+allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, mcp__cua_repl__*, WebSearch, WebFetch
 ---
 
 # Macro Dashboard
@@ -20,9 +20,9 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - 涉及当前价格时必须先读取 [双源行情规则](../skills/macro-dashboard/references/plugin-market-data.md)，默认价差 ≥1% 告警，缺源/不同步时明确标记。
 - 新闻和日历没有引用当前价格时不额外查价；事件仍以原始公告为准。插件缺失时提示连接，不回退旧 MCP 或自行配置 API Key。
 
-### Layer 2: Chrome CDP
-- `fred.stlouisfed.org/series/{series_id}` — 利率/国债/CPI/PCE/就业/GDP/美元指数
-- `defillama.com` — 稳定币总市值/全球加密 TVL/DeFi 总量
+### Layer 2: 官网数据
+- **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 利率/国债/CPI/PCE/就业/GDP/美元指数
+- **DefiLlama：Chrome CDP** — `defillama.com` — 稳定币总市值/全球加密 TVL/DeFi 总量
 
 ### Layer 3: Web Search
 - 经济数据日历、FOMC 声明、VIX、恐惧贪婪指数

@@ -21,9 +21,9 @@ description: |
 - **CoinGecko 插件** — 项目信息与新闻线索；事件日期回到项目官方公告核实
 - **Binance 插件** — 仅在引用当前价格时进行现货价核对；不替代事件日历
 
-### Layer 2: Chrome CDP
-- `fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）
-- `defillama.com/protocol/{protocol}` — 协议 TVL 变动、DeFi 事件
+### Layer 2: 官网数据
+- **FRED：内置浏览器** — 先读取并执行 [FRED 浏览器规则](../macro-dashboard/references/fred-browser.md)，访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）
+- **DefiLlama：Chrome CDP** — `defillama.com/protocol/{protocol}` — 协议 TVL 变动、DeFi 事件
 
 ### Layer 3: Web Search
 - 财报日历（公司 IR 页面）
@@ -124,6 +124,7 @@ description: |
 
 ## Quality Checklist
 
+- [ ] FRED 数据从内置浏览器官网页面读取，已标注数据期间、单位及来源；未获取项明确说明
 - [ ] 如引用当前加密价格，已执行双源核验并显示价差告警或未核验原因
 - [ ] 传统金融和加密事件都已覆盖
 - [ ] 财报日期经公司 IR 页面验证
