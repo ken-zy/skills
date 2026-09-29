@@ -1,33 +1,12 @@
 ---
-description: Configure API key for macro plugin (CoinGecko)
-argument-hint: "[coingecko_key]"
-allowed-tools: Read, Edit, Bash, AskUserQuestion
+description: 检查 macro 所需的 CoinGecko / Binance 插件连接
+allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 ---
 
 # Macro Plugin Setup
 
-配置 macro 插件所需的 API key。
+检查当前宿主的 CoinGecko、Binance 插件工具是否已加载，并按[双源行情规则](../skills/macro-dashboard/references/plugin-market-data.md)实际查询 BTC 和换汇数据，报告可用、失败或缺失状态。工具前缀以当前宿主实际发现结果为准。
 
-## 步骤
+仅有工具列表不算连接可用。缺少插件时提示用户在当前应用中连接；会话终止则提示重新连接后测试。若插件要求认证，由用户在插件设置中处理。
 
-1. 读取 `../crypto/.mcp.json` 文件（coingecko MCP 由 crypto 插件统一声明），检查 `mcpServers.coingecko.env.COINGECKO_DEMO_API_KEY` 是否为空字符串。
-
-2. 读取 `~/.indie-finance/keys.json`（如存在），检查 `COINGECKO_DEMO_API_KEY`。
-
-3. 如果用户通过参数提供了 key（`$ARGUMENTS`），直接使用。
-
-4. 如果参数中没有提供，询问用户：
-   - CoinGecko Demo API Key（免费申请：https://www.coingecko.com/en/api/pricing）
-   - 如果已有非空值，显示"当前已配置"，询问是否更换
-
-5. 获取 key 后，执行双写：
-   - **keys.json**：写入 `~/.indie-finance/keys.json` 的 `COINGECKO_DEMO_API_KEY` 字段。目录权限 700，文件权限 600。如文件已存在则合并更新，不覆盖其他 key。
-   - **crypto/.mcp.json**：写入 `../crypto/.mcp.json` 的 `mcpServers.coingecko.env.COINGECKO_DEMO_API_KEY`（coingecko MCP 由 crypto 插件统一声明）。文件不存在则跳过，不报错。
-
-6. 完成后提示用户：key 已保存，请重启 Claude Code 会话以使 MCP 服务生效。
-
-## 注意
-
-- 不要将 key 输出到对话中，写入文件即可
-- `crypto/.mcp.json` 的路径相对于本命令文件所在的插件目录的上级目录（即 `../crypto/.mcp.json`）
-- `keys.json` 使用 python3 或 Bash 工具操作 JSON，不依赖 jq
+macro 不再依赖 crypto 插件的本地 npx MCP。不接收密钥参数，不读取或修改 crypto/.mcp.json 或 ~/.indie-finance/keys.json，不向用户索取或自动复制 Key。此命令只检查连接，不自动安装插件或修改认证。

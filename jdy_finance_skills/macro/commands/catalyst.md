@@ -1,7 +1,7 @@
 ---
 description: 催化剂日历 — 财报/经济数据/FOMC/代币解锁/空投快照/协议升级
 argument-hint: "[tickers_or_tokens...] [horizon: 2w|month|quarter]"
-allowed-tools: mcp__coingecko__*, WebSearch, WebFetch
+allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, WebSearch, WebFetch
 ---
 
 # Catalyst Calendar
@@ -15,8 +15,10 @@ allowed-tools: mcp__coingecko__*, WebSearch, WebFetch
 
 ## Data Source Priority
 
-### Layer 1: MCP
-- **coingecko** — 代币事件、项目动态
+### Layer 1: CoinGecko + Binance 插件
+- CoinGecko 插件获取加密行情、全市场指标或新闻线索；Binance 插件提供现货价格核对。
+- 涉及当前价格时必须先读取 [双源行情规则](../skills/macro-dashboard/references/plugin-market-data.md)，默认价差 ≥1% 告警，缺源/不同步时明确标记。
+- 新闻和日历没有引用当前价格时不额外查价；事件仍以原始公告为准。插件缺失时提示连接，不回退旧 MCP 或自行配置 API Key。
 
 ### Layer 2: Chrome CDP
 - `fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）

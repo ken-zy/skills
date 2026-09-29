@@ -10,14 +10,14 @@
 |--------|------|--------|
 | `tradfi` | `/comps` `/dcf` `/earnings` `/screen` `/thesis` `/model-update` `/debug-model` | Alpha Vantage (MCP) + Yahoo Finance (Chrome CDP) |
 | `crypto` | `/token` `/defi` `/airdrop` `/onchain` | CoinGecko, Dune (MCP) + DefiLlama (Chrome CDP) |
-| `macro` | `/dashboard` `/morning` `/catalyst` | CoinGecko (MCP) + FRED, DefiLlama (Chrome CDP) |
+| `macro` | `/dashboard` `/morning` `/catalyst` | CoinGecko + Binance 插件（价格双源核验）+ FRED, DefiLlama (Chrome CDP) |
 | `portfolio` | `/rebalance` `/tlh` | Yahoo Finance (Chrome CDP) |
 
 另有自动触发 skill（无独立命令）：`news-digest`（新闻补充）、`competitive-analysis`（竞争分析）、`audit-xls`（电子表格审计）、`idea-generation`（投资想法筛选）。
 
 ## 三层 Fallback 策略
 
-每个 skill 的数据获取逻辑统一遵循：
+macro 的当前加密价格使用 [CoinGecko + Binance 双源规则](macro/skills/macro-dashboard/references/plugin-market-data.md)：默认价差 ≥1% 告警，不回退旧 MCP / REST / 浏览器 / 搜索价格；缺源时说明未核验，macro 不索取或同步 Key。其余数据获取逻辑遵循：
 
 ```
 Layer 1: MCP 数据源（首选）
@@ -59,7 +59,7 @@ Layer 3: Web Search 摘要兜底（Chrome CDP 失败时）
 | SEC Filing | — | `sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={ticker}` | sec.gov/edgar |
 | 电话会议 | alpha-vantage | `seekingalpha.com/symbol/{ticker}/earnings/transcripts` | seekingalpha.com |
 | 分析师预期 | — | `tipranks.com/stocks/{ticker}/forecast` | tipranks.com, wsj.com |
-| 加密行情 | coingecko | `coingecko.com/en/coins/{id}` | coingecko.com |
+| 加密行情（crypto；macro 见双源规则） | coingecko | `coingecko.com/en/coins/{id}` | coingecko.com |
 | DeFi 数据 | — | `defillama.com/protocol/{protocol}` | defillama.com |
 | 链上数据 | dune | `dune.com/queries/{query_id}` | dune.com |
 | 宏观经济 | — | `fred.stlouisfed.org/series/{series_id}` | fred.stlouisfed.org |

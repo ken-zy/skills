@@ -1,7 +1,7 @@
 ---
 description: 宏观经济看板 — 利率/通胀/就业/市场情绪/加密宏观/经济日历
 argument-hint: "[scope: rates|inflation|jobs|sentiment|crypto-macro|calendar|all]"
-allowed-tools: mcp__coingecko__*, WebSearch, WebFetch
+allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, WebSearch, WebFetch
 ---
 
 # Macro Dashboard
@@ -15,13 +15,10 @@ allowed-tools: mcp__coingecko__*, WebSearch, WebFetch
 
 ## Data Source Priority
 
-### Layer 1: MCP
-- **coingecko MCP** — BTC/ETH 价格/全球加密市值/市场情绪
-
-### Layer 1.5: WebFetch 直调公开 API（MCP 失败时的首选降级）
-- `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true&include_market_cap=true` — 实时价格
-- `https://api.coingecko.com/api/v3/global` — 加密总市值/BTC 占比
-- 无需认证，返回实时数据
+### Layer 1: CoinGecko + Binance 插件
+- CoinGecko 插件获取加密行情、全市场指标或新闻线索；Binance 插件提供现货价格核对。
+- 涉及当前价格时必须先读取 [双源行情规则](../skills/macro-dashboard/references/plugin-market-data.md)，默认价差 ≥1% 告警，缺源/不同步时明确标记。
+- 新闻和日历没有引用当前价格时不额外查价；事件仍以原始公告为准。插件缺失时提示连接，不回退旧 MCP 或自行配置 API Key。
 
 ### Layer 2: Chrome CDP
 - `fred.stlouisfed.org/series/{series_id}` — 利率/国债/CPI/PCE/就业/GDP/美元指数
@@ -59,7 +56,7 @@ Always annotate: "Source: [source name]" on each data point.
 
 - [ ] FRED 数据系列 ID 正确
 - [ ] 当前值和前值都已获取
-- [ ] 加密数据来自实时数据源（CoinGecko MCP / Chrome CDP）
+- [ ] 当前价格已尝试两个插件，附价差、时间、告警/未核验状态
 - [ ] 日历覆盖未来 2 周重要事件
 - [ ] 降息预期来自实时数据（非猜测）
 - [ ] 数据时效性标注

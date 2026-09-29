@@ -11,15 +11,15 @@ description: |
 
 生成宏观经济全景看板，覆盖传统金融和加密市场的关键宏观指标。
 
+## 插件行情与价差核验
+
+使用 CoinGecko 和 Binance 插件；涉及当前加密价格时，先读取并执行[双源行情规则](references/plugin-market-data.md)。默认价差 ≥1% 告警，用户可覆盖阈值；告警必须进入本次输出摘要。单源失败、计价或时间无法对齐时明确标记未核验。新闻/日历不含当前价格时，无需额外拉取行情。
+
 ## Data Source Priority
 
-### Layer 1: MCP
-- **coingecko MCP** — BTC/ETH 价格/全球加密市值/市场情绪
-
-### Layer 1.5: WebFetch 直调公开 API（MCP 失败时的首选降级）
-- `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true&include_market_cap=true` — BTC/ETH 实时价格/24h 变化/市值
-- `https://api.coingecko.com/api/v3/global` — 加密总市值/BTC 占比
-- 无需认证，返回实时数据，优于 Web Search（Web Search 返回新闻报道，通常滞后 1-2 天）
+### Layer 1: CoinGecko + Binance 插件
+- **CoinGecko 插件** — BTC/ETH 的 USD 价格、市值、涨跌幅、全球加密市值与占比
+- **Binance 插件** — BTC/ETH 现货价格，按双源行情规则换汇、核对并告警
 
 ### Layer 2: Chrome CDP
 - `fred.stlouisfed.org/series/{series_id}` — 利率/国债收益率/CPI/PCE/就业数据/GDP/美元指数
@@ -74,11 +74,7 @@ description: |
 - 主要股指表现（finance.yahoo.com/quote/%5EGSPC 等）
 
 ### Step 4: Fetch Crypto Macro
-**加密价格获取优先级**（按顺序尝试，成功即停）：
-1. CoinGecko MCP（`mcp__plugin_crypto_coingecko__execute`）
-2. WebFetch 调 CoinGecko 公开 API（无需认证，实时数据）
-3. Chrome CDP 访问价格页面
-4. ❌ **不要用 Web Search 查价格**（返回新闻报道，滞后 1-2 天）
+通过 CoinGecko 的 `get_coin_markets` 和 Binance 的 `get_spot_symbol_price_ticker` 同批获取 BTC/ETH，再执行双源行情规则。CoinGecko 的 `get_global_market` 提供全市场指标。禁止“首源成功即停”及通过旧 MCP / REST / 浏览器静默回退当前价格。
 
 获取内容：
 - BTC 价格 + 24h/7d 变化 + 市值
@@ -148,7 +144,8 @@ description: |
 
 - [ ] 所有 FRED 数据系列正确引用（ID 对应正确指标）
 - [ ] 当前值和前值都已获取（可计算变化）
-- [ ] 加密数据来自 CoinGecko/DefiLlama（非训练数据）
+- [ ] 当前价格已尝试 CoinGecko + Binance 插件，输出价差/时间/核验状态，超阈值告警未遗漏
+- [ ] 全市场和 DeFi 数据保留各自来源与口径
 - [ ] 日历部分至少覆盖未来 2 周重要事件
 - [ ] 降息预期来自实时数据（CME FedWatch），非猜测
 - [ ] 数据时效性标注

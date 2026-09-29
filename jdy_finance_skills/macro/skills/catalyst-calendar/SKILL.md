@@ -11,10 +11,15 @@ description: |
 
 构建和维护催化剂日历，覆盖传统金融和加密市场的关键事件。
 
+## 插件行情与价差核验
+
+使用 CoinGecko 和 Binance 插件；涉及当前加密价格时，先读取并执行[双源行情规则](../macro-dashboard/references/plugin-market-data.md)。默认价差 ≥1% 告警，用户可覆盖阈值；告警必须进入本次输出摘要。单源失败、计价或时间无法对齐时明确标记未核验。新闻/日历不含当前价格时，无需额外拉取行情。
+
 ## Data Source Priority
 
 ### Layer 1: MCP
-- **coingecko** — 代币事件、项目动态
+- **CoinGecko 插件** — 项目信息与新闻线索；事件日期回到项目官方公告核实
+- **Binance 插件** — 仅在引用当前价格时进行现货价核对；不替代事件日历
 
 ### Layer 2: Chrome CDP
 - `fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）
@@ -119,6 +124,7 @@ description: |
 
 ## Quality Checklist
 
+- [ ] 如引用当前加密价格，已执行双源核验并显示价差告警或未核验原因
 - [ ] 传统金融和加密事件都已覆盖
 - [ ] 财报日期经公司 IR 页面验证
 - [ ] 代币解锁金额标注（占流通量百分比）
