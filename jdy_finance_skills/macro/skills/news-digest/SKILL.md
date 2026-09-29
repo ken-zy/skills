@@ -23,10 +23,15 @@ description: |
 - 已经在 morning-note 中覆盖了该标的的新闻
 - 标的没有任何近期新闻
 
+## 插件行情与价差核验
+
+使用 CoinGecko 和 Binance 插件；涉及当前加密价格时，先读取并执行[双源行情规则](../macro-dashboard/references/plugin-market-data.md)。默认价差 ≥1% 告警，用户可覆盖阈值；告警必须进入本次输出摘要。单源失败、计价或时间无法对齐时明确标记未核验。新闻/日历不含当前价格时，无需额外拉取行情。
+
 ## Data Source Priority
 
 ### Layer 1: MCP
-- **coingecko** — 代币相关新闻和社区讨论
+- **CoinGecko 插件** — `get_crypto_news` 获取新闻线索，保留原始标题/时间/链接；不声称覆盖全部社区讨论
+- **Binance 插件** — 仅在引用当前价格时进行现货价核对
 
 ### Layer 2: Chrome CDP
 - `defillama.com/protocol/{protocol}` — 协议重大变动（TVL 异常波动作为新闻线索）
@@ -84,6 +89,7 @@ description: |
 
 ## Quality Checklist
 
+- [ ] 如引用当前加密价格，已执行双源核验并显示价差告警或未核验原因
 - [ ] 新闻来源可靠（主流财经/加密媒体）
 - [ ] 新闻时效性标注（具体日期）
 - [ ] 不重复已在其他 skill 输出中覆盖的新闻

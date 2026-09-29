@@ -27,23 +27,23 @@ claude plugin marketplace add ken-zy/indie_finance_plugin
 | macro | 宏观经济 |
 | portfolio | 投资组合管理 |
 
-### 2. 配置 API Key
+### 2. 配置数据连接
 
-首次安装后启动新会话，插件会自动检测缺失的 API key 并引导你配置。
+tradfi / crypto 保留原 API key 配置流程。macro 使用宿主中已连接的 CoinGecko 与 Binance 插件，不再自动检测、恢复或同步 Key。
 
 你也可以随时手动配置：
 
 ```bash
 /tradfi:setup     # 配置 Alpha Vantage key
 /crypto:setup     # 配置 CoinGecko + Dune key
-/macro:setup      # 配置 CoinGecko key
+/macro:setup      # 实测 CoinGecko / Binance 插件连接
 ```
 
 所需 API key（全部免费）：
 
 | 服务 | 注册地址 | 用途 | 子插件 |
 |------|---------|------|--------|
-| CoinGecko | [coingecko.com/en/api/pricing](https://www.coingecko.com/en/api/pricing) | 加密行情（官方 MCP） | crypto, macro |
+| CoinGecko | [coingecko.com/en/api/pricing](https://www.coingecko.com/en/api/pricing) | 加密行情（官方 MCP） | crypto |
 | Alpha Vantage | [alphavantage.co/support](https://www.alphavantage.co/support/#api-key) | 技术指标、电话会议（官方 MCP） | tradfi |
 | Dune Analytics | [dune.com/settings/api](https://dune.com/settings/api) | 链上查询（官方 MCP） | crypto |
 
@@ -53,7 +53,7 @@ claude plugin marketplace add ken-zy/indie_finance_plugin
 
 - API key 保存在 `~/.indie-finance/keys.json`（与插件目录分离，权限 600）
 - 插件更新后 key 自动从备份恢复，无需重新配置
-- CoinGecko key 在 crypto 和 macro 之间自动同步
+- macro 不参与 Key 备份和同步；插件若要求认证，在宿主的插件设置中完成
 
 ## 子插件
 
@@ -117,7 +117,7 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 
 ### 三层 Fallback
 
-所有命令遵循统一的数据获取策略：
+除 macro 当前加密价格外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
 
 1. **MCP 数据源** — 首选，通过 MCP 协议直接查询
 2. **Chrome CDP** — MCP 不可用时，直接导航访问目标页面
@@ -129,7 +129,8 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 
 | MCP Server | 类型 | 官方 | 限制 | 子插件 |
 |-----------|------|------|------|--------|
-| CoinGecko | 官方 MCP | 是 | 30次/分, 10000次/月 | crypto, macro |
+| CoinGecko | 官方 MCP | 是 | 依实际 API 方案 | crypto |
+| CoinGecko + Binance | 宿主插件 | 以宿主插件来源为准 | 以实际连接和工具限制为准 | macro |
 | Alpha Vantage | 官方 MCP | 是 | 25次/天 | tradfi |
 | Dune Analytics | 官方 MCP | 是 | 55次/分 | crypto |
 
@@ -166,14 +167,12 @@ indie-finance-plugin/
 │   └── hooks/
 │       ├── hooks.json
 │       └── check-keys.sh
-├── macro/                             # 宏观经济子插件
+├── macro/                             # CoinGecko + Binance 插件行情核验
 │   ├── .claude-plugin/plugin.json
 │   ├── .mcp.json
-│   ├── commands/                      # setup, dashboard, morning...
-│   ├── skills/
-│   └── hooks/
-│       ├── hooks.json
-│       └── check-keys.sh
+│   ├── commands/                      # setup 检查连接，dashboard, morning...
+│   ├── skills/                        # 含 macro-dashboard/references 双源规则
+│   └── hooks/hooks.json               # 无自动 Key 操作
 ├── portfolio/                         # 投资组合管理子插件（MCP 配置为空）
 │   ├── .claude-plugin/plugin.json
 │   ├── commands/
