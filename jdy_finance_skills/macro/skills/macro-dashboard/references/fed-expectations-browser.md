@@ -17,7 +17,7 @@
 
 选择目标会议的 **Current** 页，读取内嵌 QuikStrike 中的会议日期、当前目标区间 `(Current)`、全部可见目标区间、`NOW` 概率、`Data as of` 时间及原时区；有需求再取 `1 DAY / 1 WEEK / 1 MONTH` 对应日期与历史概率。首屏可能只加载外层介绍，须确认内嵌概率表已出现。不要把 Dot Plot、历史列、期货合约价格或倒计时当作当前概率。
 
-保留 BPS 单位：375–400 bps 对应 3.75%–4.00%。`FEDFUNDS` 是月平均有效利率，不能用作会议前目标区间基准。页面无当前基准时，可通过内置浏览器读 [美联储公开市场操作页面](https://www.federalreserve.gov/monetarypolicy/openmarket.htm)核实；无法核实则不推算加减息幅度。
+保留 BPS 单位：375–400 bps 对应 3.75%–4.00%。`FEDFUNDS` 是月平均有效利率，不能用作会议前目标区间基准。页面无当前基准时，可通过内置浏览器读 [美联储公开市场操作页面](https://www.federalreserve.gov/monetarypolicy/openmarket.htm)核实；无法核实则不推算加减息幅度。涉及官网会议日历、声明、纪要或 SEP 时执行 [FOMC 官网规则](fomc-browser.md)。
 
 ### Polymarket 必读字段
 
