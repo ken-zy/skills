@@ -100,7 +100,7 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 
 自动触发 skill（无需命令）：news-digest
 
-数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（免费 API + 内置浏览器）；美联储 FOMC（内置浏览器官网文件）；CME FedWatch + Polymarket（内置浏览器双源利率预期）；Yahoo Finance（内置浏览器）；CNN Fear & Greed（内置浏览器）；其他新闻/事件（Web Search）
+数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（免费 API + 内置浏览器）；美联储 FOMC（内置浏览器官网文件）；CME FedWatch + Polymarket（内置浏览器双源利率预期）；Yahoo Finance（内置浏览器）；CNN Fear & Greed（内置浏览器）；公司 IR / 正式披露（内置浏览器）；其他新闻/事件（Web Search）
 
 ### portfolio — 投资组合管理
 
@@ -117,7 +117,7 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 
 ### 三层 Fallback
 
-除 macro 当前加密价格、FRED、macro DefiLlama、美联储 FOMC、利率预期双源、macro Yahoo Finance 和 CNN Fear & Greed 的专用规则外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
+除 macro 当前加密价格、FRED、macro DefiLlama、美联储 FOMC、利率预期双源、macro Yahoo Finance、CNN Fear & Greed 和公司 IR / 正式披露的专用规则外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
 
 1. **MCP 数据源** — 首选，通过 MCP 协议直接查询
 2. **Chrome CDP** — MCP 不可用时，直接导航访问目标页面
@@ -134,6 +134,8 @@ macro 的 Yahoo Finance 遵循[内置浏览器规则](macro/skills/macro-dashboa
 macro 的 CNN Fear & Greed 遵循[内置浏览器规则](macro/skills/macro-dashboard/references/cnn-browser.md)：读取主指数、情绪标签、历史比较值和页面时间；失败标注未获取，不回退外部 Chrome、API 或搜索数值。
 
 美联储 FOMC 遵循[官网浏览器规则](macro/skills/macro-dashboard/references/fomc-browser.md)：从官方日历进入声明、纪要、预测及发布会材料，分别保留会议日期和发布时间；不以搜索摘要替代官网事实。
+
+macro 公司事件/业绩遵循[IR 核验规则](macro/skills/macro-dashboard/references/company-ir-browser.md)：第三方日历找线索，内置浏览器访问公司官网确认时间，并读取正式披露核对内容。保留预计/确认状态，区分财报和电话会时间，不以搜索摘要替代原文；其他子插件保持原方式。
 
 ### MCP 数据源总览
 
@@ -155,6 +157,7 @@ macro 的 CNN Fear & Greed 遵循[内置浏览器规则](macro/skills/macro-dash
 | CME FedWatch + Polymarket | 网站访问限制，无需 Key；不承诺实时或无限访问 | 内置浏览器读取并比较美联储政策预期 |
 | CNN Fear & Greed | 网站访问限制，无需 Key | 内置浏览器读取美股情绪指数 |
 | 美联储 FOMC | 公开网页，无需 Key；受网站访问限制 | 内置浏览器读取会议日历和政策材料 |
+| 公司 IR / 正式披露 | 公开网页受站点限制，无需 API Key | macro：内置浏览器确认公司事件和业绩原文 |
 | FRED | 网站访问受站点限制，不套用 API 配额 | 内置浏览器读取宏观经济指标 |
 | FMP | 250次/天 | SEC filing、分析师数据 |
 
