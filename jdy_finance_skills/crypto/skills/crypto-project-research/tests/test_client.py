@@ -45,6 +45,26 @@ def hold_rate_lock(directory, ready, release):
         fcntl.flock(handle, fcntl.LOCK_UN)
 
 
+def wait_for_pacing(directory, waiting, output):
+    instance = client.Client(directory, deadline=0.8, cache=False)
+    # Initialize after process startup so a slow spawn cannot consume the wait.
+    client._atomic(Path(directory) / "geckoterminal.rate.json", {"next_at": time.time() + 0.4})
+    real_sleep = time.sleep
+
+    def signal_wait(duration):
+        # Signal the actual pacing wait, not a lock-contention poll.
+        if duration > 0.05:
+            waiting.set()
+        real_sleep(duration)
+
+    try:
+        with mock.patch.object(client.time, "sleep", side_effect=signal_wait):
+            instance._pace("geckoterminal")
+        output.put("reserved")
+    except TimeoutError:
+        output.put("budget_exhausted")
+
+
 class SlowResponse:
     status = 200
     headers = {}
@@ -221,6 +241,26 @@ class ClientTest(unittest.TestCase):
                 worker.join(timeout=1)
         self.assertEqual(worker.exitcode, 0)
 
+    def test_waiting_process_observes_new_shared_backoff(self):
+        context = mp.get_context("spawn")
+        waiting, output = context.Event(), context.Queue()
+        # The worker initially could reserve in 0.4 seconds. A concurrent 429
+        # response extends that deadline while the worker is already waiting.
+        worker = context.Process(target=wait_for_pacing, args=(str(self.directory), waiting, output))
+        worker.start()
+        try:
+            self.assertTrue(waiting.wait(3))
+            updater = client.Client(self.directory, cache=False, deadline=2)
+            updater._pace("geckoterminal", not_before=time.time() + 1.2)
+            self.assertEqual(output.get(timeout=3), "budget_exhausted")
+        finally:
+            worker.join(timeout=3)
+            if worker.is_alive():
+                worker.terminate()
+                worker.join(timeout=1)
+            output.close()
+        self.assertEqual(worker.exitcode, 0)
+
     @unittest.skipUnless("fork" in mp.get_all_start_methods(), "Unix fork needed to inject blocked network operation")
     def test_actual_worker_deadline_bounds_dns_and_slow_body(self):
         context = mp.get_context("fork")
@@ -305,6 +345,32 @@ class SnapshotTest(unittest.TestCase):
         self.assertEqual(selected["target_side"], "quote")
         self.assertFalse(fetch.same_address("SoLaNa", "solana"))
         self.assertTrue(fetch.same_address(ADDRESS.upper().replace("0X", "0x"), ADDRESS))
+
+    def test_selection_rejects_extreme_numeric_values_without_crashing(self):
+        for value in ("1e999999999", "1e-999999999", "9" * 1025, "NaN", "Infinity", "-1", True):
+            with self.subTest(value=str(value)[:40]):
+                selected = fetch.select_pool([pool(volume=value)], "bsc", ADDRESS)
+                self.assertIsNone(selected["address"])
+                self.assertEqual(selected["candidates"][0]["reason"], "missing_or_invalid_price_liquidity_volume")
+
+    def test_selection_preserves_full_precision_and_lexical_ties(self):
+        def candidate(suffix, volume, reserve):
+            row = pool(volume=volume, reserve=reserve)
+            address = "0x" + suffix * 64
+            row["id"] = "bsc_" + address
+            row["attributes"]["address"] = address
+            return row
+
+        low = "123456789012345678901234567890.0000000000000000000000000001"
+        high = "123456789012345678901234567890.0000000000000000000000000002"
+        lower_id = candidate("1", low, "100")
+        greater_volume = candidate("2", high, "100")
+        greater_reserve = candidate("3", high, "100.00000000000000000000000000001")
+        same_metrics_later_id = candidate("4", high, "100.00000000000000000000000000001")
+        selected = fetch.select_pool([lower_id, greater_volume], "bsc", ADDRESS)
+        self.assertEqual(selected["id"], greater_volume["id"])
+        selected = fetch.select_pool([same_metrics_later_id, lower_id, greater_volume, greater_reserve], "bsc", ADDRESS)
+        self.assertEqual(selected["id"], greater_reserve["id"])
 
 
 if __name__ == "__main__":

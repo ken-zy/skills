@@ -29,11 +29,14 @@ def resource_matches(resource_id, network, address):
 def numeric(value, positive=False):
     if value is None or isinstance(value, bool):
         return None
+    text = str(value)
+    if len(text) > 1024:
+        return None
     try:
-        number = Decimal(str(value))
+        number = Decimal(text)
     except (ValueError, InvalidOperation):
         return None
-    if not number.is_finite() or (number <= 0 if positive else number < 0):
+    if not number.is_finite() or abs(number.as_tuple().exponent) > 1024 or (number <= 0 if positive else number < 0):
         return None
     return number
 
@@ -85,8 +88,11 @@ def select_pool(rows, network, address):
         eligible.append((volume, reserve, rid, candidate))
     if not eligible:
         return {"address": None, "target_side": None, "selection": "no_eligible_pool", "candidates": candidates}
-    # Stable lexical ID tie-break, descending volume then reserve.
-    chosen = sorted(eligible, key=lambda item: (-item[0], -item[1], item[2]))[0][3]
+    # Comparisons preserve every Decimal digit; unary negation would round using
+    # the process's Decimal context. Stable sorting keeps lexical ID ties ascending.
+    eligible.sort(key=lambda item: item[2])
+    eligible.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    chosen = eligible[0][3]
     return {"address": chosen["address"], "target_side": chosen["target_side"],
             "id": chosen["id"], "selection": "h24_volume_desc_then_reserve_desc_then_id",
             "reasons": ["target_relationship_verified", "positive_price_and_reserve", "bounded_pool_discovery"], "candidates": candidates}

@@ -224,7 +224,7 @@ class Client:
         return max(0, self.deadline - time.monotonic())
 
     def _pace(self, provider, not_before=None):
-        """Lock holds through wait and reservation. Malformed state fails closed."""
+        """Reserve under lock; sleep unlocked so concurrent 429s can extend it."""
         lock_path = self.cache_dir / (provider + ".lock")
         state_path = self.cache_dir / (provider + ".rate.json")
         with lock_path.open("a") as handle:
@@ -233,27 +233,30 @@ class Client:
                     raise TimeoutError
                 try:
                     fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    break
                 except BlockingIOError:
                     time.sleep(min(0.05, self.remaining()))
-            try:
-                next_at = 0.0
-                if state_path.exists():
-                    state = decode_json(state_path.read_text())
-                    next_at = state["next_at"]
-                    if isinstance(next_at, bool) or not isinstance(next_at, (float, int)) or not math.isfinite(next_at) or next_at < 0:
-                        raise ValueError("invalid pacing state")
-                if not_before is not None:
-                    _atomic(state_path, {"next_at": max(next_at, not_before)})
-                    return
-                wait = max(0, next_at - time.time())
-                if wait >= self.remaining():
-                    raise TimeoutError
-                if wait:
-                    time.sleep(wait)
-                _atomic(state_path, {"next_at": time.time() + self.intervals[provider]})
-            finally:
-                fcntl.flock(handle, fcntl.LOCK_UN)
+                    continue
+                try:
+                    next_at = 0.0
+                    if state_path.exists():
+                        state = decode_json(state_path.read_text())
+                        next_at = state["next_at"]
+                        if isinstance(next_at, bool) or not isinstance(next_at, (float, int)) or not math.isfinite(next_at) or next_at < 0:
+                            raise ValueError("invalid pacing state")
+                    if not_before is not None:
+                        _atomic(state_path, {"next_at": max(next_at, not_before)})
+                        return
+                    wait = max(0, next_at - time.time())
+                    if wait >= self.remaining():
+                        raise TimeoutError
+                    if not wait:
+                        _atomic(state_path, {"next_at": time.time() + self.intervals[provider]})
+                        return
+                finally:
+                    fcntl.flock(handle, fcntl.LOCK_UN)
+                time.sleep(wait)
+                # A different process may have extended next_at while asleep.
+                # Reacquire and reread it before granting a request reservation.
 
     def request(self, provider, endpoint, **params):
         path, query, url = build_request(provider, endpoint, params)

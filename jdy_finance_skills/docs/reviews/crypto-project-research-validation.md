@@ -4,10 +4,15 @@ Date: 2026-09-30 (Asia/Shanghai). Raw live snapshots remain outside the reposito
 
 ## Offline validation
 
-- `python3 -m unittest discover -s crypto/skills/crypto-project-research/tests -v`: **43 tests PASS** (26 analysis, 17 client/snapshot).
+- `python3 -m unittest discover -s crypto/skills/crypto-project-research/tests -v`: **46 tests PASS** (26 analysis, 20 client/snapshot).
 - `git diff --check`: PASS.
 - Existing repository validator: unchanged baseline **4 missing ignored `.mcp.json` errors / 4 warnings**. Skill frontmatter, command metadata and fallback checks PASS. No private configuration copied to satisfy the legacy validator.
 - System skill quick validator unavailable because its external PyYAML dependency is absent in both available Python runtimes. No dependency installed; repository frontmatter checks and local links checked.
+
+## Review regression validation
+
+- Shared 429 backoff: pacing now releases the lock before sleeping and rechecks shared state before reserving. A spawned-process regression proves a concurrent cooldown extension prevents the waiting process from issuing an early request; the previous implementation failed this regression.
+- Reference-pool ordering: bounded finite numeric parsing rejects extreme exponents; comparison-based stable sorting preserves all Decimal digits rather than rounding through unary negation. Tests cover extreme and oversized input, high-precision volume/reserve ordering, and stable ID ties.
 
 ## Live public API smoke
 
