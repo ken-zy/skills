@@ -24,6 +24,7 @@ description: |
 ### Layer 2: 官网数据
 - **FRED：内置浏览器** — 先读取并执行 [FRED 浏览器规则](references/fred-browser.md)，访问 `https://fred.stlouisfed.org/series/{series_id}` — 利率/国债收益率/CPI/PCE/就业数据/GDP/美元指数
 - **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
+- **CME FedWatch + Polymarket：内置浏览器双源** — 涉及美联储加息/降息/不变概率时，先读取并执行[利率预期双源规则](references/fed-expectations-browser.md)；两站均尝试读取，按同次会议和结果口径并列展示。仅提及会议日期或普通新闻时不额外取概率。
 
 ### Layer 3: Web Search
 - 经济数据发布日历、FOMC 声明、市场评论
@@ -44,14 +45,14 @@ description: |
 - `calendar` — 仅未来 2 周数据发布日历
 
 ### Step 2: Fetch Traditional Macro Data
-通过内置浏览器访问 FRED 官网，按 [FRED 浏览器规则](references/fred-browser.md)读取：
+实际经济指标通过内置浏览器访问 FRED 官网，按 [FRED 浏览器规则](references/fred-browser.md)读取；政策概率另按利率预期双源规则读取：
 
 **利率环境:**
 - 联邦基金利率 (FEDFUNDS)
 - 10 年期国债收益率 (DGS10)
 - 2 年期国债收益率 (DGS2)
 - 2-10Y 利差（计算）
-- 降息/加息预期（Web Search: CME FedWatch）
+- 降息/加息/不变预期（内置浏览器：CME FedWatch + Polymarket，按[利率预期双源规则](references/fed-expectations-browser.md)对齐会议、结果、时间）
 
 **通胀:**
 - CPI YoY (CPIAUCSL)
@@ -96,7 +97,8 @@ description: |
 | 10Y 国债 | | | |
 | 2Y 国债 | | | |
 | 2-10Y 利差 | | | |
-| 降息预期 | | | — |
+
+另列美联储利率预期双源表，使用[共享输出格式](references/fed-expectations-browser.md#输出)。标明会议日期、CME 目标区间、Polymarket 结果、两源概率、百分点差、数据/读取时间及可比状态；不压缩成无日期的单个“降息概率”。
 
 ### 2. 通胀
 | 指标 | 最新值 | 前值 | 趋势 |
@@ -153,5 +155,5 @@ TVL/稳定币为存量，变化比较同一 UTC 日期的历史值；DEX 为流�
 - [ ] 当前价格已尝试 CoinGecko + Binance 插件，输出价差/时间/核验状态，超阈值告警未遗漏
 - [ ] 全市场和 DeFi 数据保留各自来源与口径
 - [ ] 日历部分至少覆盖未来 2 周重要事件
-- [ ] 降息预期来自实时数据（CME FedWatch），非猜测
+- [ ] 利率预期已尝试 CME + Polymarket 内置浏览器双源；会议/规则/时间可比性明确，缺源与快照状态已标注
 - [ ] 数据时效性标注

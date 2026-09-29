@@ -23,6 +23,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 ### Layer 2: 官网数据
 - **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）
 - **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../skills/macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
+- **CME FedWatch + Polymarket：内置浏览器双源** — 涉及美联储加息/降息/不变概率时，先读取并执行[利率预期双源规则](../skills/macro-dashboard/references/fed-expectations-browser.md)；两站均尝试读取，按同次会议和结果口径并列展示。仅提及会议日期或普通新闻时不额外取概率。
 
 ### Layer 3: Web Search
 - 财报日历、FOMC 日期、代币解锁日历、空投日期、加密会议
