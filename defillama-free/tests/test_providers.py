@@ -1,3 +1,5 @@
+import http.client
+import io
 import json
 import sys
 import unittest
@@ -6,7 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from defillama_lib.providers import Provider, API, STABLE, YIELDS, COINS, number
-from defillama_lib.client import FetchError
+from defillama_lib.client import Client, FetchError
 from defillama_lib import cli
 
 CANONICAL = {'id': '711', 'slug': 'polymarket-international', 'name': 'Polymarket International',
@@ -27,6 +29,33 @@ class FakeClient:
             raise payload
         return {'data': payload, 'source': {'id': url, 'url': url, 'fetched_at': '2026-01-01T00:00:00Z',
                                           'http_date': None, 'cached': False}}
+
+
+class ResponseSocket:
+    def __init__(self, wire):
+        self.wire = wire
+
+    def makefile(self, mode):
+        return io.BytesIO(self.wire)
+
+
+class JSONOpener:
+    """Inject only HTTP bytes; exercise real Client decoding, Provider and CLI."""
+    def __init__(self, responses):
+        self.responses = responses
+        self.urls = []
+
+    def open(self, request, timeout):
+        self.urls.append(request.full_url)
+        parsed = urlsplit(request.full_url)
+        key = parsed.netloc + parsed.path
+        data_type = parse_qs(parsed.query).get('dataType', [None])[0]
+        data = self.responses[(key, data_type)] if (key, data_type) in self.responses else self.responses[key]
+        body = json.dumps(data, allow_nan=False).encode()
+        wire = ('HTTP/1.1 200 OK\r\nContent-Length: ' + str(len(body)) + '\r\n\r\n').encode() + body
+        response = http.client.HTTPResponse(ResponseSocket(wire))
+        response.begin()
+        return response
 
 
 class ProvidersTests(unittest.TestCase):
@@ -250,6 +279,90 @@ class ProvidersTests(unittest.TestCase):
         self.assertEqual(result['status'], 'partial')
         self.assertEqual(result['results'][0]['value'], 12)
         self.assertIsNone(result['results'][1]['value'])
+
+    def test_chain_aggregate_echo_conflict_rejects_only_affected_metric(self):
+        responses = {
+            'api.llama.fi/v2/chains': [{'name': 'Polygon', 'chainId': 137, 'tvl': 13}],
+            'api.llama.fi/v2/historicalChainTvl/Polygon': [
+                {'date': 1709078400, 'tvl': 12}, {'date': 1709164800, 'tvl': 13}],
+            'api.llama.fi/overview/dexs/Polygon': {'dataType': 'dailyVolume', 'totalDataChart': [[1709164800, 88]]},
+            ('api.llama.fi/overview/fees/Polygon', 'dailyFees'): {'dataType': 'dailyFees', 'totalDataChart': [[1709164800, 900]]},
+            ('api.llama.fi/overview/fees/Polygon', 'dailyRevenue'): {'dataType': 'dailyRevenue', 'totalDataChart': [[1709164800, 777]]}}
+        args = cli.validate(dict(cli.DEFAULTS, **vars(cli.parser().parse_args([
+            'chains', 'Polygon', '--start', '2024-02-29', '--end', '2024-02-29', '--raw']))))
+        for echoed_type in ('dailyRevenue', 'dailyFees'):
+            with self.subTest(echoed_type=echoed_type):
+                responses[('api.llama.fi/overview/fees/Polygon', 'dailyRevenue')]['dataType'] = echoed_type
+                result = cli.execute(args, client=Client(no_cache=True, opener=JSONOpener(responses)))
+                json.dumps(result, allow_nan=False)
+                self.assertIn('Chain fees/revenue are the API dashboard aggregate', cli.csv_text(result))
+                revenue = next(row for row in result['results'] if row['metric'] == 'revenue')
+                tvl = next(row for row in result['results'] if row['metric'] == 'tvl')
+                fees = next(row for row in result['results'] if row['metric'] == 'fees')
+                self.assertEqual(tvl['value'], 13)
+                self.assertEqual(fees['source_observations'], [[1709164800, 900]])
+                source = next(row for row in result['sources'] if row['id'] in revenue['source_ids'])
+                self.assertIn('dataType=dailyRevenue', source['url'])
+                self.assertEqual(result['raw'][source['id']]['dataType'], echoed_type)
+                if echoed_type == 'dailyRevenue':
+                    self.assertEqual(revenue['source_observations'], [[1709164800, 777]])
+                else:
+                    self.assertEqual(revenue['status'], 'unavailable')
+                    self.assertEqual(revenue['source_observations'], [])
+                    self.assertIn('dataType differs', revenue['reason'])
+                    self.assertIsNone(revenue['value'])
+
+    def test_real_client_json_damage_preserves_good_cli_records(self):
+        args = cli.validate(dict(cli.DEFAULTS, **vars(cli.parser().parse_args(['chains']))))
+        responses = {'api.llama.fi/v2/chains': [None, 'bad',
+            {'name': 'Good', 'tvl': 12}, {'name': 'Huge', 'tvl': 10 ** 400}]}
+        result = cli.execute(args, client=Client(no_cache=True, opener=JSONOpener(responses)))
+        json.dumps(result, allow_nan=False)
+        self.assertEqual(result['status'], 'partial')
+        self.assertTrue(any(row['value'] == 12 for row in result['results']))
+        bad = [row for row in result['results'] if row['status'] == 'unavailable']
+        self.assertEqual(len(bad), 3)
+        self.assertTrue(all(row['value'] is None and row['reason'] and row['source_ids'] for row in bad))
+        self.assertEqual(result['sources'][0]['url'], 'https://api.llama.fi/v2/chains')
+
+    def test_real_client_null_yield_row_returns_structured_unavailable(self):
+        args = cli.validate(dict(cli.DEFAULTS, **vars(cli.parser().parse_args(['yields']))))
+        result = cli.execute(args, client=Client(no_cache=True, opener=JSONOpener({
+            'yields.llama.fi/pools': {'data': [None]}})))
+        json.dumps(result, allow_nan=False)
+        self.assertEqual(result['status'], 'unavailable')
+        self.assertEqual(len(result['results']), 1)
+        self.assertIsNone(result['results'][0]['value'])
+        self.assertIn('expected object', result['results'][0]['reason'])
+        self.assertEqual(result['results'][0]['source_ids'], [result['sources'][0]['id']])
+        self.assertEqual(result['sources'][0]['url'], 'https://yields.llama.fi/pools')
+
+    def test_real_client_huge_fee_does_not_stop_later_volume_fetch(self):
+        args = cli.validate(dict(cli.DEFAULTS, **vars(cli.parser().parse_args([
+            'protocol', CANONICAL['slug'], '--metrics', 'tvl,fees,volume',
+            '--start', '2026-01-01', '--end', '2026-01-01']))))
+        responses = {
+            'api.llama.fi/protocols': [CANONICAL],
+            'api.llama.fi/protocol/polymarket-international': {**CANONICAL, 'tvl': [
+                {'date': 1767139200, 'totalLiquidityUSD': 10}, {'date': 1767225600, 'totalLiquidityUSD': 20}]},
+            'api.llama.fi/summary/fees/polymarket-international': {**CANONICAL,
+                'dataType': 'dailyFees', 'totalDataChart': [[1767225600, 10 ** 400]]},
+            'api.llama.fi/summary/dexs/polymarket-international': {**CANONICAL,
+                'dataType': 'dailyVolume', 'totalDataChart': [[1767139200, 10], [1767225600, 20]]}}
+        opener = JSONOpener(responses)
+        result = cli.execute(args, client=Client(no_cache=True, opener=opener))
+        json.dumps(result, allow_nan=False)
+        self.assertEqual(result['status'], 'partial')
+        for metric in ('tvl', 'volume'):
+            row = next(row for row in result['results'] if row['metric'] == metric)
+            self.assertEqual(row['status'], 'ok')
+            self.assertEqual(row['value'], 20)
+        fees = next(row for row in result['results'] if row['metric'] == 'fees')
+        self.assertIsNone(fees['value'])
+        self.assertEqual(fees['source_observations'], [[1767225600, None]])
+        self.assertEqual([urlsplit(url).path for url in opener.urls], [
+            '/protocols', '/protocol/polymarket-international',
+            '/summary/fees/polymarket-international', '/summary/dexs/polymarket-international'])
 
     def test_nonfinite_and_boolean_values_never_numbers(self):
         for value in (True, False, float('nan'), float('inf'), '12', None):

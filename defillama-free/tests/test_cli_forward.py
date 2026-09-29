@@ -1,5 +1,6 @@
 """Regressions found by using the skill's documented research/export workflow."""
 import contextlib
+import csv
 import hashlib
 import io
 import json
@@ -9,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from defillama_lib.cli import DEFAULTS, execute, main, parser, validate
+from defillama_lib.cli import DEFAULTS, execute, main, parser, validate, csv_text
 from defillama_lib.client import FetchError
 
 CATALOG_URL = 'https://api.llama.fi/protocols'
@@ -48,6 +49,12 @@ class ForwardRegressionTests(unittest.TestCase):
         source_id = result['results'][0]['source_ids'][0]
         self.assertEqual(CATALOG_URL, result['sources'][0]['url'])
         self.assertEqual(client.rows, result['raw'][source_id])
+        exported = list(csv.DictReader(io.StringIO(csv_text(result))))
+        metadata = {r['field']: r['value'] for r in exported if r['record_type'] == 'metadata'}
+        self.assertEqual('3', metadata['listing.count'])
+        self.assertEqual('True', metadata['listing.truncated'])
+        self.assertEqual('1', metadata['requested_scope.limit'])
+        self.assertEqual('polymarket', metadata['requested_scope.query'])
 
     def test_dispatch_failure_retains_requested_url_error_and_source_link(self):
         class OfflineClient:
@@ -67,6 +74,9 @@ class ForwardRegressionTests(unittest.TestCase):
         self.assertEqual('network_error', failure['error']['code'])
         self.assertEqual(CATALOG_URL, failure['error']['url'])
         self.assertEqual({}, result['raw'])
+        exported = list(csv.DictReader(io.StringIO(csv_text(result))))
+        self.assertTrue(any(r['record_type'] == 'metadata' and r['field'] == 'status' and r['value'] == 'unavailable' for r in exported))
+        self.assertTrue(any(r['record_type'] == 'source' and r['source_url'] == CATALOG_URL for r in exported))
 
     def test_duplicate_slugs_cannot_bypass_compare_request_bound(self):
         # Historically two distinct slugs plus many repeats passed len(set(...)).

@@ -313,6 +313,9 @@ class Provider:
             else:
                 if not isinstance(data, dict):
                     raise ValueError('Expected aggregate chart object')
+                expected_type = 'dailyVolume' if metric == 'volume' else DATA_TYPES.get(metric)
+                if expected_type and data.get('dataType') not in (None, expected_type):
+                    raise ValueError('Response dataType differs from requested aggregate metric')
                 values = points(data.get('totalDataChart'))
             self._series(ent, metric, 'stock' if metric in ('tvl', 'stablecoin-cap') else 'flow', values, sid,
                          data if isinstance(data, dict) else ent)

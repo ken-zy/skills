@@ -4,7 +4,7 @@ Validated on 2026-09-30 Asia/Shanghai (2026-09-29 UTC), Python 3.14.6. Runtime u
 
 ## Offline
 
-- `python3 -m unittest discover -s defillama-free/tests`: 84 tests passed.
+- `python3 -m unittest discover -s defillama-free/tests`: 88 tests passed.
 - CLI `--help`, offline `capabilities`, invalid input/overwrite handling and JSON/CSV exports checked.
 - Official skill-creator `quick_validate.py`: Skill is valid.
 - `git diff --check`: clean.
@@ -24,3 +24,5 @@ This supersedes the initial 20-check run at 17:25:49Z: its harness allowed cache
 - End-to-end independent subagent exercise checked PM JSON/CSV versus raw data and invalid CLI scenarios. Its three findings (truncation disclosure, failure provenance, duplicate-slug request bound) were fixed and covered by separate regression tests.
 
 No mandatory live check is environment-blocked. Historical API values can change; raw responses and full generated exports were kept only in temporary local validation directories, not committed. The checked-in opt-in smoke script allows future reruns. Offline capabilities do not imply a live uptime guarantee.
+
+After the aggregate dataType fix, an additional uncached `chains Polygon --days 7` call returned fresh linked TVL and volume/fees/revenue observations. Calendar flow rows remain deliberately unavailable where time semantics are unknown. All 88 offline tests and the official format validator passed after the final code fix.

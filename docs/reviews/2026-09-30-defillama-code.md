@@ -1,0 +1,21 @@
+# DefiLlama Free code review
+
+Reviewer: ChatGPT Pro in the built-in browser, [review conversation](https://chatgpt.com/c/6abbed8f-2764-83e8-a269-944885fdb8f8).
+
+## Round 1 — REQUEST CHANGES
+
+- Reviewed HEAD: `dc1b9fbd0adde19761af8b7492663753ccb0ac90`.
+- Reviewed BASE: `b3c4e880b23442e1f654c80a3a86d749b8db2f05`.
+- Manifest SHA256: `22eabb7ba7e37e95d1499733f8825022942a8e84472e621146298fcc9940075e`.
+- Reviewer reported reading and fingerprint-verifying all 21 changed files (155,065 bytes), independently running 66 original tests, and reproducing seven failures across four findings. Its live network probe failed; the reviewer did not claim independent live API validation.
+
+Findings and implementation responses for the next review:
+
+1. **PR22-C1:** malformed nested source entries and huge integers could abort a command. Validate row shapes and numeric conversion before use, preserve source-linked failures and independent successful metrics, and continue later requests.
+2. **PR22-C2:** an all-null old series could pull usable series back to an unusable comparison date. Exclude wholly unusable completed series from alignment; preserve missing rows, usable zeroes, and the no-rollback rule when only the latest snapshot is null. Separately expose original observation counts.
+3. **PR22-C3:** CSV omitted request scope, truncation and response/source metadata. Add scalar `metadata`, `source` and `result` records, including empty/error responses, without embedding nested JSON or weakening formula escaping.
+4. **PR22-C4:** chain aggregate responses could explicitly identify a different `dataType` and still be labeled as the requested metric. Reject explicit conflicts before creating metric observations while preserving raw evidence and independent results.
+
+The non-blocking residual documentation mismatch is corrected: residuals describe the selected window, not a daily average. The live harness also now requires fresh uncached linked responses and usable mandatory metrics, with offline tests of its own; initial weaker smoke evidence is superseded in the validation receipt.
+
+Round 1 is not CODE LGTM. Implementation responses require a new fixed-HEAD review before merging.
