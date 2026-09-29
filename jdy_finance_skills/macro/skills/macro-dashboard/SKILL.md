@@ -23,7 +23,7 @@ description: |
 
 ### Layer 2: 官网数据
 - **FRED：内置浏览器** — 先读取并执行 [FRED 浏览器规则](references/fred-browser.md)，访问 `https://fred.stlouisfed.org/series/{series_id}` — 利率/国债收益率/CPI/PCE/就业数据/GDP/美元指数
-- **DefiLlama：Chrome CDP** — `defillama.com` — 稳定币总市值/全球加密 TVL/DeFi 总量/DEX 交易量
+- **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
 
 ### Layer 3: Web Search
 - 经济数据发布日历、FOMC 声明、市场评论
@@ -80,9 +80,10 @@ description: |
 - BTC 价格 + 24h/7d 变化 + 市值
 - ETH 价格 + 24h/7d 变化 + 市值
 - 全球加密总市值
-- 稳定币总市值（DefiLlama Chrome CDP）
-- DeFi 总 TVL（DefiLlama Chrome CDP）
-- BTC ETF 净流入（DefiLlama / Web Search）
+- 稳定币总市值（DefiLlama 免费 API，保留观测日期）
+- DeFi 总 TVL（DefiLlama 免费 API，保留观测日期）
+- DEX 交易量（DefiLlama 免费 API，区分 24h 总量与图表日值）
+- BTC ETF 净流入（DefiLlama 内置浏览器，记录交易日与页面原始来源）
 
 ### Step 5: Compile Dashboard
 
@@ -128,6 +129,9 @@ description: |
 | 加密总市值 | | | |
 | 稳定币总市值 | | | |
 | DeFi TVL | | | |
+| DEX 交易量 | | | |
+
+TVL/稳定币为存量，变化比较同一 UTC 日期的历史值；DEX 为流量，分别标注 24h 总量及 7d/30d 周期对上个等长周期的变化，不能与存量同比混写。
 
 ### 6. 关键日历（未来 2 周）
 | 日期 | 事件 | 类型 | 影响程度 |
@@ -142,6 +146,7 @@ description: |
 
 ## Quality Checklist
 
+- [ ] DefiLlama 指标已按免费数据规则标明 API/网页来源、统计期、读取时间和缺失/过期状态；事件经网页核实，未把 TVL 变化当作净流入
 - [ ] FRED 数据从内置浏览器官网页面读取，已标注数据期间、单位及来源；未获取项明确说明
 - [ ] 所有 FRED 数据系列正确引用（ID 对应正确指标）
 - [ ] 当前值和前值都已获取（可计算变化）

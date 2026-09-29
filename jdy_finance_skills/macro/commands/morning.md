@@ -1,7 +1,7 @@
 ---
 description: 每日晨会笔记 — 隔夜市场动态/关键事件/交易想法，覆盖传统金融和加密市场
 argument-hint: "[focus: stocks|crypto|macro|all]"
-allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, mcp__cua_repl__*, WebSearch, WebFetch
+allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, mcp__cua_repl__*, WebSearch, WebFetch, Bash(python3:*)
 ---
 
 # Morning Note
@@ -22,7 +22,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 ### Layer 2: 官网数据
 - **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布（利率变动、就业数据等）
-- **DefiLlama：Chrome CDP** — `defillama.com/protocol/{protocol}` — DeFi TVL 变动、协议重大事件
+- **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../skills/macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
 
 ### Layer 3: Web Search
 - 财经新闻、期货/盘前数据、加密新闻
@@ -53,6 +53,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 ## Quality Checklist
 
+- [ ] DefiLlama 指标已按免费数据规则标明 API/网页来源、统计期、读取时间和缺失/过期状态；事件经网页核实，未把 TVL 变化当作净流入
 - [ ] 最重要事件在头条
 - [ ] 传统和加密市场都覆盖
 - [ ] 事件有观点（不只转述）
