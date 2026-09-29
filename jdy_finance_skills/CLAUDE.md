@@ -10,7 +10,7 @@
 |--------|------|--------|
 | `tradfi` | `/comps` `/dcf` `/earnings` `/screen` `/thesis` `/model-update` `/debug-model` | Alpha Vantage (MCP) + Yahoo Finance (Chrome CDP) |
 | `crypto` | `/token` `/defi` `/airdrop` `/onchain` | token: GT 公共 + CG Demo REST；其他流程保留 Dune (MCP) + DefiLlama (Chrome CDP) 等 |
-| `macro` | `/dashboard` `/morning` `/catalyst` | CoinGecko + Binance 插件（价格双源核验）+ FRED（内置浏览器）+ DefiLlama（免费 API + 内置浏览器）+ CME FedWatch / Polymarket（内置浏览器双源）+ Yahoo Finance / CNN Fear & Greed（内置浏览器） |
+| `macro` | `/dashboard` `/morning` `/catalyst` | CoinGecko + Binance 插件（价格双源核验）+ FRED（内置浏览器）+ DefiLlama（免费 API + 内置浏览器）+ 美联储 FOMC（内置浏览器官网文件）+ CME FedWatch / Polymarket（内置浏览器双源）+ Yahoo Finance / CNN Fear & Greed / 公司 IR 与正式披露（内置浏览器） |
 | `portfolio` | `/rebalance` `/tlh` | Yahoo Finance (Chrome CDP) |
 
 另有自动触发 skill（无独立命令）：`crypto-project-research`（按 chain + CA 的免费 API 市场证据）、`news-digest`（新闻补充）、`competitive-analysis`（竞争分析）、`audit-xls`（电子表格审计）、`idea-generation`（投资想法筛选）。
@@ -19,7 +19,7 @@
 
 crypto `/token` 的市场证据先用 [crypto-project-research](crypto/skills/crypto-project-research/SKILL.md)：GT 公共 REST 无 Key；CoinGecko Demo REST 仅用进程已有 `COINGECKO_DEMO_API_KEY`，缺 Key 保留可选数据缺口，不自动替换为 MCP、Pro 或网页报价。独立读取 Skill/运行 Python 脚本无需启用插件，不读密钥文件；启用旧 crypto 插件仍会先运行能读取/恢复/备份 Key 的 SessionStart hook，不能将它描述为被新路由隔离。GT 不要求完成旧 Key 配置。项目官网/审计等补充材料继续按下方浏览器/搜索规则。
 
-macro 的当前加密价格使用 [CoinGecko + Binance 双源规则](macro/skills/macro-dashboard/references/plugin-market-data.md)：默认价差 ≥1% 告警，不回退旧 MCP / REST / 浏览器 / 搜索价格；缺源时说明未核验，macro 不索取或同步 Key。FRED 使用[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不自动回退外部 Chrome、API 或搜索数值。macro DefiLlama 使用[免费数据规则](macro/skills/macro-dashboard/references/defillama-free-api.md)，不接入付费 MCP。美联储政策概率使用 [CME FedWatch + Polymarket 内置浏览器双源规则](macro/skills/macro-dashboard/references/fed-expectations-browser.md)，不以 API、外部 Chrome 或搜索概率兜底。macro Yahoo Finance 使用[内置浏览器规则](macro/skills/macro-dashboard/references/yahoo-browser.md)，不自动以外部 Chrome、API 或搜索数值兜底；非 macro 的 Yahoo 访问方式保持原样。macro CNN Fear & Greed 使用[内置浏览器规则](macro/skills/macro-dashboard/references/cnn-browser.md)，不自动回退外部 Chrome、API 或搜索数值。其余数据获取逻辑遵循：
+macro 的当前加密价格使用 [CoinGecko + Binance 双源规则](macro/skills/macro-dashboard/references/plugin-market-data.md)：默认价差 ≥1% 告警，不回退旧 MCP / REST / 浏览器 / 搜索价格；缺源时说明未核验，macro 不索取或同步 Key。FRED 使用[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不自动回退外部 Chrome、API 或搜索数值。macro DefiLlama 使用[免费数据规则](macro/skills/macro-dashboard/references/defillama-free-api.md)，不接入付费 MCP。美联储政策概率使用 [CME FedWatch + Polymarket 内置浏览器双源规则](macro/skills/macro-dashboard/references/fed-expectations-browser.md)，不以 API、外部 Chrome 或搜索概率兜底。macro Yahoo Finance 使用[内置浏览器规则](macro/skills/macro-dashboard/references/yahoo-browser.md)，不自动以外部 Chrome、API 或搜索数值兜底；非 macro 的 Yahoo 访问方式保持原样。macro CNN Fear & Greed 使用[内置浏览器规则](macro/skills/macro-dashboard/references/cnn-browser.md)，不自动回退外部 Chrome、API 或搜索数值。美联储 FOMC 文件遵循[官网浏览器规则](macro/skills/macro-dashboard/references/fomc-browser.md)，不回退外部 Chrome、API 或搜索摘要核实政策事实。macro 公司 IR 与正式披露执行[IR 核验规则](macro/skills/macro-dashboard/references/company-ir-browser.md)，搜索只找线索/链接，原文用内置浏览器读取，不回退外部 Chrome、API 或搜索摘要；其他子插件不变。其余数据获取逻辑遵循：
 
 ```
 Layer 1: MCP 数据源（首选）
@@ -60,15 +60,17 @@ Layer 3: Web Search 摘要兜底（Chrome CDP 失败时）
 | 股票行情（A股） | — | `xueqiu.com/S/{code}` 或 `quote.eastmoney.com/sz{code}.html` | 东方财富/雪球 |
 | 股票行情（港股；非 macro） | — | `xueqiu.com/S/{code}` 或 `finance.yahoo.com/quote/{ticker}` | 雪球/Yahoo Finance |
 | 技术指标 | alpha-vantage | `tradingview.com/chart/?symbol={ticker}` | tradingview.com |
-| SEC Filing | — | `sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={ticker}` | sec.gov/edgar |
+| SEC Filing（非 macro；macro 见 IR 专用规则） | — | `sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={ticker}` | sec.gov/edgar |
 | 电话会议 | alpha-vantage | `seekingalpha.com/symbol/{ticker}/earnings/transcripts` | seekingalpha.com |
 | 分析师预期 | — | `tipranks.com/stocks/{ticker}/forecast` | tipranks.com, wsj.com |
 | 代币行情（crypto `/token` 专用） | GT 公共 / CG Demo REST，见 Skill | 不自动回退 | 不自动回退 |
 | DeFi 数据（crypto；macro 见免费数据规则） | — | `defillama.com/protocol/{protocol}` | defillama.com |
 | 链上数据 | dune | `dune.com/queries/{query_id}` | dune.com |
+| 美联储 FOMC 日期/政策文件（专用规则） | 内置浏览器读取官网 | 不适用 | 不自动兜底 |
 | 美联储政策概率（专用规则） | 内置浏览器读取 CME FedWatch + Polymarket | 不适用 | 不自动兜底 |
 | 宏观经济（FRED 专用规则） | 内置浏览器读取官网 | 不适用 | 不自动兜底 |
-| 新闻 | alpha-vantage | ⚠️ URL 未知 → Web Search 取文章 URL → Chrome CDP 读全文；Web Search 找不到 URL → 降 Layer 3 | Web Search 搜索摘要（google news search） |
+| 公司 IR / 正式披露（macro 专用规则） | 内置浏览器读取官方原文 | 不适用 | 仅找线索/链接，不能代替官方确认 |
+| 新闻（macro 的 IR/披露除外） | alpha-vantage | ⚠️ URL 未知 → Web Search 取文章 URL → Chrome CDP 读全文；Web Search 找不到 URL → 降 Layer 3 | Web Search 搜索摘要（google news search） |
 
 ## 输出格式规则
 
@@ -107,5 +109,7 @@ Layer 3: Web Search 摘要兜底（Chrome CDP 失败时）
 | DefiLlama | 免费 API 有限流，无明确无限额度承诺 | macro：免费 API + 内置浏览器；官方 MCP 需要 API 订阅，crypto 访问方式不变 |
 | CME FedWatch / Polymarket | 网站访问限制；不承诺实时或无限访问 | 内置浏览器公开页面，无需 Key；核对会议、结算规则和时间 |
 | CNN Fear & Greed | 网站访问限制；不承诺无限访问 | 内置浏览器读取主指数及时间，无需 Key |
+| 美联储 FOMC | 网站访问限制，无需 Key | 内置浏览器读取官方日历及原始文件 |
+| 公司 IR / 正式披露 | 网站访问限制，无需 API Key | macro 用内置浏览器；其他子插件不变 |
 | FRED | 网站限制；不套用 API 配额 | 内置浏览器访问官网，无需 API Key |
 | FMP | 250次/天 | 无官方 MCP，Chrome CDP / Web Search 兜底 |
