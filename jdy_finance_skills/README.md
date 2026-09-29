@@ -47,7 +47,7 @@ tradfi / crypto 保留原 API key 配置流程。macro 使用宿主中已连接�
 | Alpha Vantage | [alphavantage.co/support](https://www.alphavantage.co/support/#api-key) | 技术指标、电话会议（官方 MCP） | tradfi |
 | Dune Analytics | [dune.com/settings/api](https://dune.com/settings/api) | 链上查询（官方 MCP） | crypto |
 
-> Yahoo Finance、DefiLlama、FRED 通过 Web Search 访问，无需 key。
+> FRED 通过内置浏览器访问官网，无需 API Key；Yahoo Finance、DefiLlama 保留既有浏览器 / 搜索方式。
 
 ### Key 管理机制
 
@@ -100,7 +100,7 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 
 自动触发 skill（无需命令）：news-digest
 
-数据源：CoinGecko (MCP) → FRED (Chrome CDP) → DefiLlama (Chrome CDP) → Web Search
+数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（Chrome CDP）；其他新闻/事件（Web Search）
 
 ### portfolio — 投资组合管理
 
@@ -123,6 +123,8 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 2. **Chrome CDP** — MCP 不可用时，直接导航访问目标页面
 3. **Web Search** — Chrome CDP 失败时，搜索权威来源兜底
 
+FRED 单独遵循[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不走外部 Chrome、API 或搜索数值兜底。
+
 ### MCP 数据源总览
 
 仅启用通过安全审计的官方 MCP server（详见 [安全审计报告](docs/mcp-security-audit.md)）。
@@ -134,13 +136,13 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 | Alpha Vantage | 官方 MCP | 是 | 25次/天 | tradfi |
 | Dune Analytics | 官方 MCP | 是 | 55次/分 | crypto |
 
-以下数据源通过 Chrome CDP / Web Search fallback 访问（无官方 MCP）：
+以下数据源按各自网页访问规则读取：
 
 | 数据源 | 限制 | 覆盖场景 |
 |--------|------|---------|
 | Yahoo Finance | 无限制 | 股票行情、财报、组合管理 |
 | DefiLlama | 无限制 | DeFi TVL、协议数据 |
-| FRED | 120次/分 | 宏观经济指标 |
+| FRED | 网站访问受站点限制，不套用 API 配额 | 内置浏览器读取宏观经济指标 |
 | FMP | 250次/天 | SEC filing、分析师数据 |
 
 ## 目录结构

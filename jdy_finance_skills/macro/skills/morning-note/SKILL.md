@@ -21,9 +21,9 @@ description: |
 - **CoinGecko 插件** — 加密行情、历史走势和新闻；区分 24h 与隔夜区间
 - **Binance 插件** — 现货价格交叉核对，超阈值显示告警
 
-### Layer 2: Chrome CDP
-- `fred.stlouisfed.org/series/{series_id}` — 经济数据发布（利率变动、就业数据等）
-- `defillama.com/protocol/{protocol}` — DeFi TVL 变动、协议重大事件
+### Layer 2: 官网数据
+- **FRED：内置浏览器** — 先读取并执行 [FRED 浏览器规则](../macro-dashboard/references/fred-browser.md)，访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布（利率变动、就业数据等）
+- **DefiLlama：Chrome CDP** — `defillama.com/protocol/{protocol}` — DeFi TVL 变动、协议重大事件
 
 ### Layer 3: Web Search
 - 财经新闻（earnings, M&A, 政策变化）
@@ -108,6 +108,7 @@ description: |
 
 ## Quality Checklist
 
+- [ ] FRED 数据从内置浏览器官网页面读取，已标注数据期间、单位及来源；未获取项明确说明
 - [ ] 如引用当前加密价格，已执行双源核验并显示价差告警或未核验原因
 - [ ] 最重要的事件放在头条位置
 - [ ] 传统市场和加密市场都已覆盖

@@ -1,7 +1,7 @@
 ---
 description: 每日晨会笔记 — 隔夜市场动态/关键事件/交易想法，覆盖传统金融和加密市场
 argument-hint: "[focus: stocks|crypto|macro|all]"
-allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, WebSearch, WebFetch
+allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, mcp__cua_repl__*, WebSearch, WebFetch
 ---
 
 # Morning Note
@@ -20,9 +20,9 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - 涉及当前价格时必须先读取 [双源行情规则](../skills/macro-dashboard/references/plugin-market-data.md)，默认价差 ≥1% 告警，缺源/不同步时明确标记。
 - 新闻和日历没有引用当前价格时不额外查价；事件仍以原始公告为准。插件缺失时提示连接，不回退旧 MCP 或自行配置 API Key。
 
-### Layer 2: Chrome CDP
-- `fred.stlouisfed.org/series/{series_id}` — 经济数据发布（利率变动、就业数据等）
-- `defillama.com/protocol/{protocol}` — DeFi TVL 变动、协议重大事件
+### Layer 2: 官网数据
+- **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布（利率变动、就业数据等）
+- **DefiLlama：Chrome CDP** — `defillama.com/protocol/{protocol}` — DeFi TVL 变动、协议重大事件
 
 ### Layer 3: Web Search
 - 财经新闻、期货/盘前数据、加密新闻
