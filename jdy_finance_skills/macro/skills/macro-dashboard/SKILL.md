@@ -25,10 +25,11 @@ description: |
 - **FRED：内置浏览器** — 先读取并执行 [FRED 浏览器规则](references/fred-browser.md)，访问 `https://fred.stlouisfed.org/series/{series_id}` — 利率/国债收益率/CPI/PCE/就业数据/GDP/美元指数
 - **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
 - **CME FedWatch + Polymarket：内置浏览器双源** — 涉及美联储加息/降息/不变概率时，先读取并执行[利率预期双源规则](references/fed-expectations-browser.md)；两站均尝试读取，按同次会议和结果口径并列展示。仅提及会议日期或普通新闻时不额外取概率。
+- **Yahoo Finance：内置浏览器** — 引用 Yahoo 指数、传统市场行情或页面数据时，先执行[Yahoo 浏览器规则](references/yahoo-browser.md)，保留代码、行情时间/时区、市场状态和实时/延迟标记；不以搜索摘要兜底行情数值。
 
 ### Layer 3: Web Search
 - 经济数据发布日历、FOMC 声明、市场评论
-- VIX 数据、恐惧贪婪指数
+- 恐惧贪婪指数；VIX 按 Yahoo 内置浏览器规则读取
 - ⚠️ **禁止用 Web Search 获取加密价格** — 搜索结果是新闻报道，非实时数据
 
 每个数据点标注 "Source: [source name]"。
@@ -68,11 +69,12 @@ description: |
 - 劳动参与率 (CIVPART)
 
 ### Step 3: Fetch Market Sentiment
-通过 Chrome CDP 获取（URL 已知直接导航，失败则 Web Search 兜底）：
-- VIX 指数（finance.yahoo.com/quote/%5EVIX）
-- CNN 恐惧贪婪指数（edition.cnn.com/markets/fear-and-greed）
-- 美元指数 DXY（finance.yahoo.com/quote/DX-Y.NYB）
-- 主要股指表现（finance.yahoo.com/quote/%5EGSPC 等）
+通过内置浏览器访问 Yahoo Finance，按 [Yahoo 浏览器规则](references/yahoo-browser.md)读取：
+- VIX 指数（`https://finance.yahoo.com/quote/%5EVIX/`）
+- 美元指数 DXY（`https://finance.yahoo.com/quote/DX-Y.NYB/`）
+- 主要股指表现（`https://finance.yahoo.com/quote/%5EGSPC/` 等），周变化读取历史数据并注明起止交易日
+
+CNN 恐惧贪婪指数（edition.cnn.com/markets/fear-and-greed）保持原方式：Chrome CDP 读取，失败则 Web Search 兜底。
 
 ### Step 4: Fetch Crypto Macro
 通过 CoinGecko 的 `get_coin_markets` 和 Binance 的 `get_spot_symbol_price_ticker` 同批获取 BTC/ETH，再执行双源行情规则。CoinGecko 的 `get_global_market` 提供全市场指标。禁止“首源成功即停”及通过旧 MCP / REST / 浏览器静默回退当前价格。
@@ -148,6 +150,7 @@ TVL/稳定币为存量，变化比较同一 UTC 日期的历史值；DEX 为流�
 
 ## Quality Checklist
 
+- [ ] 如引用 Yahoo 数据，已通过内置浏览器核对主标的和代码，注明行情时间/时区、市场状态及缺失项；历史变化注明起止日期，未将盘中值当收盘值
 - [ ] DefiLlama 指标已按免费数据规则标明 API/网页来源、统计期、读取时间和缺失/过期状态；事件经网页核实，未把 TVL 变化当作净流入
 - [ ] FRED 数据从内置浏览器官网页面读取，已标注数据期间、单位及来源；未获取项明确说明
 - [ ] 所有 FRED 数据系列正确引用（ID 对应正确指标）
