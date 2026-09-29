@@ -1,72 +1,25 @@
 ---
-description: Comprehensive token analysis — price, tokenomics, market structure, technicals, risk assessment
-argument-hint: "<symbol_or_name> [chain]"
-allowed-tools: mcp__coingecko__*, WebSearch, WebFetch
+description: Token research with free API market evidence, tokenomics, project fundamentals and explicit coverage gaps
+argument-hint: "<symbol_or_name_or_CA> [network]"
+allowed-tools: Read, Bash(python3:*), WebSearch, WebFetch
 ---
 
 # Token Analysis
 
-对加密货币代币进行综合分析。
-
-## Context
-
-- User request: $ARGUMENTS
-- Today's date: !`date "+%Y-%m-%d"`
-
-## Data Source Priority
-
-### Layer 1: MCP
-- **coingecko** — 价格/市值/FDV/供给量/交易对/DEX 数据(GeckoTerminal)
-
-### Layer 2: Chrome CDP
-- 项目官网/文档/审计报告页；需登录的页面
-
-### Layer 3: Web Search
-- 解锁时间表、审计报告、项目文档、新闻
-
-Always annotate: "Source: [source name]" on each data point.
+依据 $ARGUMENTS 分析代币，执行 [token-analysis](../skills/token-analysis/SKILL.md) 的完整研究流程。
 
 ## Workflow
 
-### Step 1: Identify Token
-- 解析 symbol/名称/合约地址
-- 通过 coingecko 搜索确认身份
-- 同名代币（不同链）请求用户确认
+1. 先读取 [crypto-project-research](../skills/crypto-project-research/SKILL.md)。名称用于发现，合约标的确认 network + CA；不能仅凭同名合并数据。
+2. 从该 Skill 目录运行 `python3 scripts/fetch.py snapshot ...` 与 `python3 scripts/analyze.py ...`，或用命名 `query` 获取原生 coin 的独立 Demo 证据。参数、输入和输出均按 Skill；文件写到新的研究目录。
+3. GT 公共接口无需 Key。Demo 仅用进程已有 `COINGECKO_DEMO_API_KEY`，缺失则跳过可选 enrichment 并披露；不索取聊天 Key，不替换为 Pro/MCP/网页报价。
+4. 补充材料按既有策略：Layer 2 Chrome CDP 读项目官网/文档/审计；URL 未知先 Web Search 找 URL；CDP 不可用或不足时 Layer 3 Web Search，并注明实际来源。命令宿主未开放浏览器工具时直接注明该限制，用已授权搜索工具。
+5. 输出身份、分 scope 市场数据、代币经济学、候选与参考池、实际 K 线/成交窗口、安全信号及缺口。缺核心身份或 token 数据不下该标的结论。
 
-### Step 2: Fetch Core Data
-- 价格、24h 涨跌、市值、FDV、流通量/总供给、排名、24h 交易量
-
-### Step 3: Fetch Market Structure
-- 主要 CEX 交易所和交易对
-- DEX 流动性池和交易量
-- DEX vs CEX 交易量占比
-
-### Step 4: Fetch Supplementary Data
-按三层 Fallback 策略获取（Layer 2: Chrome CDP 访问项目官网/文档/审计报告页，URL 未知时先 Web Search 取 URL 再 CDP；Layer 3: CDP 不可用或数据不足时 Web Search 兜底）：
-- 解锁时间表、审计状态、团队背景、重要新闻
-
-### Step 5: Compile Report
-按以下结构输出：
-1. **基础数据**: 价格/24h涨跌/市值/FDV/流通量占比/排名/交易量
-2. **代币经济学**: 总供给/流通供给/通胀通缩机制/分配/解锁时间表
-3. **市场结构**: 主要交易所和交易对/DEX vs CEX/持仓集中度
-4. **技术面**: 7d/30d/90d 走势/支撑阻力位/BTC ETH 相关性
-5. **风险标注**: 合约地址验证/审计状态/监管风险
+启用旧 crypto 插件的 SessionStart hook 仍可能读取/恢复/备份 Key；独立读取 Skill 并运行脚本无需启用该插件。不能把旧 hook 的 Key 提示当作 GT API 的要求。此命令不改变 macro 的 CoinGecko + Binance 规则。
 
 ## Output
 
 - **Primary**: `YYYYMMDD-token-{Symbol}.md`
-- Footer: 数据来源、数据时间戳、免责声明
-
-## Quality Checklist
-
-- [ ] 代币身份确认（未与同名不同链代币混淆）
-- [ ] 市值和 FDV 都已报告
-- [ ] 供给数据区分流通量/总供给/最大供给
-- [ ] 非原生代币包含合约地址
-- [ ] 数据时效性标注
-- [ ] 风险部分存在
-
-## Skill Reference
-
-This command invokes the **token-analysis** skill. See `skills/token-analysis/SKILL.md` for the complete analysis methodology and output format.
+- 保留脚本规范化 JSON 和采集证据，报告注明来源链接、采集/数据时间与覆盖。
+- 不强制市值/FDV、DEX/CEX 份额、固定期间收益或支撑阻力位；缺失与不可比应直接列出。

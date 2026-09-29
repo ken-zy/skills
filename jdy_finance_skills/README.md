@@ -29,7 +29,7 @@ claude plugin marketplace add ken-zy/indie_finance_plugin
 
 ### 2. 配置数据连接
 
-tradfi / crypto 保留原 API key 配置流程。macro 使用宿主中已连接的 CoinGecko 与 Binance 插件，不再自动检测、恢复或同步 Key。
+tradfi / crypto 的既有 MCP 保留原 API key 配置流程；新增代币研究 Skill 可独立使用 GT 无 Key API 和可选 Demo REST，见下方独立入口。macro 使用宿主中已连接的 CoinGecko 与 Binance 插件，不再自动检测、恢复或同步 Key。
 
 你也可以随时手动配置：
 
@@ -39,11 +39,11 @@ tradfi / crypto 保留原 API key 配置流程。macro 使用宿主中已连接�
 /macro:setup      # 实测 CoinGecko / Binance 插件连接
 ```
 
-所需 API key（全部免费）：
+既有配置与可选 API key（Key 的注册不代表任意 MCP 或 API 套餐均可用）：
 
 | 服务 | 注册地址 | 用途 | 子插件 |
 |------|---------|------|--------|
-| CoinGecko | [coingecko.com/en/api/pricing](https://www.coingecko.com/en/api/pricing) | 加密行情（官方 MCP） | crypto |
+| CoinGecko | [coingecko.com/en/api/pricing](https://www.coingecko.com/en/api/pricing) | 新 Skill 的可选 Demo REST；既有 MCP 依其认证方案 | crypto |
 | Alpha Vantage | [alphavantage.co/support](https://www.alphavantage.co/support/#api-key) | 技术指标、电话会议（官方 MCP） | tradfi |
 | Dune Analytics | [dune.com/settings/api](https://dune.com/settings/api) | 链上查询（官方 MCP） | crypto |
 
@@ -51,8 +51,8 @@ tradfi / crypto 保留原 API key 配置流程。macro 使用宿主中已连接�
 
 ### Key 管理机制
 
-- API key 保存在 `~/.indie-finance/keys.json`（与插件目录分离，权限 600）
-- 插件更新后 key 自动从备份恢复，无需重新配置
+- 旧版 tradfi / crypto MCP 配置的 API key 保存在 `~/.indie-finance/keys.json`（与插件目录分离，权限 600）
+- 这些旧版流程在插件更新后会自动从备份恢复 Key；独立研究脚本不参与
 - macro 不参与 Key 备份和同步；插件若要求认证，在宿主的插件设置中完成
 
 ## 子插件
@@ -86,7 +86,22 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 | `/crypto:airdrop [project]` | 空投项目评估（v3 门槛+加权） | Markdown |
 | `/crypto:onchain [query]` | 链上数据查询 | 对话内表格 |
 
-数据源：CoinGecko (MCP) → Dune (MCP) → DefiLlama (Chrome CDP) → Web Search
+代币市场证据：[crypto-project-research](crypto/skills/crypto-project-research/SKILL.md) 使用 GeckoTerminal 公共 REST + 可选 CoinGecko Demo REST；Dune、DeFi/空投等其他流程保持既有方式。macro 当前价格仍使用 CoinGecko + Binance 插件双源核验。
+
+#### 独立无 Key 入口
+
+无需启用旧 crypto 插件；从 `ken-zy/skills` Git 仓库根目录运行（Python 3.10+，无第三方依赖）：
+
+```bash
+python3 jdy_finance_skills/crypto/skills/crypto-project-research/scripts/fetch.py snapshot --network bsc --address 0xbeea1d618e533a387d941f58a7d4c9b7bd377777 --mode quick --out-dir /tmp/crypto-research-run
+python3 jdy_finance_skills/crypto/skills/crypto-project-research/scripts/analyze.py /tmp/crypto-research-run --out /tmp/crypto-research-report.md
+```
+
+从本 `jdy_finance_skills` 目录运行时省去路径中的 `jdy_finance_skills/`。Codex/Claude 也可直接读取该 SKILL.md 再执行脚本；不会自动全局安装。使用新的输出路径，重复运行不得覆盖前次证据。
+
+`fetch.py capabilities` 列出命名查询和接受的参数；standard 快照增加参考池 K 线/成交；`analyze.py --compare RUN_A RUN_B --out REPORT.md` 比较保存快照。可选 `--coin-id` enrichment 仅在身份映射确认后组合，并只读进程已有 `COINGECKO_DEMO_API_KEY`。缺 Key 不阻止 GT；不要在聊天粘贴密钥。
+
+**边界**：独立脚本不读取密钥文件；启用整个旧 crypto 插件仍运行既有 SessionStart hook，可能读取、恢复或备份 Key，本次没有更改或隔离它。旧 hook 的提示不是 GT 请求的前置要求。接口覆盖、免费参数和数据限制见 [能力目录](crypto/skills/crypto-project-research/references/capabilities.md)。
 
 ### macro — 宏观经济
 
@@ -117,7 +132,7 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 
 ### 三层 Fallback
 
-除 macro 当前加密价格、FRED、macro DefiLlama、利率预期双源和 macro Yahoo Finance 的专用规则外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
+除 crypto 代币研究的免费 REST 路由及 macro 当前加密价格、FRED、macro DefiLlama、利率预期双源和 macro Yahoo Finance 的专用规则外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
 
 1. **MCP 数据源** — 首选，通过 MCP 协议直接查询
 2. **Chrome CDP** — MCP 不可用时，直接导航访问目标页面
