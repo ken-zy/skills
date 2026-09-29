@@ -391,9 +391,17 @@ def analyze_run(directory):
             if not isinstance(pa,dict) or not pair or not any(address_equal(v,identity['address']) for v in pair):
                 warnings.append('发现身份或交易对不匹配的池，已排除。'); continue
             address = pa.get('address'); rid = record.get('id')
-            if not isinstance(address,str) or rid != identity['network']+'_'+address or rid in seen_pools:
+            prefix = identity['network'] + '_'
+            if (not isinstance(address, str) or not isinstance(rid, str)
+                    or not rid.startswith(prefix)
+                    or not address_equal(rid[len(prefix):], address)):
                 continue
-            seen_pools.add(rid)
+            # Only valid EVM addresses are case-insensitive. Network IDs and
+            # other pool identifiers (including non-EVM IDs) retain their case.
+            pool_key = (identity['network'], address.lower() if EVM.fullmatch(address) else address)
+            if pool_key in seen_pools:
+                continue
+            seen_pools.add(pool_key)
             side = 'base' if address_equal(pair[0],identity['address']) else 'quote'
             entry = {'address':address,'target_side':side,'pair':pair,'metrics':{}}
             vol = pa.get('volume_usd',{})

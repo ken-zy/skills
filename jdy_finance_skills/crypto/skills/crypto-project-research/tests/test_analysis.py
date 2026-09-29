@@ -2,12 +2,15 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import sys
 import unittest
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts' / 'analyze.py'
 spec = importlib.util.spec_from_file_location('research_analyze', SCRIPT)
 a = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(a)
+sys.path.insert(0, str(SCRIPT.parent))
+import fetch
 TARGET = '0x' + 'a' * 40
 OTHER = '0x' + 'b' * 40
 POOL = '0x' + 'c' * 40
@@ -172,6 +175,78 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(result['reference_pool']['rejection_counts'],{'wrong_network_or_pool_id':1})
         self.assertIn('参考池',text)
         self.assertIn('h24_volume_desc_then_reserve_desc_then_id',text)
+    def test_pool_resource_identity_case_rules(self):
+        # Provider network prefix is exact; only 20-byte EVM addresses fold case.
+        cases = [('bsc_' + POOL, '0x' + 'C' * 40, 1),
+                 ('eth_' + POOL, POOL, 0),
+                 ('BSC_' + POOL, POOL, 0),
+                 ('bsc_' + OTHER, POOL, 0),
+                 ('bsc_PoolAbC', 'poolabc', 0),
+                 ('bsc_PoolAbC', 'PoolAbC', 1)]
+        for rid, address, expected in cases:
+            with self.subTest(rid=rid, address=address):
+                record = pool()
+                record['id'] = rid
+                record['attributes']['address'] = address
+                self.put('pools_page_1', envelope('token_pools', {'data': [record]}))
+                self.assertEqual(len(self.analyze()['pools']), expected)
+
+    def test_pool_dedup_folds_evm_only(self):
+        records = []
+        for address in (POOL, '0x' + 'C' * 40, 'PoolAbC', 'poolabc'):
+            record = pool()
+            record['id'] = 'bsc_' + address
+            record['attributes']['address'] = address
+            records.append(record)
+        self.put('pools_page_1', envelope('token_pools', {'data': records}))
+        self.assertEqual([p['address'] for p in self.analyze()['pools']],
+                         [POOL, 'PoolAbC', 'poolabc'])
+
+    def test_snapshot_to_saved_analysis_accepts_case_varied_evm_pool(self):
+        # Exercise the real snapshot writer and selection, mocking only requests.
+        upper = '0x' + 'C' * 40
+        first = pool()
+        first['attributes']['address'] = upper
+        duplicate = pool()
+        duplicate['id'] = 'bsc_' + upper
+
+        class FixtureClient:
+            max_attempts = 12
+            started = 0
+            deadline = 180
+            used = 0
+
+            def request(self, provider, endpoint, **params):
+                self.used += 1
+                if endpoint in ('token', 'token_info'):
+                    payload = token()
+                elif endpoint == 'token_pools':
+                    payload = {'data': [first, duplicate]}
+                elif endpoint == 'pool_ohlcv':
+                    payload = candle_data([[START, 1, 2, 1, 2, 0]])
+                elif endpoint == 'pool_trades':
+                    payload = {'data': [trade('swap', OTHER, TARGET, '5')]}
+                else:
+                    raise AssertionError(endpoint)
+                result = envelope(endpoint, payload)
+                if endpoint in ('pool_ohlcv', 'pool_trades'):
+                    suffix = '/ohlcv/hour' if endpoint == 'pool_ohlcv' else '/trades'
+                    result['request']['path'] = '/networks/bsc/pools/' + params['pool'] + suffix
+                    result['request']['params'] = {'token': params['token'], 'currency': 'usd', 'aggregate': 1}
+                return result
+
+        saved = self.root / 'snapshot'
+        manifest = fetch.snapshot(FixtureClient(), 'bsc', TARGET, saved, mode='standard')
+        self.assertEqual(manifest['identity']['identity_evidence']['status'], 'verified')
+        self.assertTrue(a.address_equal(manifest['reference_pool']['address'], POOL))
+        result = a.analyze_run(saved)
+        self.assertEqual(len(result['pools']), 1)
+        self.assertEqual(result['candles']['status'], 'ok')
+        self.assertEqual(result['candles']['completed_count'], 1)
+        self.assertEqual(result['trades']['status'], 'ok')
+        self.assertEqual(result['trades']['count'], 1)
+        self.assertEqual(result['trades']['metrics']['buy_turnover_usd']['value'], '5')
+
     def test_pool_coverage_not_summed_or_duplicated(self):
         self.put('pools_page_2',envelope('token_pools',{'data':[pool()]}))
         result=self.analyze()

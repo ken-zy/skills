@@ -353,6 +353,43 @@ class SnapshotTest(unittest.TestCase):
                 self.assertIsNone(selected["address"])
                 self.assertEqual(selected["candidates"][0]["reason"], "missing_or_invalid_price_liquidity_volume")
 
+    def test_snapshot_extreme_pool_volume_preserves_manifest_and_coverage(self):
+        for has_valid_pool in (False, True):
+            with self.subTest(has_valid_pool=has_valid_pool):
+                instance = self.mock_client()
+                normal_send = instance.send.side_effect
+                invalid = pool(volume="1e999999999")
+                valid = pool(volume="100")
+                valid_address = "0x" + "d" * 64
+                valid["id"] = "bsc_" + valid_address
+                valid["attributes"]["address"] = valid_address
+
+                def send(url, headers, timeout):
+                    if "/pools?" in url:
+                        return success({"data": [invalid, valid] if has_valid_pool else [invalid]})
+                    return normal_send(url, headers, timeout)
+
+                instance.send.side_effect = send
+                run = self.directory / ("with_valid_pool" if has_valid_pool else "invalid_pools_only")
+                returned = fetch.snapshot(instance, "bsc", ADDRESS, run, "standard")
+                saved = json.loads((run / "manifest.json").read_text())
+                self.assertEqual(saved, returned)
+                self.assertEqual(saved["identity"]["identity_evidence"]["status"], "verified")
+                token = json.loads((run / saved["envelopes"]["token"]).read_text())
+                self.assertEqual(token["status"], "ok")
+                self.assertEqual(saved["reference_pool"]["candidates"][0]["reason"], "missing_or_invalid_price_liquidity_volume")
+                if has_valid_pool:
+                    self.assertEqual(saved["reference_pool"]["address"], valid_address)
+                    self.assertIn("ohlcv", saved["envelopes"])
+                    self.assertIn("trades", saved["envelopes"])
+                    self.assertNotIn("standard_pool_evidence_unavailable", saved["warnings"])
+                else:
+                    self.assertIsNone(saved["reference_pool"]["address"])
+                    self.assertEqual(saved["reference_pool"]["selection"], "no_eligible_pool")
+                    self.assertNotIn("ohlcv", saved["envelopes"])
+                    self.assertNotIn("trades", saved["envelopes"])
+                    self.assertIn("standard_pool_evidence_unavailable", saved["warnings"])
+
     def test_selection_preserves_full_precision_and_lexical_ties(self):
         def candidate(suffix, volume, reserve):
             row = pool(volume=volume, reserve=reserve)
