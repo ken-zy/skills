@@ -1,0 +1,4 @@
+interface:
+  display_name: "DefiLlama 免费数据研究"
+  short_description: "通过免费 API 调研 DeFi 协议、链、稳定币与收益池，校验时间口径并导出数据"
+  default_prompt: "使用 $defillama-free 调研 Polymarket 国际站，比较近期 TVL、成交量和费用收入，并说明来源及数据缺口。"
