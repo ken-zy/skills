@@ -23,7 +23,7 @@ description: |
 
 ### Layer 2: 官网数据
 - **FRED：内置浏览器** — 先读取并执行 [FRED 浏览器规则](../macro-dashboard/references/fred-browser.md)，访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布（利率变动、就业数据等）
-- **DefiLlama：Chrome CDP** — `defillama.com/protocol/{protocol}` — DeFi TVL 变动、协议重大事件
+- **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
 
 ### Layer 3: Web Search
 - 财经新闻（earnings, M&A, 政策变化）
@@ -54,6 +54,8 @@ description: |
 - 隔夜期货/盘前表现
 - 美元/商品/国债收益率变动
 - 当日经济数据发布预告
+
+DeFi 指标按免费数据规则调用；日频/24h 数据不得写成精确的“隔夜”区间。API 异常只是调查线索，黑客、升级、铸造/赎回等原因需内置浏览器读取原始公告。
 
 ### Step 2: Compile Morning Note
 
@@ -108,6 +110,7 @@ description: |
 
 ## Quality Checklist
 
+- [ ] DefiLlama 指标已按免费数据规则标明 API/网页来源、统计期、读取时间和缺失/过期状态；事件经网页核实，未把 TVL 变化当作净流入
 - [ ] FRED 数据从内置浏览器官网页面读取，已标注数据期间、单位及来源；未获取项明确说明
 - [ ] 如引用当前加密价格，已执行双源核验并显示价差告警或未核验原因
 - [ ] 最重要的事件放在头条位置

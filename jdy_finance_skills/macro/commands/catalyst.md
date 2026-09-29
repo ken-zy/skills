@@ -1,7 +1,7 @@
 ---
 description: 催化剂日历 — 财报/经济数据/FOMC/代币解锁/空投快照/协议升级
 argument-hint: "[tickers_or_tokens...] [horizon: 2w|month|quarter]"
-allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, mcp__cua_repl__*, WebSearch, WebFetch
+allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, mcp__cua_repl__*, WebSearch, WebFetch, Bash(python3:*)
 ---
 
 # Catalyst Calendar
@@ -22,7 +22,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 ### Layer 2: 官网数据
 - **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）
-- **DefiLlama：Chrome CDP** — `defillama.com/protocol/{protocol}` — 协议 TVL 变动、DeFi 事件
+- **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../skills/macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
 
 ### Layer 3: Web Search
 - 财报日历、FOMC 日期、代币解锁日历、空投日期、加密会议
@@ -51,6 +51,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 ## Quality Checklist
 
+- [ ] DefiLlama 指标已按免费数据规则标明 API/网页来源、统计期、读取时间和缺失/过期状态；事件经网页核实，未把 TVL 变化当作净流入
 - [ ] 传统和加密事件都覆盖
 - [ ] 财报日期经 IR 页面验证
 - [ ] 代币解锁标注占流通量百分比

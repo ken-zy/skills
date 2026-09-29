@@ -47,7 +47,7 @@ tradfi / crypto 保留原 API key 配置流程。macro 使用宿主中已连接�
 | Alpha Vantage | [alphavantage.co/support](https://www.alphavantage.co/support/#api-key) | 技术指标、电话会议（官方 MCP） | tradfi |
 | Dune Analytics | [dune.com/settings/api](https://dune.com/settings/api) | 链上查询（官方 MCP） | crypto |
 
-> FRED 通过内置浏览器访问官网，无需 API Key；Yahoo Finance、DefiLlama 保留既有浏览器 / 搜索方式。
+> FRED 通过内置浏览器访问官网，无需 API Key；macro 的 DefiLlama 使用免费 API + 内置浏览器，无需 Key；crypto 的 DefiLlama 和 Yahoo Finance 保留既有方式。
 
 ### Key 管理机制
 
@@ -100,7 +100,7 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 
 自动触发 skill（无需命令）：news-digest
 
-数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（Chrome CDP）；其他新闻/事件（Web Search）
+数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（免费 API + 内置浏览器）；其他新闻/事件（Web Search）
 
 ### portfolio — 投资组合管理
 
@@ -117,13 +117,15 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 
 ### 三层 Fallback
 
-除 macro 当前加密价格外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
+除 macro 当前加密价格、FRED 和 macro DefiLlama 的专用规则外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
 
 1. **MCP 数据源** — 首选，通过 MCP 协议直接查询
 2. **Chrome CDP** — MCP 不可用时，直接导航访问目标页面
 3. **Web Search** — Chrome CDP 失败时，搜索权威来源兜底
 
 FRED 单独遵循[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不走外部 Chrome、API 或搜索数值兜底。
+
+macro 的 DefiLlama 遵循[免费 API + 内置浏览器规则](macro/skills/macro-dashboard/references/defillama-free-api.md)：指标由 Python 标准库脚本获取、缓存并计算变化；ETF/解锁/事件通过内置浏览器补齐。
 
 ### MCP 数据源总览
 
@@ -141,7 +143,7 @@ FRED 单独遵循[内置浏览器规则](macro/skills/macro-dashboard/references
 | 数据源 | 限制 | 覆盖场景 |
 |--------|------|---------|
 | Yahoo Finance | 无限制 | 股票行情、财报、组合管理 |
-| DefiLlama | 无限制 | DeFi TVL、协议数据 |
+| DefiLlama | 免费 API 有限流，未承诺无限额度 | macro：免费 API + 内置浏览器；crypto：保留既有方式 |
 | FRED | 网站访问受站点限制，不套用 API 配额 | 内置浏览器读取宏观经济指标 |
 | FMP | 250次/天 | SEC filing、分析师数据 |
 

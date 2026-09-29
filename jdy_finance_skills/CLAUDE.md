@@ -10,14 +10,14 @@
 |--------|------|--------|
 | `tradfi` | `/comps` `/dcf` `/earnings` `/screen` `/thesis` `/model-update` `/debug-model` | Alpha Vantage (MCP) + Yahoo Finance (Chrome CDP) |
 | `crypto` | `/token` `/defi` `/airdrop` `/onchain` | CoinGecko, Dune (MCP) + DefiLlama (Chrome CDP) |
-| `macro` | `/dashboard` `/morning` `/catalyst` | CoinGecko + Binance 插件（价格双源核验）+ FRED（内置浏览器）, DefiLlama (Chrome CDP) |
+| `macro` | `/dashboard` `/morning` `/catalyst` | CoinGecko + Binance 插件（价格双源核验）+ FRED（内置浏览器）+ DefiLlama（免费 API + 内置浏览器） |
 | `portfolio` | `/rebalance` `/tlh` | Yahoo Finance (Chrome CDP) |
 
 另有自动触发 skill（无独立命令）：`news-digest`（新闻补充）、`competitive-analysis`（竞争分析）、`audit-xls`（电子表格审计）、`idea-generation`（投资想法筛选）。
 
 ## 三层 Fallback 策略
 
-macro 的当前加密价格使用 [CoinGecko + Binance 双源规则](macro/skills/macro-dashboard/references/plugin-market-data.md)：默认价差 ≥1% 告警，不回退旧 MCP / REST / 浏览器 / 搜索价格；缺源时说明未核验，macro 不索取或同步 Key。FRED 使用[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不自动回退外部 Chrome、API 或搜索数值。其余数据获取逻辑遵循：
+macro 的当前加密价格使用 [CoinGecko + Binance 双源规则](macro/skills/macro-dashboard/references/plugin-market-data.md)：默认价差 ≥1% 告警，不回退旧 MCP / REST / 浏览器 / 搜索价格；缺源时说明未核验，macro 不索取或同步 Key。FRED 使用[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不自动回退外部 Chrome、API 或搜索数值。macro DefiLlama 使用[免费数据规则](macro/skills/macro-dashboard/references/defillama-free-api.md)，不接入付费 MCP；其余数据获取逻辑遵循：
 
 ```
 Layer 1: MCP 数据源（首选）
@@ -60,7 +60,7 @@ Layer 3: Web Search 摘要兜底（Chrome CDP 失败时）
 | 电话会议 | alpha-vantage | `seekingalpha.com/symbol/{ticker}/earnings/transcripts` | seekingalpha.com |
 | 分析师预期 | — | `tipranks.com/stocks/{ticker}/forecast` | tipranks.com, wsj.com |
 | 加密行情（crypto；macro 见双源规则） | coingecko | `coingecko.com/en/coins/{id}` | coingecko.com |
-| DeFi 数据 | — | `defillama.com/protocol/{protocol}` | defillama.com |
+| DeFi 数据（crypto；macro 见免费数据规则） | — | `defillama.com/protocol/{protocol}` | defillama.com |
 | 链上数据 | dune | `dune.com/queries/{query_id}` | dune.com |
 | 宏观经济（FRED 专用规则） | 内置浏览器读取官网 | 不适用 | 不自动兜底 |
 | 新闻 | alpha-vantage | ⚠️ URL 未知 → Web Search 取文章 URL → Chrome CDP 读全文；Web Search 找不到 URL → 降 Layer 3 | Web Search 搜索摘要（google news search） |
@@ -98,6 +98,6 @@ Layer 3: Web Search 摘要兜底（Chrome CDP 失败时）
 | Alpha Vantage | 25次/天, 5次/分 | 官方 MCP，仅用于电话会议和技术指标 |
 | Dune | 15+40次/分 | 官方 MCP，链上查询 |
 | Yahoo Finance | 无官方限制 | 无官方 MCP，Chrome CDP / Web Search 兜底 |
-| DefiLlama | 无限制 | 无官方 MCP，Chrome CDP / Web Search 兜底 |
+| DefiLlama | 免费 API 有限流，无明确无限额度承诺 | macro：免费 API + 内置浏览器；官方 MCP 需要 API 订阅，crypto 访问方式不变 |
 | FRED | 网站限制；不套用 API 配额 | 内置浏览器访问官网，无需 API Key |
 | FMP | 250次/天 | 无官方 MCP，Chrome CDP / Web Search 兜底 |

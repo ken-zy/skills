@@ -1,7 +1,7 @@
 ---
 description: 宏观经济看板 — 利率/通胀/就业/市场情绪/加密宏观/经济日历
 argument-hint: "[scope: rates|inflation|jobs|sentiment|crypto-macro|calendar|all]"
-allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, mcp__cua_repl__*, WebSearch, WebFetch
+allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*, mcp__cua_repl__*, WebSearch, WebFetch, Bash(python3:*)
 ---
 
 # Macro Dashboard
@@ -22,7 +22,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 ### Layer 2: 官网数据
 - **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 利率/国债/CPI/PCE/就业/GDP/美元指数
-- **DefiLlama：Chrome CDP** — `defillama.com` — 稳定币总市值/全球加密 TVL/DeFi 总量
+- **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../skills/macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
 
 ### Layer 3: Web Search
 - 经济数据日历、FOMC 声明、VIX、恐惧贪婪指数
@@ -41,7 +41,7 @@ Always annotate: "Source: [source name]" on each data point.
 - **通胀**: CPI YoY/MoM/Core CPI/PCE/12个月趋势
 - **就业**: 非农/失业率/初请失业金/劳动参与率
 - **情绪**: VIX/恐惧贪婪指数/DXY/主要股指
-- **加密宏观**: BTC/ETH/加密总市值/稳定币总市值/DeFi TVL
+- **加密宏观**: BTC/ETH/加密总市值/稳定币总市值/DeFi TVL/DEX交易量/BTC ETF净流入
 - **日历**: 未来2周经济数据发布日期
 
 ### Step 3: Compile Dashboard
@@ -54,6 +54,7 @@ Always annotate: "Source: [source name]" on each data point.
 
 ## Quality Checklist
 
+- [ ] DefiLlama 指标已按免费数据规则标明 API/网页来源、统计期、读取时间和缺失/过期状态；事件经网页核实，未把 TVL 变化当作净流入
 - [ ] FRED 数据系列 ID 正确
 - [ ] 当前值和前值都已获取
 - [ ] 当前价格已尝试两个插件，附价差、时间、告警/未核验状态

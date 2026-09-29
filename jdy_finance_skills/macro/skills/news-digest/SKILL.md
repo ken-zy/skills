@@ -33,8 +33,8 @@ description: |
 - **CoinGecko 插件** — `get_crypto_news` 获取新闻线索，保留原始标题/时间/链接；不声称覆盖全部社区讨论
 - **Binance 插件** — 仅在引用当前价格时进行现货价核对
 
-### Layer 2: Chrome CDP
-- `defillama.com/protocol/{protocol}` — 协议重大变动（TVL 异常波动作为新闻线索）
+### Layer 2: 免费 API 与官网数据
+- **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
 
 ### Layer 3: Web Search
 - 财经新闻网站（Reuters, Bloomberg, CNBC, CoinDesk, The Block）
@@ -61,6 +61,8 @@ description: |
 - 项目公告（升级、合作、代币经济学变化）
 - 安全事件（黑客、漏洞）
 - 监管动态
+
+协议 TVL 异常按免费数据规则获取，原因通过内置浏览器核对原始公告。API/网页失败时写“未获取/未能核实”，不能据此声称“无重大新闻”。
 
 ### Step 3: Filter and Prioritize
 - 按时效性排序（最新优先）
@@ -89,6 +91,7 @@ description: |
 
 ## Quality Checklist
 
+- [ ] DefiLlama 指标已按免费数据规则标明 API/网页来源、统计期、读取时间和缺失/过期状态；事件经网页核实，未把 TVL 变化当作净流入
 - [ ] 如引用当前加密价格，已执行双源核验并显示价差告警或未核验原因
 - [ ] 新闻来源可靠（主流财经/加密媒体）
 - [ ] 新闻时效性标注（具体日期）

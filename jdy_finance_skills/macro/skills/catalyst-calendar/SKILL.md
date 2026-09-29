@@ -23,7 +23,7 @@ description: |
 
 ### Layer 2: 官网数据
 - **FRED：内置浏览器** — 先读取并执行 [FRED 浏览器规则](../macro-dashboard/references/fred-browser.md)，访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）
-- **DefiLlama：Chrome CDP** — `defillama.com/protocol/{protocol}` — 协议 TVL 变动、DeFi 事件
+- **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
 
 ### Layer 3: Web Search
 - 财报日历（公司 IR 页面）
@@ -70,6 +70,8 @@ description: |
 - 行业月度数据发布
 
 ### Step 3: Gather Crypto Events
+
+未来事件由内置浏览器读取 DefiLlama 公开页面及项目公告，记录来源、事件日期/时区、已确认或预计状态。免费 TVL API 仅提供背景，不能从历史变动推测解锁/升级日期。
 
 **代币事件:**
 - 代币解锁日期和金额（TokenUnlocks 数据）
@@ -124,6 +126,7 @@ description: |
 
 ## Quality Checklist
 
+- [ ] DefiLlama 指标已按免费数据规则标明 API/网页来源、统计期、读取时间和缺失/过期状态；事件经网页核实，未把 TVL 变化当作净流入
 - [ ] FRED 数据从内置浏览器官网页面读取，已标注数据期间、单位及来源；未获取项明确说明
 - [ ] 如引用当前加密价格，已执行双源核验并显示价差告警或未核验原因
 - [ ] 传统金融和加密事件都已覆盖
