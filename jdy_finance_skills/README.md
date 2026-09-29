@@ -100,7 +100,7 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 
 自动触发 skill（无需命令）：news-digest
 
-数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（免费 API + 内置浏览器）；其他新闻/事件（Web Search）
+数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（免费 API + 内置浏览器）；CME FedWatch + Polymarket（内置浏览器双源利率预期）；其他新闻/事件（Web Search）
 
 ### portfolio — 投资组合管理
 
@@ -117,7 +117,7 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 
 ### 三层 Fallback
 
-除 macro 当前加密价格、FRED 和 macro DefiLlama 的专用规则外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
+除 macro 当前加密价格、FRED、macro DefiLlama 和利率预期双源的专用规则外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
 
 1. **MCP 数据源** — 首选，通过 MCP 协议直接查询
 2. **Chrome CDP** — MCP 不可用时，直接导航访问目标页面
@@ -126,6 +126,8 @@ Fork 自 Anthropic 官方 `financial-analysis` 和 `equity-research` 插件，�
 FRED 单独遵循[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不走外部 Chrome、API 或搜索数值兜底。
 
 macro 的 DefiLlama 遵循[免费 API + 内置浏览器规则](macro/skills/macro-dashboard/references/defillama-free-api.md)：指标由 Python 标准库脚本获取、缓存并计算变化；ETF/解锁/事件通过内置浏览器补齐。
+
+美联储政策概率遵循 [CME FedWatch + Polymarket 双源规则](macro/skills/macro-dashboard/references/fed-expectations-browser.md)：两站均用内置浏览器读取，按同次会议和结算口径展示概率；只在可比时计算百分点差，缺源或时间不明时标注快照/未完成核验。
 
 ### MCP 数据源总览
 
@@ -144,6 +146,7 @@ macro 的 DefiLlama 遵循[免费 API + 内置浏览器规则](macro/skills/macr
 |--------|------|---------|
 | Yahoo Finance | 无限制 | 股票行情、财报、组合管理 |
 | DefiLlama | 免费 API 有限流，未承诺无限额度 | macro：免费 API + 内置浏览器；crypto：保留既有方式 |
+| CME FedWatch + Polymarket | 网站访问限制，无需 Key；不承诺实时或无限访问 | 内置浏览器读取并比较美联储政策预期 |
 | FRED | 网站访问受站点限制，不套用 API 配额 | 内置浏览器读取宏观经济指标 |
 | FMP | 250次/天 | SEC filing、分析师数据 |
 

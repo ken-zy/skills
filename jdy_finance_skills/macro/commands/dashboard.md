@@ -23,6 +23,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 ### Layer 2: 官网数据
 - **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 利率/国债/CPI/PCE/就业/GDP/美元指数
 - **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../skills/macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
+- **CME FedWatch + Polymarket：内置浏览器双源** — 涉及美联储加息/降息/不变概率时，先读取并执行[利率预期双源规则](../skills/macro-dashboard/references/fed-expectations-browser.md)；两站均尝试读取，按同次会议和结果口径并列展示。仅提及会议日期或普通新闻时不额外取概率。
 
 ### Layer 3: Web Search
 - 经济数据日历、FOMC 声明、VIX、恐惧贪婪指数
@@ -37,7 +38,7 @@ Always annotate: "Source: [source name]" on each data point.
 
 ### Step 2: Fetch Data
 按 scope 获取对应数据：
-- **利率**: 联邦基金利率/10Y国债/2Y国债/2-10Y利差/降息预期
+- **利率**: 联邦基金利率/10Y国债/2Y国债/2-10Y利差/降息、加息及不变预期（CME + Polymarket 双源）
 - **通胀**: CPI YoY/MoM/Core CPI/PCE/12个月趋势
 - **就业**: 非农/失业率/初请失业金/劳动参与率
 - **情绪**: VIX/恐惧贪婪指数/DXY/主要股指
@@ -45,7 +46,7 @@ Always annotate: "Source: [source name]" on each data point.
 - **日历**: 未来2周经济数据发布日期
 
 ### Step 3: Compile Dashboard
-按输出结构整理，含当前值、前值、变化趋势。
+按输出结构整理，含当前值、前值、变化趋势。利率预期单独使用[双源概率表](../skills/macro-dashboard/references/fed-expectations-browser.md#输出)，标注会议日期、结果口径、百分点差和可比状态。
 
 ## Output
 
@@ -59,7 +60,7 @@ Always annotate: "Source: [source name]" on each data point.
 - [ ] 当前值和前值都已获取
 - [ ] 当前价格已尝试两个插件，附价差、时间、告警/未核验状态
 - [ ] 日历覆盖未来 2 周重要事件
-- [ ] 降息预期来自实时数据（非猜测）
+- [ ] 利率预期已尝试 CME + Polymarket 内置浏览器双源；会议/规则/时间可比性明确，缺源与快照状态已标注
 - [ ] 数据时效性标注
 
 ## Skill Reference
