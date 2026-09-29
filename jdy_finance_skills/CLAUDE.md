@@ -10,14 +10,14 @@
 |--------|------|--------|
 | `tradfi` | `/comps` `/dcf` `/earnings` `/screen` `/thesis` `/model-update` `/debug-model` | Alpha Vantage (MCP) + Yahoo Finance (Chrome CDP) |
 | `crypto` | `/token` `/defi` `/airdrop` `/onchain` | CoinGecko, Dune (MCP) + DefiLlama (Chrome CDP) |
-| `macro` | `/dashboard` `/morning` `/catalyst` | CoinGecko + Binance 插件（价格双源核验）+ FRED（内置浏览器）+ DefiLlama（免费 API + 内置浏览器）+ CME FedWatch / Polymarket（内置浏览器双源）+ Yahoo Finance（内置浏览器） |
+| `macro` | `/dashboard` `/morning` `/catalyst` | CoinGecko + Binance 插件（价格双源核验）+ FRED（内置浏览器）+ DefiLlama（免费 API + 内置浏览器）+ CME FedWatch / Polymarket（内置浏览器双源）+ Yahoo Finance / CNN Fear & Greed（内置浏览器） |
 | `portfolio` | `/rebalance` `/tlh` | Yahoo Finance (Chrome CDP) |
 
 另有自动触发 skill（无独立命令）：`news-digest`（新闻补充）、`competitive-analysis`（竞争分析）、`audit-xls`（电子表格审计）、`idea-generation`（投资想法筛选）。
 
 ## 三层 Fallback 策略
 
-macro 的当前加密价格使用 [CoinGecko + Binance 双源规则](macro/skills/macro-dashboard/references/plugin-market-data.md)：默认价差 ≥1% 告警，不回退旧 MCP / REST / 浏览器 / 搜索价格；缺源时说明未核验，macro 不索取或同步 Key。FRED 使用[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不自动回退外部 Chrome、API 或搜索数值。macro DefiLlama 使用[免费数据规则](macro/skills/macro-dashboard/references/defillama-free-api.md)，不接入付费 MCP。美联储政策概率使用 [CME FedWatch + Polymarket 内置浏览器双源规则](macro/skills/macro-dashboard/references/fed-expectations-browser.md)，不以 API、外部 Chrome 或搜索概率兜底。macro Yahoo Finance 使用[内置浏览器规则](macro/skills/macro-dashboard/references/yahoo-browser.md)，不自动以外部 Chrome、API 或搜索数值兜底；非 macro 的 Yahoo 访问方式保持原样。其余数据获取逻辑遵循：
+macro 的当前加密价格使用 [CoinGecko + Binance 双源规则](macro/skills/macro-dashboard/references/plugin-market-data.md)：默认价差 ≥1% 告警，不回退旧 MCP / REST / 浏览器 / 搜索价格；缺源时说明未核验，macro 不索取或同步 Key。FRED 使用[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不自动回退外部 Chrome、API 或搜索数值。macro DefiLlama 使用[免费数据规则](macro/skills/macro-dashboard/references/defillama-free-api.md)，不接入付费 MCP。美联储政策概率使用 [CME FedWatch + Polymarket 内置浏览器双源规则](macro/skills/macro-dashboard/references/fed-expectations-browser.md)，不以 API、外部 Chrome 或搜索概率兜底。macro Yahoo Finance 使用[内置浏览器规则](macro/skills/macro-dashboard/references/yahoo-browser.md)，不自动以外部 Chrome、API 或搜索数值兜底；非 macro 的 Yahoo 访问方式保持原样。macro CNN Fear & Greed 使用[内置浏览器规则](macro/skills/macro-dashboard/references/cnn-browser.md)，不自动回退外部 Chrome、API 或搜索数值。其余数据获取逻辑遵循：
 
 ```
 Layer 1: MCP 数据源（首选）
@@ -52,6 +52,7 @@ Layer 3: Web Search 摘要兜底（Chrome CDP 失败时）
 
 | 场景 | Layer 1 (MCP) | Layer 2 (Chrome CDP URL) | Layer 3 (Web Search 兜底) |
 |------|--------------|--------------------------|--------------------------|
+| CNN Fear & Greed（macro 专用规则） | 内置浏览器读取官网 | 不适用 | 不自动兜底 |
 | Yahoo Finance（macro 专用规则） | 内置浏览器读取官网 | 不适用 | 不自动兜底 |
 | 股票行情/财报（美股；非 macro） | — | `finance.yahoo.com/quote/{ticker}` | finance.yahoo.com |
 | 股票行情（A股） | — | `xueqiu.com/S/{code}` 或 `quote.eastmoney.com/sz{code}.html` | 东方财富/雪球 |
@@ -102,5 +103,6 @@ Layer 3: Web Search 摘要兜底（Chrome CDP 失败时）
 | Yahoo Finance | 网站访问限制；不能假设无限制或全部实时 | macro：内置浏览器；其他子插件保持 Chrome CDP / Web Search 原路径 |
 | DefiLlama | 免费 API 有限流，无明确无限额度承诺 | macro：免费 API + 内置浏览器；官方 MCP 需要 API 订阅，crypto 访问方式不变 |
 | CME FedWatch / Polymarket | 网站访问限制；不承诺实时或无限访问 | 内置浏览器公开页面，无需 Key；核对会议、结算规则和时间 |
+| CNN Fear & Greed | 网站访问限制；不承诺无限访问 | 内置浏览器读取主指数及时间，无需 Key |
 | FRED | 网站限制；不套用 API 配额 | 内置浏览器访问官网，无需 API Key |
 | FMP | 250次/天 | 无官方 MCP，Chrome CDP / Web Search 兜底 |
