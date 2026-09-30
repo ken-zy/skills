@@ -115,7 +115,7 @@ python3 jdy_finance_skills/crypto/skills/crypto-project-research/scripts/analyze
 
 自动触发 skill（无需命令）：news-digest
 
-数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（免费 API + 内置浏览器）；美联储 FOMC（内置浏览器官网文件）；CME FedWatch + Polymarket（内置浏览器双源利率预期）；Yahoo Finance（内置浏览器）；CNN Fear & Greed（内置浏览器）；公司 IR / 正式披露（内置浏览器）；Tokenomist + DefiLlama（内置浏览器双源解锁）；其他新闻/事件（Web Search）
+数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（免费 API + 内置浏览器）；美联储 FOMC（内置浏览器官网文件）；CME FedWatch + Polymarket（内置浏览器双源利率预期）；Yahoo Finance（内置浏览器）；CNN Fear & Greed（内置浏览器）；公司 IR / 正式披露（内置浏览器）；Tokenomist + DefiLlama（内置浏览器双源解锁）；项目官方 X 公告（内置浏览器核验）；其他新闻/事件（Web Search）
 
 ### portfolio — 投资组合管理
 
@@ -132,7 +132,7 @@ python3 jdy_finance_skills/crypto/skills/crypto-project-research/scripts/analyze
 
 ### 三层 Fallback
 
-除 crypto 代币研究的免费 REST 路由及 macro 当前加密价格、FRED、macro DefiLlama、美联储 FOMC、利率预期双源、macro Yahoo Finance、CNN Fear & Greed、公司 IR / 正式披露及代币解锁双源的专用规则外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
+除 crypto 代币研究的免费 REST 路由及 macro 当前加密价格、FRED、macro DefiLlama、美联储 FOMC、利率预期双源、macro Yahoo Finance、CNN Fear & Greed、公司 IR / 正式披露、代币解锁双源及项目官方 X 公告的专用规则外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
 
 1. **MCP 数据源** — 首选，通过 MCP 协议直接查询
 2. **Chrome CDP** — MCP 不可用时，直接导航访问目标页面
@@ -153,6 +153,8 @@ macro 的 CNN Fear & Greed 遵循[内置浏览器规则](macro/skills/macro-dash
 macro 公司事件/业绩遵循[IR 核验规则](macro/skills/macro-dashboard/references/company-ir-browser.md)：第三方日历找线索，内置浏览器访问公司官网确认时间，并读取正式披露核对内容。保留预计/确认状态，区分财报和电话会时间，不以搜索摘要替代原文；其他子插件保持原方式。
 
 macro 解锁遵循[Tokenomist + DefiLlama 双源规则](macro/skills/macro-dashboard/references/token-unlocks-browser.md)：内置浏览器读取两站公开页，按事件/窗口、接收方、数量和分母对照；差异回到项目原文核实并提示。付费字段及未确认日期明确标注，不把占已释放量当占流通量，不接入付费 API。
+
+macro 项目 X 公告遵循[官方 X 浏览器规则](macro/skills/macro-dashboard/references/official-x-browser.md)：从官网确认账号，读原帖和官方原文，按需用治理/发布/链上记录核实实施状态；保留时间、修订和访问缺口，不把同源转载视为独立证据。不使用付费 API，无需 Key。
 
 ### MCP 数据源总览
 
@@ -176,6 +178,7 @@ macro 解锁遵循[Tokenomist + DefiLlama 双源规则](macro/skills/macro-dashb
 | 美联储 FOMC | 公开网页，无需 Key；受网站访问限制 | 内置浏览器读取会议日历和政策材料 |
 | 公司 IR / 正式披露 | 公开网页受站点限制，无需 API Key | macro：内置浏览器确认公司事件和业绩原文 |
 | Tokenomist + DefiLlama 解锁 | 只用公开免费部分，无需 Key；付费/登录限制标缺失 | macro：内置浏览器双源对照，项目原文核实差异 |
+| 项目官方 X 公告 | 无需 API Key；登录、限流及内容可见性受站点限制 | macro：内置浏览器核对原帖、官网及实施证据 |
 | FRED | 网站访问受站点限制，不套用 API 配额 | 内置浏览器读取宏观经济指标 |
 | FMP | 250次/天 | SEC filing、分析师数据 |
 
