@@ -115,7 +115,7 @@ python3 jdy_finance_skills/crypto/skills/crypto-project-research/scripts/analyze
 
 自动触发 skill（无需命令）：news-digest
 
-数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（免费 API + 内置浏览器）；美联储 FOMC（内置浏览器官网文件）；CME FedWatch + Polymarket（内置浏览器双源利率预期）；Yahoo Finance（内置浏览器）；CNN Fear & Greed（内置浏览器）；公司 IR / 正式披露（内置浏览器）；Tokenomist + DefiLlama（内置浏览器双源解锁）；项目官方 X 公告（内置浏览器核验）；其他新闻/事件（Web Search）
+数据源：CoinGecko + Binance 插件（价格双源核验）；FRED（内置浏览器官网）；DefiLlama（免费 API + 内置浏览器）；美联储 FOMC（内置浏览器官网文件）；CME FedWatch + Polymarket（内置浏览器双源利率预期）；Yahoo Finance（内置浏览器）；CNN Fear & Greed（内置浏览器）；公司 IR / 正式披露（内置浏览器）；Tokenomist + DefiLlama（内置浏览器双源解锁）；项目官方 X 公告（内置浏览器核验）；其他网站新闻/事件（内置浏览器，搜索仅找链接）
 
 ### portfolio — 投资组合管理
 
@@ -132,7 +132,9 @@ python3 jdy_finance_skills/crypto/skills/crypto-project-research/scripts/analyze
 
 ### 三层 Fallback
 
-除 crypto 代币研究的免费 REST 路由及 macro 当前加密价格、FRED、macro DefiLlama、美联储 FOMC、利率预期双源、macro Yahoo Finance、CNN Fear & Greed、公司 IR / 正式披露、代币解锁双源及项目官方 X 公告的专用规则外，命令遵循以下数据获取策略。macro 当前价格只使用 CoinGecko + Binance 插件，统一计价后默认价差 ≥1% 告警；失败时标明未核验，不自动回退网页或旧 MCP。详见[双源行情规则](macro/skills/macro-dashboard/references/plugin-market-data.md)。
+macro 四个 skill 的所有现有和后续网站来源均遵循[网站统一浏览器规则](macro/skills/macro-dashboard/references/web-sources-browser.md)：内置浏览器读取正文与数据，Web Search 仅找链接，不以摘要兜底。CoinGecko + Binance 插件、DefiLlama 免费 API 保留既有路径；专用来源规则继续约束数据口径与核验。无需逐站重新确认访问方式。
+
+以下三层策略仅适用于其他子插件，crypto 代币研究仍优先其免费 REST 专用路由。
 
 1. **MCP 数据源** — 首选，通过 MCP 协议直接查询
 2. **Chrome CDP** — MCP 不可用时，直接导航访问目标页面

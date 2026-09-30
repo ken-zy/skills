@@ -10,16 +10,18 @@
 |--------|------|--------|
 | `tradfi` | `/comps` `/dcf` `/earnings` `/screen` `/thesis` `/model-update` `/debug-model` | Alpha Vantage (MCP) + Yahoo Finance (Chrome CDP) |
 | `crypto` | `/token` `/defi` `/airdrop` `/onchain` | token: GT 公共 + CG Demo REST；其他流程保留 Dune (MCP) + DefiLlama (Chrome CDP) 等 |
-| `macro` | `/dashboard` `/morning` `/catalyst` | CoinGecko + Binance 插件（价格双源核验）+ FRED（内置浏览器）+ DefiLlama（免费 API + 内置浏览器）+ 美联储 FOMC（内置浏览器官网文件）+ CME FedWatch / Polymarket（内置浏览器双源）+ Yahoo Finance / CNN Fear & Greed / 公司 IR 与正式披露（内置浏览器）+ Tokenomist / DefiLlama 解锁（内置浏览器双源）+ 项目官方 X 公告（内置浏览器） |
+| `macro` | `/dashboard` `/morning` `/catalyst` | CoinGecko + Binance 插件（价格双源核验）+ FRED（内置浏览器）+ DefiLlama（免费 API + 内置浏览器）+ 美联储 FOMC（内置浏览器官网文件）+ CME FedWatch / Polymarket（内置浏览器双源）+ Yahoo Finance / CNN Fear & Greed / 公司 IR 与正式披露（内置浏览器）+ Tokenomist / DefiLlama 解锁（内置浏览器双源）+ 项目官方 X 及其他网站来源（统一内置浏览器，搜索仅找链接） |
 | `portfolio` | `/rebalance` `/tlh` | Yahoo Finance (Chrome CDP) |
 
 另有自动触发 skill（无独立命令）：`crypto-project-research`（按 chain + CA 的免费 API 市场证据）、`news-digest`（新闻补充）、`competitive-analysis`（竞争分析）、`audit-xls`（电子表格审计）、`idea-generation`（投资想法筛选）。
 
 ## 三层 Fallback 策略
 
+macro 四个 skill 的全部现有及后续网站来源执行[网站统一浏览器规则](macro/skills/macro-dashboard/references/web-sources-browser.md)，通过内置浏览器读取正文/数据，搜索只找链接；Medium、Discord 网页版及媒体等均适用，不再逐站询问访问方式。CoinGecko/Binance 插件和 DefiLlama 免费 API 保留；专用来源核验规则继续生效。下方通用三层 fallback 只适用于其他子插件，不能用于 macro 网站读取。
+
 crypto `/token` 的市场证据先用 [crypto-project-research](crypto/skills/crypto-project-research/SKILL.md)：GT 公共 REST 无 Key；CoinGecko Demo REST 仅用进程已有 `COINGECKO_DEMO_API_KEY`，缺 Key 保留可选数据缺口，不自动替换为 MCP、Pro 或网页报价。独立读取 Skill/运行 Python 脚本无需启用插件，不读密钥文件；启用旧 crypto 插件仍会先运行能读取/恢复/备份 Key 的 SessionStart hook，不能将它描述为被新路由隔离。GT 不要求完成旧 Key 配置。项目官网/审计等补充材料继续按下方浏览器/搜索规则。
 
-macro 的当前加密价格使用 [CoinGecko + Binance 双源规则](macro/skills/macro-dashboard/references/plugin-market-data.md)：默认价差 ≥1% 告警，不回退旧 MCP / REST / 浏览器 / 搜索价格；缺源时说明未核验，macro 不索取或同步 Key。FRED 使用[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不自动回退外部 Chrome、API 或搜索数值。macro DefiLlama 使用[免费数据规则](macro/skills/macro-dashboard/references/defillama-free-api.md)，不接入付费 MCP。美联储政策概率使用 [CME FedWatch + Polymarket 内置浏览器双源规则](macro/skills/macro-dashboard/references/fed-expectations-browser.md)，不以 API、外部 Chrome 或搜索概率兜底。macro Yahoo Finance 使用[内置浏览器规则](macro/skills/macro-dashboard/references/yahoo-browser.md)，不自动以外部 Chrome、API 或搜索数值兜底；非 macro 的 Yahoo 访问方式保持原样。macro CNN Fear & Greed 使用[内置浏览器规则](macro/skills/macro-dashboard/references/cnn-browser.md)，不自动回退外部 Chrome、API 或搜索数值。美联储 FOMC 文件遵循[官网浏览器规则](macro/skills/macro-dashboard/references/fomc-browser.md)，不回退外部 Chrome、API 或搜索摘要核实政策事实。macro 公司 IR 与正式披露执行[IR 核验规则](macro/skills/macro-dashboard/references/company-ir-browser.md)，搜索只找线索/链接，原文用内置浏览器读取，不回退外部 Chrome、API 或搜索摘要；其他子插件不变。macro 代币解锁执行[Tokenomist + DefiLlama 双源规则](macro/skills/macro-dashboard/references/token-unlocks-browser.md)，内置浏览器读取两站公开数据，核对窗口/分母，差异由项目原文核实并提示；不接付费 API，不用搜索摘要兜底。macro 项目 X 公告执行[官方 X 浏览器规则](macro/skills/macro-dashboard/references/official-x-browser.md)，官网确认账号，浏览器读取原帖/官方原文并按需核对实施证据；不把同源材料当独立信源，不以 API、外部 Chrome 或搜索摘要补 X 内容。其余数据获取逻辑遵循：
+macro 的当前加密价格使用 [CoinGecko + Binance 双源规则](macro/skills/macro-dashboard/references/plugin-market-data.md)：默认价差 ≥1% 告警，不回退旧 MCP / REST / 浏览器 / 搜索价格；缺源时说明未核验，macro 不索取或同步 Key。FRED 使用[内置浏览器规则](macro/skills/macro-dashboard/references/fred-browser.md)，不自动回退外部 Chrome、API 或搜索数值。macro DefiLlama 使用[免费数据规则](macro/skills/macro-dashboard/references/defillama-free-api.md)，不接入付费 MCP。美联储政策概率使用 [CME FedWatch + Polymarket 内置浏览器双源规则](macro/skills/macro-dashboard/references/fed-expectations-browser.md)，不以 API、外部 Chrome 或搜索概率兜底。macro Yahoo Finance 使用[内置浏览器规则](macro/skills/macro-dashboard/references/yahoo-browser.md)，不自动以外部 Chrome、API 或搜索数值兜底；非 macro 的 Yahoo 访问方式保持原样。macro CNN Fear & Greed 使用[内置浏览器规则](macro/skills/macro-dashboard/references/cnn-browser.md)，不自动回退外部 Chrome、API 或搜索数值。美联储 FOMC 文件遵循[官网浏览器规则](macro/skills/macro-dashboard/references/fomc-browser.md)，不回退外部 Chrome、API 或搜索摘要核实政策事实。macro 公司 IR 与正式披露执行[IR 核验规则](macro/skills/macro-dashboard/references/company-ir-browser.md)，搜索只找线索/链接，原文用内置浏览器读取，不回退外部 Chrome、API 或搜索摘要；其他子插件不变。macro 代币解锁执行[Tokenomist + DefiLlama 双源规则](macro/skills/macro-dashboard/references/token-unlocks-browser.md)，内置浏览器读取两站公开数据，核对窗口/分母，差异由项目原文核实并提示；不接付费 API，不用搜索摘要兜底。macro 项目 X 公告执行[官方 X 浏览器规则](macro/skills/macro-dashboard/references/official-x-browser.md)，官网确认账号，浏览器读取原帖/官方原文并按需核对实施证据；不把同源材料当独立信源，不以 API、外部 Chrome 或搜索摘要补 X 内容。其他子插件未被专用规则覆盖的数据获取逻辑遵循：
 
 ```
 Layer 1: MCP 数据源（首选）
@@ -72,7 +74,8 @@ Layer 3: Web Search 摘要兜底（Chrome CDP 失败时）
 | 公司 IR / 正式披露（macro 专用规则） | 内置浏览器读取官方原文 | 不适用 | 仅找线索/链接，不能代替官方确认 |
 | 代币解锁（macro 专用规则） | 内置浏览器读取 Tokenomist + DefiLlama | 不适用 | 仅找项目原始链接，不能代替核验 |
 | 项目 X 公告（macro 专用规则） | 内置浏览器读原帖及官方核验材料 | 不适用 | 仅定位链接，不代替原文 |
-| 新闻（macro 的 IR/披露/解锁/项目 X 公告除外） | alpha-vantage | ⚠️ URL 未知 → Web Search 取文章 URL → Chrome CDP 读全文；Web Search 找不到 URL → 降 Layer 3 | Web Search 搜索摘要（google news search） |
+| macro 所有其他网站（含 Medium/Discord/媒体） | 内置浏览器读取原文 | 不适用 | 仅找链接，不以摘要兜底 |
+| 新闻（非 macro） | alpha-vantage | ⚠️ URL 未知 → Web Search 取文章 URL → Chrome CDP 读全文；Web Search 找不到 URL → 降 Layer 3 | Web Search 搜索摘要（google news search） |
 
 ## 输出格式规则
 
