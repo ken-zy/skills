@@ -21,6 +21,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - 新闻和日历没有引用当前价格时不额外查价；事件仍以原始公告为准。插件缺失时提示连接，不回退旧 MCP 或自行配置 API Key。
 
 ### Layer 2: 官网数据
+- **项目官方 X 公告：内置浏览器** — 引用项目官方 X 公告时按[官方 X 核验规则](../skills/macro-dashboard/references/official-x-browser.md)执行：官网确认账号，读取原帖与官方原文，区分计划、自述与实施证据；时间/修订冲突及访问缺失明确说明。
 - **Tokenomist + DefiLlama 解锁：内置浏览器双源** — 涉及代币解锁时先执行[解锁核验规则](../skills/macro-dashboard/references/token-unlocks-browser.md)，两站均尝试读取，按同一事件/窗口比较日期、数量、接收方和分母；差异回到项目原始资料核实并提示，付费或缺失项明确说明。
 - **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布（利率变动、就业数据等）
 - **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../skills/macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
@@ -31,7 +32,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - **CNN Fear & Greed：内置浏览器** — 引用美股恐惧贪婪指数时，先执行[CNN 浏览器规则](../skills/macro-dashboard/references/cnn-browser.md)，读取主指数、页面标签和更新时间；不以搜索摘要兜底。
 
 ### Layer 3: Web Search
-- 财经新闻、期货/盘前数据、加密新闻
+- 财经新闻、期货/盘前数据、加密新闻线索；项目 X 公告按内置浏览器规则核实
 
 ## Workflow
 
@@ -59,6 +60,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 ## Quality Checklist
 
+- [ ] 如引用项目 X 公告，已核对官网账号关联、原帖/原文和时间；同源材料未当独立证据，实施状态、修订冲突及访问缺口已说明
 - [ ] 如涉及解锁，已尝试 Tokenomist 与 DefiLlama 网页、保留时间/分母/估计口径；未解释的差异已提示并核对项目原文，受限和示例数据未冒充真实事件
 - [ ] 公司事件/业绩已按 IR 规则保留官网与披露证据、报告期、时间/时区和确认状态；未将管理层指引当一致预期或因访问失败声称无新闻
 - [ ] 如引用 CNN 指数，已通过内置浏览器读取主指数、页面标签及时间；历史比较保留期间，变化用指数点，缺失项未补零
