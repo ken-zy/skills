@@ -25,7 +25,7 @@ description: |
 
 ## 插件行情与价差核验
 
-使用 CoinGecko 和 Binance 插件；涉及当前加密价格时，先读取并执行[双源行情规则](../macro-dashboard/references/plugin-market-data.md)。默认价差 ≥1% 告警，用户可覆盖阈值；告警必须进入本次输出摘要。单源失败、计价或时间无法对齐时明确标记未核验。新闻/日历不含当前价格时，无需额外拉取行情。
+调用 CoinGecko / Binance 插件前，先读取并执行[共享行情与失败处理规则](../macro-dashboard/references/plugin-market-data.md)：CoinGecko 只用用户指定连接，已知资产批量采集并在本次报告复用；故障恢复、时效刷新与价差复查共享追加预算，按实际错误/等待证据停止或降级。涉及当前价格仍须尝试双源，默认价差 ≥1% 告警并进入摘要；单源、计价或时间缺口明确标未核验。新闻/日历不含当前价格时，无需额外拉行情；新闻成功不代表行情恢复。
 
 ## Data Source Priority
 
