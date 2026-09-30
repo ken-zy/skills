@@ -1,6 +1,6 @@
 ---
 name: crypto-project-research
-description: Research a token by chain and contract address using GeckoTerminal public and optional CoinGecko Demo APIs. Collect auditable snapshots, inspect DEX pools and bounded price/trade samples, or compare saved snapshots. Use for onchain token research and named free API queries; macro price verification retains its separate plugin workflow.
+description: Research a token by chain and contract address using GeckoTerminal public and optional CoinGecko Demo APIs. Collect auditable snapshots, inspect DEX pools, counterpart-asset conversion paths and bounded price/trade samples, or compare saved snapshots. Use for onchain token research and named free API queries; macro price verification retains its separate plugin workflow.
 ---
 
 # Crypto Project Research
@@ -26,8 +26,9 @@ description: Research a token by chain and contract address using GeckoTerminal 
    ```
 
    只有需要且身份已确认时才附加 `--coin-id ID`。脚本返回部分失败时检查 manifest 和报告缺口；不得把 HTTP 成功等同于研究完整。
-3. **解释证据**：读 [methodology.md](references/methodology.md)，按实际池、样本时间、供给单位和覆盖范围解释。市场报告之外的团队、收入、解锁、审计等，需要另外查一手材料并单独注明来源。
-4. **比较**：`python3 scripts/analyze.py --compare RUN_DIR_A RUN_DIR_B --out REPORT.md`。时间、币种、统计范围不一致时只并排展示，保留不可比提示。
+3. **追查其他池与对手资产**：分析交易池、流动性或退出能力时，读取 [pool-followup.md](references/pool-followup.md)。用现有 `query token_pools` 补查对手资产及必要的桥接资产；逐池列出已查、未查和失败项。参考池仅用于行情样本，不代表全部流动性或最佳退出路线。不能因为对手币不是稳定币就预设路线不可行。脚本生成的单参考池报告只是底稿，最终报告需补充路径证据。
+4. **解释证据**：读 [methodology.md](references/methodology.md)，按实际池、样本时间、供给单位和覆盖范围解释。市场报告之外的团队、收入、解锁、审计等，需要另外查一手材料并单独注明来源。
+5. **比较**：`python3 scripts/analyze.py --compare RUN_DIR_A RUN_DIR_B --out REPORT.md`。时间、币种、统计范围不一致时只并排展示，保留不可比提示。
 
 需要单个接口而非快照时，先运行 `python3 scripts/fetch.py capabilities`，再读 [capabilities.md](references/capabilities.md) 的参数表。例如：
 
