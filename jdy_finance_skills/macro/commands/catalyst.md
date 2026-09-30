@@ -24,7 +24,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 ### Layer 2: 官网数据
 - **项目官方 X 公告：内置浏览器** — 引用项目官方 X 公告时按[官方 X 核验规则](../skills/macro-dashboard/references/official-x-browser.md)执行：官网确认账号，读取原帖与官方原文，区分计划、自述与实施证据；时间/修订冲突及访问缺失明确说明。
-- **Tokenomist + DefiLlama 解锁：内置浏览器双源** — 涉及代币解锁时先执行[解锁核验规则](../skills/macro-dashboard/references/token-unlocks-browser.md)，两站均尝试读取，按同一事件/窗口比较日期、数量、接收方和分母；差异回到项目原始资料核实并提示，付费或缺失项明确说明。
+- **Tokenomist + DefiLlama 解锁：内置浏览器双源** — 涉及代币解锁时先读取并执行[解锁核验规则](../skills/macro-dashboard/references/token-unlocks-browser.md)中的窗口覆盖、事件对齐与分维度状态规则；两站均尝试读取，采集缺口、口径不可比及可比字段冲突分别处理。
 - **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）
 - **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../skills/macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
 - **美联储 FOMC：内置浏览器** — 会议日期、正式声明、纪要和 SEP 按[FOMC 官网规则](../skills/macro-dashboard/references/fomc-browser.md)读取，区分会议/发布日期、已公布政策、官员预测和市场概率。
@@ -49,6 +49,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 ### Step 3: Build Calendar Table
 按日期排序，标注类型和影响程度。
+将解锁写入日历前，按共享解锁规则检查两站窗口覆盖和边界/停止原因、分项与总量、同事件时间/类型/接收方匹配及分母定义/时点。未完整记录可标为线索，摘要保留字段冲突与限制；缺少合适分母不计算占流通量比例或触发 >5% 筛选，可另说明高关注的依据。其他可靠事件继续输出。
 
 ### Step 4: Weekly Preview
 本周关键事件 + 下周预告 + 持仓影响。
@@ -62,7 +63,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 - [ ] 所引用网站正文/数据已由内置浏览器读取，搜索仅作链接线索；全文受限、来源身份及时间缺口已说明
 - [ ] 如引用项目 X 公告，已核对官网账号关联、原帖/原文和时间；同源材料未当独立证据，实施状态、修订冲突及访问缺口已说明
-- [ ] 如涉及解锁，已尝试 Tokenomist 与 DefiLlama 网页、保留时间/分母/估计口径；未解释的差异已提示并核对项目原文，受限和示例数据未冒充真实事件
+- [ ] 如涉及解锁，已按共享规则检查两站目标窗口覆盖并记录边界/停止原因；分项未冒充总量，同事件比较满足时间/类型/接收方匹配，分母定义与时点可核实；摘要保留采集缺口、口径不可比、来源字段冲突及限制，受限和示例数据未冒充真实事件
 - [ ] 公司事件/业绩已按 IR 规则保留官网与披露证据、报告期、时间/时区和确认状态；未将管理层指引当一致预期或因访问失败声称无新闻
 - [ ] 如引用 CNN 指数，已通过内置浏览器读取主指数、页面标签及时间；历史比较保留期间，变化用指数点，缺失项未补零
 - [ ] 如涉及 FOMC，已用内置浏览器核实官网日期和文件，会议/发布日期分开，政策决定/官员预测/市场概率未混用，缺失材料已说明
@@ -77,4 +78,4 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 ## Skill Reference
 
-This command invokes the **catalyst-calendar** skill. See `skills/catalyst-calendar/SKILL.md` for the complete calendar format and event categories.
+This command invokes the [catalyst-calendar skill](../skills/catalyst-calendar/SKILL.md) for the complete calendar format and event categories.

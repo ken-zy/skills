@@ -1,0 +1,637 @@
+{
+  "notice": "Synthetic raw materials for behavioral evaluation, not live market facts. Referenced pages are available as local files relative to this file.",
+  "cases": [
+    {
+      "id": "A",
+      "project": {
+        "name": "Fixture A",
+        "token": "TOK",
+        "chain": "fixture-chain",
+        "contract": "A"
+      },
+      "scope": {
+        "start": "2026-10-01T00:00:00+00:00",
+        "end": "2026-10-03T00:00:00+00:00",
+        "endpoints": "[start,end)",
+        "display_timezone": "Asia/Shanghai"
+      },
+      "task": "给出窗口事件、可用小计及每来源采集覆盖、可比性、字段一致性、证据层级；有可访问相关页时自行读取。说明不能得出的结论。所有URL和项目为合成验证材料，不访问公网。",
+      "source_a": {
+        "url": "fixture://A/a",
+        "component": "Unlock Events",
+        "sort": "date ascending",
+        "loaded": true,
+        "current_page": 2,
+        "page_count": 4,
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Team",
+            "quantity": 100,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          }
+        ],
+        "previous": "pages/A1.json",
+        "next": "pages/A3.json"
+      },
+      "source_b": {
+        "url": "fixture://A/b",
+        "loaded": true,
+        "component": "filtered window aggregate",
+        "scope": {
+          "start": "2026-10-01T00:00:00+00:00",
+          "end": "2026-10-03T00:00:00+00:00",
+          "endpoints": "[start,end)",
+          "display_timezone": "Asia/Shanghai"
+        },
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Team",
+            "quantity": 100,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          },
+          {
+            "date": "2026-10-02T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Foundation",
+            "quantity": 200,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          }
+        ],
+        "total": 300,
+        "unit": "TOK",
+        "filtered_all_rows_read": true,
+        "circulating_supply": {
+          "quantity": 5000,
+          "unit": "TOK",
+          "as_of": "2026-09-30T23:59:00Z",
+          "definition": "pre-window circulating supply"
+        }
+      },
+      "official": {
+        "url": "fixture://A/official",
+        "statement": "Plan: Team 100 TOK at 2026-10-01 00:00 UTC; Foundation 200 TOK at 2026-10-02 00:00 UTC. Circulating supply at 2026-09-30 23:59 UTC is 5000 TOK. This is a future plan; no execution record supplied."
+      }
+    },
+    {
+      "id": "B",
+      "project": {
+        "name": "Fixture B",
+        "token": "TOK",
+        "chain": "fixture-chain",
+        "contract": "B"
+      },
+      "scope": {
+        "start": "2026-10-01T00:00:00+00:00",
+        "end": "2026-10-03T00:00:00+00:00",
+        "endpoints": "[start,end)",
+        "display_timezone": "Asia/Shanghai"
+      },
+      "task": "给出窗口事件、可用小计及每来源采集覆盖、可比性、字段一致性、证据层级；有可访问相关页时自行读取。说明不能得出的结论。所有URL和项目为合成验证材料，不访问公网。",
+      "source_a": {
+        "url": "fixture://B/a",
+        "loaded": true,
+        "sort": "date ascending",
+        "current_page": 1,
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Team",
+            "quantity": 100,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          }
+        ],
+        "previous": null,
+        "next": "pages/B2.json"
+      },
+      "source_b": {
+        "url": "fixture://B/b",
+        "loaded": true,
+        "scope": {
+          "start": "2026-10-01T00:00:00+00:00",
+          "end": "2026-10-03T00:00:00+00:00",
+          "endpoints": "[start,end)",
+          "display_timezone": "Asia/Shanghai"
+        },
+        "component": "window aggregate",
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Team",
+            "quantity": 100,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          },
+          {
+            "date": "2026-10-02T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Foundation",
+            "quantity": 400,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          }
+        ],
+        "total": 500,
+        "unit": "TOK",
+        "filtered_all_rows_read": true
+      }
+    },
+    {
+      "id": "C",
+      "project": {
+        "name": "Fixture C",
+        "token": "TOK",
+        "chain": "fixture-chain",
+        "contract": "C"
+      },
+      "scope": {
+        "start": "2026-10-01T00:00:00+00:00",
+        "end": "2026-10-03T00:00:00+00:00",
+        "endpoints": "[start,end)",
+        "display_timezone": "Asia/Shanghai"
+      },
+      "task": "给出窗口事件、可用小计及每来源采集覆盖、可比性、字段一致性、证据层级；有可访问相关页时自行读取。说明不能得出的结论。所有URL和项目为合成验证材料，不访问公网。",
+      "source_a": {
+        "url": "fixture://C/a",
+        "loaded": true,
+        "current_page": 1,
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Team",
+            "quantity": 100,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          }
+        ],
+        "next": "pages/C2.json"
+      },
+      "source_b": {
+        "url": "fixture://C/b",
+        "loaded": true,
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Team",
+            "quantity": 100,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          }
+        ],
+        "coverage": "only next event card",
+        "recipient_count": 2
+      }
+    },
+    {
+      "id": "D",
+      "project": {
+        "name": "Fixture D",
+        "token": "TOK",
+        "chain": "fixture-chain",
+        "contract": "D"
+      },
+      "scope": {
+        "start": "2026-10-01T00:00:00+00:00",
+        "end": "2026-10-03T00:00:00+00:00",
+        "endpoints": "[start,end)",
+        "display_timezone": "Asia/Shanghai"
+      },
+      "task": "给出窗口事件、可用小计及每来源采集覆盖、可比性、字段一致性、证据层级；有可访问相关页时自行读取。说明不能得出的结论。所有URL和项目为合成验证材料，不访问公网。",
+      "source_a": {
+        "url": "fixture://D/a",
+        "loaded": true,
+        "component": "weekly rate change nodes",
+        "pages_read": [
+          1,
+          2
+        ],
+        "pages_total": 2,
+        "events": [
+          {
+            "date": "2026-03-05T00:00:00Z",
+            "type": "weekly rate change",
+            "recipient": "Foundation",
+            "quantity": 70,
+            "unit": "TOK/week"
+          }
+        ],
+        "notes": "No explicit end of rate regime or complete interval schedule provided."
+      },
+      "source_b": {
+        "url": "fixture://D/b",
+        "loaded": true,
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Foundation",
+            "quantity": 40,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          }
+        ],
+        "status": "Pending verification"
+      }
+    },
+    {
+      "id": "E",
+      "project": {
+        "name": "Fixture E",
+        "token": "TOK",
+        "chain": "fixture-chain",
+        "contract": "E"
+      },
+      "scope": {
+        "start": "2026-10-01T00:00:00+00:00",
+        "end": "2026-10-03T00:00:00+00:00",
+        "endpoints": "[start,end)",
+        "display_timezone": "Asia/Shanghai"
+      },
+      "task": "给出窗口事件、可用小计及每来源采集覆盖、可比性、字段一致性、证据层级；有可访问相关页时自行读取。说明不能得出的结论。所有URL和项目为合成验证材料，不访问公网。",
+      "source_a": {
+        "url": "fixture://E/a",
+        "loaded": true,
+        "component": "Upcoming card",
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Foundation",
+            "quantity": 40,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          }
+        ],
+        "faq": {
+          "text": "Next unlock October 1 2026 released to Team."
+        },
+        "coverage": "single upcoming card"
+      },
+      "source_b": {
+        "url": "fixture://E/b",
+        "loaded": true,
+        "component": "event detail",
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Foundation",
+            "quantity": 40,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate"
+          }
+        ],
+        "coverage": "same identified event detail, no full window assertion"
+      }
+    },
+    {
+      "id": "F",
+      "project": {
+        "name": "Fixture F",
+        "token": "TOK",
+        "chain": "fixture-chain",
+        "contract": "F"
+      },
+      "scope": {
+        "start": "2026-10-01T00:00:00+00:00",
+        "end": "2026-10-03T00:00:00+00:00",
+        "endpoints": "[start,end)",
+        "display_timezone": "Asia/Shanghai"
+      },
+      "task": "给出窗口事件、可用小计及每来源采集覆盖、可比性、字段一致性、证据层级；有可访问相关页时自行读取。说明不能得出的结论。所有URL和项目为合成验证材料，不访问公网。",
+      "source_a": {
+        "url": "fixture://F/a",
+        "loaded": true,
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Foundation",
+            "quantity": 40,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate",
+            "event_id": "F1"
+          }
+        ],
+        "coverage": "event F1 detail"
+      },
+      "source_b": {
+        "url": "fixture://F/b",
+        "loaded": true,
+        "events": [
+          {
+            "date": "2026-10-01T00:00:00Z",
+            "timezone": "UTC",
+            "type": "cliff",
+            "recipient": "Foundation",
+            "quantity": 50,
+            "unit": "TOK",
+            "precision": "minute",
+            "status": "third-party estimate",
+            "event_id": "F1"
+          }
+        ],
+        "coverage": "event F1 detail"
+      },
+      "official": {
+        "url": "fixture://F/official",
+        "statement": "Only broad estimated chart, no exact F1 quantity provided."
+      }
+    },
+    {
+      "id": "G",
+      "project": {
+        "name": "Fixture G",
+        "token": "TOK",
+        "chain": "fixture-chain",
+        "contract": "G"
+      },
+      "scope": {
+        "start": "2026-10-01T00:00:00Z",
+        "end": "2026-10-01T01:00:00Z",
+        "endpoints": "[start,end)",
+        "display_timezone": "Asia/Shanghai"
+      },
+      "task": "给出窗口事件、可用小计及每来源采集覆盖、可比性、字段一致性、证据层级；有可访问相关页时自行读取。说明不能得出的结论。所有URL和项目为合成验证材料，不访问公网。",
+      "source_a": {
+        "url": "fixture://G/a",
+        "loaded": true,
+        "graph_timezone": "UTC",
+        "current_page": 2,
+        "events": [
+          {
+            "date": "2026-10-01",
+            "timezone": null,
+            "precision": "date",
+            "type": "cliff",
+            "quantity": 20,
+            "recipient": "Team",
+            "unit": "TOK"
+          }
+        ],
+        "next": "pages/G3.json"
+      },
+      "source_b": {
+        "url": "fixture://G/b",
+        "loaded": true,
+        "events": [],
+        "note": "Fetching..."
+      }
+    },
+    {
+      "id": "H",
+      "project": {
+        "name": "Fixture H",
+        "token": "TOK",
+        "chain": "fixture-chain",
+        "contract": "H"
+      },
+      "scope": {
+        "start": "2026-10-01T00:00:00+00:00",
+        "end": "2026-10-03T00:00:00+00:00",
+        "endpoints": "[start,end)",
+        "display_timezone": "Asia/Shanghai"
+      },
+      "task": "给出窗口事件、可用小计及每来源采集覆盖、可比性、字段一致性、证据层级；有可访问相关页时自行读取。说明不能得出的结论。所有URL和项目为合成验证材料，不访问公网。",
+      "source_a": {
+        "url": "fixture://H/a",
+        "loaded": true,
+        "scope": {
+          "start": "2026-10-01T00:00:00+00:00",
+          "end": "2026-10-03T00:00:00+00:00",
+          "endpoints": "[start,end)",
+          "display_timezone": "Asia/Shanghai"
+        },
+        "filter_applied": true,
+        "result": "No events in this interval",
+        "matched_rows": 0,
+        "next_disabled": true,
+        "total_pages": 1
+      },
+      "source_b": {
+        "url": "fixture://H/b",
+        "loaded": true,
+        "scope": {
+          "start": "2026-10-01T00:00:00+00:00",
+          "end": "2026-10-03T00:00:00+00:00",
+          "endpoints": "[start,end)",
+          "display_timezone": "Asia/Shanghai"
+        },
+        "filter_applied": true,
+        "result": "No events in this interval",
+        "matched_rows": 0,
+        "next_disabled": true,
+        "total_pages": 1
+      }
+    },
+    {
+      "id": "I",
+      "project": {
+        "name": "Fixture I",
+        "token": "TOK",
+        "chain": "fixture-chain",
+        "contract": "I"
+      },
+      "scope": {
+        "start": "2026-10-01T00:00:00+00:00",
+        "end": "2026-10-03T00:00:00+00:00",
+        "endpoints": "[start,end)",
+        "display_timezone": "Asia/Shanghai"
+      },
+      "task": "给出窗口事件、可用小计及每来源采集覆盖、可比性、字段一致性、证据层级；有可访问相关页时自行读取。说明不能得出的结论。所有URL和项目为合成验证材料，不访问公网。",
+      "source_a": {
+        "url": "fixture://I/a",
+        "loaded": false,
+        "events": [],
+        "text": "Loading...",
+        "next_disabled": true
+      },
+      "source_b": {
+        "url": "fixture://I/b",
+        "access": "login required",
+        "events": []
+      }
+    }
+  ],
+  "pages": {
+    "pages/A1.json": {
+      "page": 1,
+      "events": [
+        {
+          "date": "2026-09-30T00:00:00Z",
+          "timezone": "UTC",
+          "type": "cliff",
+          "recipient": "Other",
+          "quantity": 90,
+          "unit": "TOK",
+          "precision": "minute",
+          "status": "third-party estimate"
+        }
+      ],
+      "previous": null,
+      "next": "pages/A2.json"
+    },
+    "pages/A2.json": {
+      "page": 2,
+      "events": [
+        {
+          "date": "2026-10-01T00:00:00Z",
+          "timezone": "UTC",
+          "type": "cliff",
+          "recipient": "Team",
+          "quantity": 100,
+          "unit": "TOK",
+          "precision": "minute",
+          "status": "third-party estimate"
+        }
+      ],
+      "previous": "pages/A1.json",
+      "next": "pages/A3.json"
+    },
+    "pages/A3.json": {
+      "page": 3,
+      "events": [
+        {
+          "date": "2026-10-02T00:00:00Z",
+          "timezone": "UTC",
+          "type": "cliff",
+          "recipient": "Foundation",
+          "quantity": 200,
+          "unit": "TOK",
+          "precision": "minute",
+          "status": "third-party estimate"
+        }
+      ],
+      "previous": "pages/A2.json",
+      "next": "pages/A4.json"
+    },
+    "pages/A4.json": {
+      "page": 4,
+      "events": [
+        {
+          "date": "2026-10-03T00:00:00Z",
+          "timezone": "UTC",
+          "type": "cliff",
+          "recipient": "Other",
+          "quantity": 500,
+          "unit": "TOK",
+          "precision": "minute",
+          "status": "third-party estimate"
+        }
+      ],
+      "previous": "pages/A3.json",
+      "next": null
+    },
+    "pages/B1.json": {
+      "page": 1,
+      "events": [
+        {
+          "date": "2026-10-01T00:00:00Z",
+          "timezone": "UTC",
+          "type": "cliff",
+          "recipient": "Team",
+          "quantity": 100,
+          "unit": "TOK",
+          "precision": "minute",
+          "status": "third-party estimate"
+        }
+      ],
+      "previous": null,
+      "next": "pages/B2.json"
+    },
+    "pages/B2.json": {
+      "page": 2,
+      "events": [
+        {
+          "date": "2026-10-02T00:00:00Z",
+          "timezone": "UTC",
+          "type": "cliff",
+          "recipient": "Foundation",
+          "quantity": 400,
+          "unit": "TOK",
+          "precision": "minute",
+          "status": "third-party estimate"
+        }
+      ],
+      "previous": "pages/B1.json",
+      "next": "pages/B3.json"
+    },
+    "pages/B3.json": {
+      "page": 3,
+      "events": [
+        {
+          "date": "2026-10-03T00:00:00Z",
+          "timezone": "UTC",
+          "type": "cliff",
+          "recipient": "Other",
+          "quantity": 1000,
+          "unit": "TOK",
+          "precision": "minute",
+          "status": "third-party estimate"
+        }
+      ],
+      "previous": "pages/B2.json",
+      "next": null
+    },
+    "pages/C2.json": {
+      "page": 2,
+      "loaded": true,
+      "access": "Premium required",
+      "rows_masked": true,
+      "visible_demo": "ABC 999 TOK",
+      "next": null
+    },
+    "pages/G3.json": {
+      "requested_page": 3,
+      "rendered_page": 2,
+      "events": [
+        {
+          "date": "2026-10-01",
+          "timezone": null,
+          "precision": "date",
+          "type": "cliff",
+          "quantity": 20,
+          "recipient": "Team",
+          "unit": "TOK"
+        }
+      ],
+      "next": "pages/G3.json"
+    }
+  },
+  "usage": "Cases were supplied without expected answers; referenced pages were separate local files during validation. This archived map reproduces those page files."
+}
