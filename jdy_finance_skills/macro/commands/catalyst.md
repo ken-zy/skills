@@ -21,6 +21,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - 新闻和日历没有引用当前价格时不额外查价；事件仍以原始公告为准。插件缺失时提示连接，不回退旧 MCP 或自行配置 API Key。
 
 ### Layer 2: 官网数据
+- **Tokenomist + DefiLlama 解锁：内置浏览器双源** — 涉及代币解锁时先执行[解锁核验规则](../skills/macro-dashboard/references/token-unlocks-browser.md)，两站均尝试读取，按同一事件/窗口比较日期、数量、接收方和分母；差异回到项目原始资料核实并提示，付费或缺失项明确说明。
 - **FRED：内置浏览器** — 按 [FRED 浏览器规则](../skills/macro-dashboard/references/fred-browser.md)访问 `https://fred.stlouisfed.org/series/{series_id}` — 经济数据发布日期（CPI、非农、GDP）
 - **DefiLlama：免费 API + 内置浏览器** — 先读取并执行[免费数据规则](../skills/macro-dashboard/references/defillama-free-api.md)；TVL、稳定币规模、DEX 交易量走无 Key 的公开 API，ETF/解锁/协议事件通过内置浏览器补充并核实日期。
 - **美联储 FOMC：内置浏览器** — 会议日期、正式声明、纪要和 SEP 按[FOMC 官网规则](../skills/macro-dashboard/references/fomc-browser.md)读取，区分会议/发布日期、已公布政策、官员预测和市场概率。
@@ -30,7 +31,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - **CNN Fear & Greed：内置浏览器** — 引用美股恐惧贪婪指数时，先执行[CNN 浏览器规则](../skills/macro-dashboard/references/cnn-browser.md)，读取主指数、页面标签和更新时间；不以搜索摘要兜底。
 
 ### Layer 3: Web Search
-- 第三方财报日历（仅线索，IR 核实）、代币解锁日历、空投日期、加密会议
+- 第三方财报日历（仅线索，IR 核实）、解锁项目官方资料链接（仅线索）、空投日期、加密会议
 
 ## Workflow
 
@@ -56,6 +57,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 
 ## Quality Checklist
 
+- [ ] 如涉及解锁，已尝试 Tokenomist 与 DefiLlama 网页、保留时间/分母/估计口径；未解释的差异已提示并核对项目原文，受限和示例数据未冒充真实事件
 - [ ] 公司事件/业绩已按 IR 规则保留官网与披露证据、报告期、时间/时区和确认状态；未将管理层指引当一致预期或因访问失败声称无新闻
 - [ ] 如引用 CNN 指数，已通过内置浏览器读取主指数、页面标签及时间；历史比较保留期间，变化用指数点，缺失项未补零
 - [ ] 如涉及 FOMC，已用内置浏览器核实官网日期和文件，会议/发布日期分开，政策决定/官员预测/市场概率未混用，缺失材料已说明
@@ -63,7 +65,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - [ ] DefiLlama 指标已按免费数据规则标明 API/网页来源、统计期、读取时间和缺失/过期状态；事件经网页核实，未把 TVL 变化当作净流入
 - [ ] 传统和加密事件都覆盖
 - [ ] 财报日期已用内置浏览器核对公司 IR；无法确认的日期已标预计，电话会时间未冒充财报时间
-- [ ] 代币解锁标注占流通量百分比
+- [ ] 解锁数量和美元估值分开；比例保留分母，缺少可核实流通量时不计算占流通量比例
 - [ ] FOMC 和重大经济数据不遗漏
 - [ ] 影响程度合理评估
 - [ ] 时区标注

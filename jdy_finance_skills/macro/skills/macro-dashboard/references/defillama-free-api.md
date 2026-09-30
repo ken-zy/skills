@@ -47,7 +47,7 @@ const llamaTab = await cua.createBrowserTab("iab", "https://defillama.com/etfs",
 ```
 
 - ETF：`https://defillama.com/etfs`。记录 Daily Stats 的交易日、资产（BTC/ETH）、净流入/流出、单位和页面标注的原始来源，区分 Flows 与 AUM。图表分组不代表 Daily Stats 的期间；不将周末无更新写成流入为零。
-- 解锁：`https://defillama.com/unlocks`。可用页面的 `View unlocks calendar` 进入 `https://defillama.com/unlocks/calendar` 核对年月日；从列表进入目标详情，确认具体日期、时区、数量、占流通量比例与估计状态，再核对项目官方代币经济学/公告。只有倒计时而无确切日期时保持“预计”，不编造时区或精确时刻。
+- 解锁：先执行 [Tokenomist + DefiLlama 双源核验规则](token-unlocks-browser.md)，两站均尝试读取并保留差异。DefiLlama 入口为 `https://defillama.com/unlocks`。可用页面的 `View unlocks calendar` 进入 `https://defillama.com/unlocks/calendar` 核对年月日；从列表进入目标详情，确认具体日期、时区、数量、占流通量比例与估计状态，再核对项目官方代币经济学/公告。只有倒计时而无确切日期时保持“预计”，不编造时区或精确时刻。
 - 协议事件：从协议页面或 Web Search 找到项目官网/治理论坛/公告链接，然后在内置浏览器读取原文；搜索摘要只用于找线索。融资/黑客列表可作线索，不能仅凭 TVL 下跌断言发生黑客攻击。
 - 记录文章发布时间与事件发生时间，去重后按具体 skill 输出：看板补资金流；晨报解释变化；日历仅收有日期证据的未来事件；新闻摘要保留原始公告链接。无法核实的条目明确标为未核实，不写“没有事件”。
 
