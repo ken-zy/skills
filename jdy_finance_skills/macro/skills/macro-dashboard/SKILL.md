@@ -13,7 +13,7 @@ description: |
 
 ## 插件行情与价差核验
 
-使用 CoinGecko 和 Binance 插件；涉及当前加密价格时，先读取并执行[双源行情规则](references/plugin-market-data.md)。默认价差 ≥1% 告警，用户可覆盖阈值；告警必须进入本次输出摘要。单源失败、计价或时间无法对齐时明确标记未核验。新闻/日历不含当前价格时，无需额外拉取行情。
+调用 CoinGecko / Binance 插件前，先读取并执行[共享行情与失败处理规则](references/plugin-market-data.md)：CoinGecko 只用用户指定连接，已知资产批量采集并在本次报告复用；故障恢复、时效刷新与价差复查共享追加预算，按实际错误/等待证据停止或降级。涉及当前价格仍须尝试双源，默认价差 ≥1% 告警并进入摘要；单源、计价或时间缺口明确标未核验。新闻/日历不含当前价格时，无需额外拉行情；新闻成功不代表行情恢复。
 
 ## Data Source Priority
 
@@ -83,7 +83,7 @@ description: |
 CNN 美股恐惧贪婪指数通过内置浏览器读取，按 [CNN 浏览器规则](references/cnn-browser.md)记录主指数、情绪标签、前收盘及更新时间；失败标注未获取。
 
 ### Step 4: Fetch Crypto Macro
-通过 CoinGecko 的 `get_coin_markets` 和 Binance 的 `get_spot_symbol_price_ticker` 同批获取 BTC/ETH，再执行双源行情规则。CoinGecko 的 `get_global_market` 提供全市场指标。禁止“首源成功即停”及通过旧 MCP / REST / 浏览器静默回退当前价格。
+一次 CoinGecko `get_coin_markets` 包含 bitcoin、ethereum、tether，Binance 分别用 `get_spot_symbol_price_ticker` 读取 BTCUSDT、ETHUSDT；在本次报告复用价格、24h 变化和汇率，再执行共享双源规则。需要全市场指标时另取 `get_global_market`，受同一连接状态、等待约束及行情发起窗口限制；不把它当行情健康探针。禁止“首源成功即停”及通过旧 MCP / REST / 浏览器静默回退当前价格。
 
 获取内容：
 - BTC 价格 + 24h/7d 变化 + 市值
