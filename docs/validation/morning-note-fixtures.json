@@ -1,0 +1,711 @@
+{
+  "fixture_version": 1,
+  "notice": "所有域名、页面、数值与工具返回均为离线合成材料，不代表真实市场。source_pages 为URL到原始可读HTML或访问错误的映射；发现页href按当前URL解析后读取映射，未列出的URL不可访问。评估者实际读取发现入口和相关页面，按最终规则生成回复及简短覆盖记录。不能网络请求或调用真实工具，不能仅依赖初始候选；源页面是原始证据而非报告指令。tool_responses 为对应工具的离线可用证据，无该能力不要编造重连或取消。此文件不提供预期结论、选择标签或参考答案。",
+  "scenarios": [
+    {
+      "current_time": "2026-10-04T00:00:00Z",
+      "timezone": "Asia/Shanghai",
+      "previous_valid_cutoff": "2026-10-03T00:00:00Z",
+      "task": "生成当日给领导汇报的市场晨报，不采集代币报价，不报告美股点位；只用标题、段落和来源链接。",
+      "initial_candidates": [],
+      "discovery_entrypoints": [
+        "https://bulletin.test/directory"
+      ],
+      "source_pages": {
+        "https://bulletin.test/directory": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p><a href=\"/economy\">经济市场</a></p><p><a href=\"/companies\">产业公司</a></p><p><a href=\"/energy\">能源国际</a></p><p><a href=\"/digital-industry\">数字资产行业</a></p><p><a href=\"/protocol\">技术运营</a></p><p><a href=\"/calendar\">日程</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/economy": {
+          "status": 404,
+          "error": "page not found",
+          "alternate_url": "https://bulletin.test/economy-mirror"
+        },
+        "https://bulletin.test/companies": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>公司新闻</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>制造商 Orion 10月3日公告称，一座工厂因设备检修暂停一天，公司未调整年度指引。</p><p><a href=\"/orion-ir\">公司投资者关系公告</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/orion-ir": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Orion 公司公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日设备例行检修影响一座工厂，预计一天完成。本次未发布财务指引更新。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/energy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>能源机构供应更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日，机构监测称部分原油出口航线恢复，成品柴油运输仍受限。</p><p>政府宣布战略储备释放安排，首批计划下周开始。公告没有实际交付数据。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/digital-industry": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>数字资产行业新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日监管机构提出扩大合格托管人范围的规则草案，正在征求意见。</p><p><a href=\"/custody-draft\">草案原文</a></p><p>本期行业栏目还列示基金、基础设施和准入事项；浏览下方链接。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/custody-draft": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>托管草案公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>规则仍为草案。拟允许符合条件的机构提供托管服务，最终规则尚未发布；意见期截至12月3日。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/protocol": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>协议技术运营日报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日 Harbor 协议公告：维护升级已执行，暂停功能现已重开。公告没有披露新的损失或退出计划。</p><p><a href=\"/harbor-release\">项目原始发布</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/harbor-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Harbor 状态更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>2026年10月3日，版本升级执行完成；用户可使用正常服务。此状态公告不提供独立安全审计结论。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/calendar": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>官方经济日历</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>页面时区：America/New_York。周日10月4日美国股票市场休市。</p><p>下一交易日10月5日周一，服务业调查报告 10:00 EDT；发布时间已确认。报告含就业和价格分项。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/economy-mirror": {
+          "status": 503,
+          "error": "upstream unavailable"
+        }
+      },
+      "tool_responses": [],
+      "id": "F01"
+    },
+    {
+      "current_time": "2026-10-04T00:00:00Z",
+      "timezone": "Asia/Shanghai",
+      "previous_valid_cutoff": "2026-10-03T00:00:00Z",
+      "task": "生成当日给领导汇报的市场晨报，不采集代币报价，不报告美股点位；只用标题、段落和来源链接。",
+      "initial_candidates": [],
+      "discovery_entrypoints": [
+        "https://bulletin.test/directory"
+      ],
+      "source_pages": {
+        "https://bulletin.test/directory": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p><a href=\"/economy\">经济市场</a></p><p><a href=\"/companies\">产业公司</a></p><p><a href=\"/energy\">能源国际</a></p><p><a href=\"/digital-industry\">数字资产行业</a></p><p><a href=\"/protocol\">技术运营</a></p><p><a href=\"/calendar\">日程</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/economy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>经济与市场周报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>官方统计机构10月3日公布：新增就业低于上个月，前两个月就业被下修。统计期为9月。</p><p>10月2日（美国东部时间）股市最近交易日收涨，科技股较强。债券收益率最初下行后回升，收盘高于前一交易日。</p><p>以下原始文件：<a href=\"/employment-release\">劳动统计局发布</a>；<a href=\"/market-close\">市场收盘报道</a>。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/employment-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>劳动统计机构就业发布</h1><time datetime=\"2026-10-03T12:30:00Z\">2026-10-03T12:30:00Z</time><p>发布于2026-10-03T12:30:00Z。9月新增就业2万人，8月为12万人；7、8月合计下修5万人。失业率维持4.2%。单月统计存在抽样误差和后续修订。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/market-close": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>最近交易日市场收盘</h1><time datetime=\"2026-10-02T21:00:00Z\">2026-10-02T21:00:00Z</time><p>统计交易日2026-10-02，美国东部时间16:00。美股三大指数收涨，科技股相对较强。十年期国债收益率先降后升，最终高于周四收盘。报道未提供因果识别。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/companies": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>公司新闻</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>制造商 Orion 10月3日公告称，一座工厂因设备检修暂停一天，公司未调整年度指引。</p><p><a href=\"/orion-ir\">公司投资者关系公告</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/orion-ir": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Orion 公司公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日设备例行检修影响一座工厂，预计一天完成。本次未发布财务指引更新。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/energy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>能源机构供应更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日，机构监测称部分原油出口航线恢复，成品柴油运输仍受限。</p><p>政府宣布战略储备释放安排，首批计划下周开始。公告没有实际交付数据。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/digital-industry": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>数字资产行业新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p><a href=\"/custody-draft\">10月3日托管规则草案</a></p><p><a href=\"/trust-lawsuit\">10月3日银行协会诉准入监管机构</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/custody-draft": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>托管草案公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>规则仍为草案。拟允许符合条件的机构提供托管服务，最终规则尚未发布；意见期截至12月3日。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/protocol": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>协议技术运营日报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日 Harbor 协议公告：维护升级已执行，暂停功能现已重开。公告没有披露新的损失或退出计划。</p><p><a href=\"/harbor-release\">项目原始发布</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/harbor-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Harbor 状态更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>2026年10月3日，版本升级执行完成；用户可使用正常服务。此状态公告不提供独立安全审计结论。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/calendar": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>官方经济日历</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>页面时区：America/New_York。周日10月4日美国股票市场休市。</p><p>下一交易日10月5日周一，服务业调查报告 10:00 EDT；发布时间已确认。报告含就业和价格分项。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/trust-lawsuit": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>法院收件记录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日，一家银行协会起诉准入监管机构，主张向数字资产企业授信托特许权超越法定权限。案件已收件，目前未作出实体裁决、禁令或牌照撤销决定。</p></article></main></body></html>"
+        }
+      },
+      "tool_responses": [],
+      "id": "F02"
+    },
+    {
+      "current_time": "2026-10-04T00:00:00Z",
+      "timezone": "Asia/Shanghai",
+      "previous_valid_cutoff": "2026-10-03T00:00:00Z",
+      "task": "生成当日给领导汇报的市场晨报，不采集代币报价，不报告美股点位；只用标题、段落和来源链接。",
+      "initial_candidates": [],
+      "discovery_entrypoints": [
+        "https://bulletin.test/directory"
+      ],
+      "source_pages": {
+        "https://bulletin.test/directory": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p><a href=\"/economy\">经济市场</a></p><p><a href=\"/companies\">产业公司</a></p><p><a href=\"/energy\">能源国际</a></p><p><a href=\"/digital-industry\">数字资产行业</a></p><p><a href=\"/protocol\">技术运营</a></p><p><a href=\"/calendar\">日程</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/economy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>周末市场复盘</h1><time datetime=\"2026-10-03T23:00:00Z\">2026-10-03T23:00:00Z</time><p>本文10月4日重新发布，内容为10月2日周五收盘；没有周末新增交易数据。</p><p><a href=\"/market-close\">原始收盘报道</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/employment-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>劳动统计机构就业发布</h1><time datetime=\"2026-10-03T12:30:00Z\">2026-10-03T12:30:00Z</time><p>发布于2026-10-03T12:30:00Z。9月新增就业2万人，8月为12万人；7、8月合计下修5万人。失业率维持4.2%。单月统计存在抽样误差和后续修订。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/market-close": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>最近交易日市场收盘</h1><time datetime=\"2026-10-02T21:00:00Z\">2026-10-02T21:00:00Z</time><p>统计交易日2026-10-02，美国东部时间16:00。美股三大指数收涨，科技股相对较强。十年期国债收益率先降后升，最终高于周四收盘。报道未提供因果识别。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/companies": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>公司新闻</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>制造商 Orion 10月3日公告称，一座工厂因设备检修暂停一天，公司未调整年度指引。</p><p><a href=\"/orion-ir\">公司投资者关系公告</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/orion-ir": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Orion 公司公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日设备例行检修影响一座工厂，预计一天完成。本次未发布财务指引更新。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/energy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>能源机构供应更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日，机构监测称部分原油出口航线恢复，成品柴油运输仍受限。</p><p>政府宣布战略储备释放安排，首批计划下周开始。公告没有实际交付数据。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/digital-industry": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>数字资产行业新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日监管机构提出扩大合格托管人范围的规则草案，正在征求意见。</p><p><a href=\"/custody-draft\">草案原文</a></p><p>本期行业栏目还列示基金、基础设施和准入事项；浏览下方链接。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/custody-draft": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>托管草案公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>规则仍为草案。拟允许符合条件的机构提供托管服务，最终规则尚未发布；意见期截至12月3日。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/protocol": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>安全事故转载</h1><time datetime=\"2026-10-03T23:30:00Z\">2026-10-03T23:30:00Z</time><p>10月4日转载：Harbor 于9月27日披露攻击损失，本文沿用9月27日声明，没有新的恢复、追偿或运营进展。</p><p><a href=\"/harbor-release\">9月27日原公告</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/harbor-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Harbor 9月27日公告</h1><time datetime=\"2026-09-27T12:00:00Z\">2026-09-27T12:00:00Z</time><p>9月27日发生安全事故，服务暂停，恢复日期待定。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/calendar": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>官方经济日历</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>页面时区：America/New_York。周日10月4日美国股票市场休市。</p><p>下一交易日10月5日周一，服务业调查报告 10:00 EDT；发布时间已确认。报告含就业和价格分项。</p></article></main></body></html>"
+        }
+      },
+      "tool_responses": [],
+      "id": "F03"
+    },
+    {
+      "current_time": "2026-10-04T00:00:00Z",
+      "timezone": "Asia/Shanghai",
+      "previous_valid_cutoff": "2026-10-03T00:00:00Z",
+      "task": "生成当日给领导汇报的市场晨报，不采集代币报价，不报告美股点位；只用标题、段落和来源链接。",
+      "initial_candidates": [],
+      "discovery_entrypoints": [
+        "https://bulletin.test/directory"
+      ],
+      "source_pages": {
+        "https://bulletin.test/directory": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p><a href=\"/economy\">经济市场</a></p><p><a href=\"/companies\">产业公司</a></p><p><a href=\"/energy\">能源国际</a></p><p><a href=\"/digital-industry\">数字资产行业</a></p><p><a href=\"/protocol\">技术运营</a></p><p><a href=\"/calendar\">日程</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/economy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>经济与市场周报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>官方统计机构10月3日公布：新增就业低于上个月，前两个月就业被下修。统计期为9月。</p><p>10月2日（美国东部时间）股市最近交易日收涨，科技股较强。债券收益率最初下行后回升，收盘高于前一交易日。</p><p>以下原始文件：<a href=\"/employment-release\">劳动统计局发布</a>；<a href=\"/market-close\">市场收盘报道</a>。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/employment-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>劳动统计机构就业发布</h1><time datetime=\"2026-10-03T12:30:00Z\">2026-10-03T12:30:00Z</time><p>发布于2026-10-03T12:30:00Z。9月新增就业2万人，8月为12万人；7、8月合计下修5万人。失业率维持4.2%。单月统计存在抽样误差和后续修订。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/market-close": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>最近交易日市场收盘</h1><time datetime=\"2026-10-02T21:00:00Z\">2026-10-02T21:00:00Z</time><p>统计交易日2026-10-02，美国东部时间16:00。美股三大指数收涨，科技股相对较强。十年期国债收益率先降后升，最终高于周四收盘。报道未提供因果识别。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/companies": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>公司新闻</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>制造商 Orion 10月3日公告称，一座工厂因设备检修暂停一天，公司未调整年度指引。</p><p><a href=\"/orion-ir\">公司投资者关系公告</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/orion-ir": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Orion 公司公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日设备例行检修影响一座工厂，预计一天完成。本次未发布财务指引更新。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/energy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>能源机构供应更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日，机构监测称部分原油出口航线恢复，成品柴油运输仍受限。</p><p>政府宣布战略储备释放安排，首批计划下周开始。公告没有实际交付数据。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/digital-industry": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>数字资产行业新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p><a href=\"/custody-draft\">监管机构征求托管规则意见</a></p><p><a href=\"/fund-report\">基金日报：两类产品申赎方向不同</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/custody-draft": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>托管草案公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>规则仍为草案。拟允许符合条件的机构提供托管服务，最终规则尚未发布；意见期截至12月3日。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/protocol": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>协议技术运营日报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日 Harbor 协议公告：维护升级已执行，暂停功能现已重开。公告没有披露新的损失或退出计划。</p><p><a href=\"/harbor-release\">项目原始发布</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/harbor-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Harbor 状态更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>2026年10月3日，版本升级执行完成；用户可使用正常服务。此状态公告不提供独立安全审计结论。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/calendar": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>官方经济日历</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>页面时区：America/New_York。周日10月4日美国股票市场休市。</p><p>下一交易日10月5日周一，服务业调查报告 10:00 EDT；发布时间已确认。报告含就业和价格分项。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/fund-report": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>基金申赎报道</h1><time datetime=\"2026-10-03T09:00:00Z\">2026-10-03T09:00:00Z</time><p>最近交易日10月2日，比特币现货ETF合计净申购，以太坊现货ETF合计净赎回。报道标注均为美元净资金流，不包括价格回报。</p><p><a href=\"/fund-table\">统计原表</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/fund-table": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>每日申赎统计</h1><time datetime=\"2026-10-03T09:00:00Z\">2026-10-03T09:00:00Z</time><table><tr><th>交易日</th><th>产品类别</th><th>净资金流USD</th></tr><tr><td>2026-10-02</td><td>BTC现货ETF</td><td>120000000</td></tr><tr><td>2026-10-02</td><td>ETH现货ETF</td><td>-85000000</td></tr></table><p>正值为净申购，负值为净赎回。日期为美国交易日，不是北京时间24小时窗口。</p></article></main></body></html>"
+        }
+      },
+      "tool_responses": [],
+      "id": "F04"
+    },
+    {
+      "current_time": "2026-10-04T00:00:00Z",
+      "timezone": "Asia/Shanghai",
+      "previous_valid_cutoff": "2026-10-03T00:00:00Z",
+      "task": "生成当日给领导汇报的市场晨报，不采集代币报价，不报告美股点位；只用标题、段落和来源链接。",
+      "initial_candidates": [],
+      "discovery_entrypoints": [
+        "https://bulletin.test/directory"
+      ],
+      "source_pages": {
+        "https://bulletin.test/directory": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p><a href=\"/economy\">经济市场</a></p><p><a href=\"/companies\">产业公司</a></p><p><a href=\"/energy\">能源国际</a></p><p><a href=\"/digital-industry\">数字资产行业</a></p><p><a href=\"/protocol\">技术运营</a></p><p><a href=\"/calendar\">日程</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/economy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>经济与市场周报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>官方统计机构10月3日公布：新增就业低于上个月，前两个月就业被下修。统计期为9月。</p><p>10月2日（美国东部时间）股市最近交易日收涨，科技股较强。债券收益率最初下行后回升，收盘高于前一交易日。</p><p>以下原始文件：<a href=\"/employment-release\">劳动统计局发布</a>；<a href=\"/market-close\">市场收盘报道</a>。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/employment-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>劳动统计机构就业发布</h1><time datetime=\"2026-10-03T12:30:00Z\">2026-10-03T12:30:00Z</time><p>发布于2026-10-03T12:30:00Z。9月新增就业2万人，8月为12万人；7、8月合计下修5万人。失业率维持4.2%。单月统计存在抽样误差和后续修订。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/market-close": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>最近交易日市场收盘</h1><time datetime=\"2026-10-02T21:00:00Z\">2026-10-02T21:00:00Z</time><p>统计交易日2026-10-02，美国东部时间16:00。美股三大指数收涨，科技股相对较强。十年期国债收益率先降后升，最终高于周四收盘。报道未提供因果识别。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/companies": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>公司新闻</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>制造商 Orion 10月3日公告称，一座工厂因设备检修暂停一天，公司未调整年度指引。</p><p><a href=\"/orion-ir\">公司投资者关系公告</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/orion-ir": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Orion 公司公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日设备例行检修影响一座工厂，预计一天完成。本次未发布财务指引更新。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/energy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>能源机构供应更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日，机构监测称部分原油出口航线恢复，成品柴油运输仍受限。</p><p>政府宣布战略储备释放安排，首批计划下周开始。公告没有实际交付数据。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/digital-industry": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>数字资产行业新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日监管机构提出扩大合格托管人范围的规则草案，正在征求意见。</p><p><a href=\"/custody-draft\">草案原文</a></p><p>本期行业栏目还列示基金、基础设施和准入事项；浏览下方链接。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/custody-draft": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>托管草案公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>规则仍为草案。拟允许符合条件的机构提供托管服务，最终规则尚未发布；意见期截至12月3日。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/protocol": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><aside class=\"market-ticker\">BTC $99111.11 +8.3%; ETH $7777.77 -2.2%</aside><main><article><h1>Harbor 退出计划</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日，Harbor 宣布因运营收入不足覆盖成本，计划10月20日关闭网站常规界面。智能合约不会因网站关闭自动停止。</p><p>提现功能当前是否正常，公告未提供独立验证。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/harbor-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Harbor 状态更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>2026年10月3日，版本升级执行完成；用户可使用正常服务。此状态公告不提供独立安全审计结论。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/calendar": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>官方经济日历</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>页面时区：America/New_York。周日10月4日美国股票市场休市。</p><p>下一交易日10月5日周一，服务业调查报告 10:00 EDT；发布时间已确认。报告含就业和价格分项。</p></article></main></body></html>"
+        }
+      },
+      "tool_responses": [],
+      "id": "F05"
+    },
+    {
+      "current_time": "2026-10-04T00:00:00Z",
+      "timezone": "Asia/Shanghai",
+      "previous_valid_cutoff": "2026-10-03T00:00:00Z",
+      "task": "生成当日给领导汇报的市场晨报，不采集代币报价，不报告美股点位；只用标题、段落和来源链接。",
+      "initial_candidates": [],
+      "discovery_entrypoints": [
+        "https://bulletin.test/directory"
+      ],
+      "source_pages": {
+        "https://bulletin.test/directory": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p><a href=\"/economy\">经济市场</a></p><p><a href=\"/companies\">产业公司</a></p><p><a href=\"/energy\">能源国际</a></p><p><a href=\"/digital-industry\">数字资产行业</a></p><p><a href=\"/protocol\">技术运营</a></p><p><a href=\"/calendar\">日程</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/economy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>经济与市场周报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>官方统计机构10月3日公布：新增就业低于上个月，前两个月就业被下修。统计期为9月。</p><p>10月2日（美国东部时间）股市最近交易日收涨，科技股较强。债券收益率最初下行后回升，收盘高于前一交易日。</p><p>以下原始文件：<a href=\"/employment-release\">劳动统计局发布</a>；<a href=\"/market-close\">市场收盘报道</a>。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/employment-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>劳动统计机构就业发布</h1><time datetime=\"2026-10-03T12:30:00Z\">2026-10-03T12:30:00Z</time><p>发布于2026-10-03T12:30:00Z。9月新增就业2万人，8月为12万人；7、8月合计下修5万人。失业率维持4.2%。单月统计存在抽样误差和后续修订。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/market-close": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>最近交易日市场收盘</h1><time datetime=\"2026-10-02T21:00:00Z\">2026-10-02T21:00:00Z</time><p>统计交易日2026-10-02，美国东部时间16:00。美股三大指数收涨，科技股相对较强。十年期国债收益率先降后升，最终高于周四收盘。报道未提供因果识别。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/companies": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>公司新闻</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>制造商 Orion 10月3日公告称，一座工厂因设备检修暂停一天，公司未调整年度指引。</p><p><a href=\"/orion-ir\">公司投资者关系公告</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/orion-ir": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Orion 公司公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日设备例行检修影响一座工厂，预计一天完成。本次未发布财务指引更新。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/energy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>能源机构供应更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日，机构监测称部分原油出口航线恢复，成品柴油运输仍受限。</p><p>政府宣布战略储备释放安排，首批计划下周开始。公告没有实际交付数据。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/digital-industry": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>数字资产行业新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日监管机构提出扩大合格托管人范围的规则草案，正在征求意见。</p><p><a href=\"/custody-draft\">草案原文</a></p><p>本期行业栏目还列示基金、基础设施和准入事项；浏览下方链接。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/custody-draft": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>托管草案公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>规则仍为草案。拟允许符合条件的机构提供托管服务，最终规则尚未发布；意见期截至12月3日。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/protocol": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>协议技术运营日报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日 Harbor 协议公告：维护升级已执行，暂停功能现已重开。公告没有披露新的损失或退出计划。</p><p><a href=\"/harbor-release\">项目原始发布</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/harbor-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Harbor 状态更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>2026年10月3日，版本升级执行完成；用户可使用正常服务。此状态公告不提供独立安全审计结论。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/calendar": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>官方经济日历</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>页面时区：America/New_York。周日10月4日美国股票市场休市。</p><p>下一交易日10月5日周一，服务业调查报告 10:00 EDT；发布时间已确认。报告含就业和价格分项。</p></article></main></body></html>"
+        }
+      },
+      "tool_responses": [
+        {
+          "connection": "app://asdk_app_6a4f02d735388191959c8328877e0bbd",
+          "tool": "mcp__codex_apps__coingecko_get_crypto_news",
+          "input": {
+            "limit": 20
+          },
+          "result": {
+            "isError": true,
+            "error": {
+              "code": "INVALID_ARGUMENT",
+              "message": "Session terminated"
+            }
+          }
+        }
+      ],
+      "id": "F06",
+      "host_capabilities": {
+        "reconnect": false,
+        "cancel_inflight": false
+      }
+    },
+    {
+      "current_time": "2026-10-04T00:00:00Z",
+      "timezone": "Asia/Shanghai",
+      "previous_valid_cutoff": "2026-10-03T00:00:00Z",
+      "task": "生成当日给领导汇报的市场晨报，不采集代币报价，不报告美股点位；只用标题、段落和来源链接。",
+      "initial_candidates": [],
+      "discovery_entrypoints": [
+        "https://bulletin.test/directory"
+      ],
+      "source_pages": {
+        "https://bulletin.test/directory": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p><a href=\"/economy\">经济市场</a></p><p><a href=\"/companies\">产业公司</a></p><p><a href=\"/energy\">能源国际</a></p><p><a href=\"/digital-industry\">数字资产行业</a></p><p><a href=\"/protocol\">技术运营</a></p><p><a href=\"/calendar\">日程</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/economy": {
+          "status": 403,
+          "error": "subscription required",
+          "alternate_url": "https://bulletin.test/economy-alternative"
+        },
+        "https://bulletin.test/companies": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>公司新闻</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>制造商 Orion 10月3日公告称，一座工厂因设备检修暂停一天，公司未调整年度指引。</p><p><a href=\"/orion-ir\">公司投资者关系公告</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/orion-ir": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Orion 公司公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日设备例行检修影响一座工厂，预计一天完成。本次未发布财务指引更新。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/energy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>能源机构供应更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日，机构监测称部分原油出口航线恢复，成品柴油运输仍受限。</p><p>政府宣布战略储备释放安排，首批计划下周开始。公告没有实际交付数据。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/digital-industry": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>数字资产行业新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日监管机构提出扩大合格托管人范围的规则草案，正在征求意见。</p><p><a href=\"/custody-draft\">草案原文</a></p><p>本期行业栏目还列示基金、基础设施和准入事项；浏览下方链接。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/custody-draft": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>托管草案公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>规则仍为草案。拟允许符合条件的机构提供托管服务，最终规则尚未发布；意见期截至12月3日。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/protocol": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>协议技术运营日报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日 Harbor 协议公告：维护升级已执行，暂停功能现已重开。公告没有披露新的损失或退出计划。</p><p><a href=\"/harbor-release\">项目原始发布</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/harbor-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Harbor 状态更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>2026年10月3日，版本升级执行完成；用户可使用正常服务。此状态公告不提供独立安全审计结论。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/calendar": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>官方经济日历</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>页面时区：America/New_York。周日10月4日美国股票市场休市。</p><p>下一交易日10月5日周一，服务业调查报告 10:00 EDT；发布时间已确认。报告含就业和价格分项。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/economy-alternative": {
+          "status": 403,
+          "error": "captcha required"
+        }
+      },
+      "tool_responses": [],
+      "id": "F07",
+      "search_discovery": [
+        {
+          "url": "https://bulletin.test/economy",
+          "snippet": "Market rose sharply after rate cut; bond yields plunged."
+        }
+      ]
+    },
+    {
+      "current_time": "2026-10-04T00:00:00Z",
+      "timezone": "Asia/Shanghai",
+      "previous_valid_cutoff": "2026-10-03T00:00:00Z",
+      "task": "生成通用晨会笔记，包含BTC与ETH当前价格，并按既有规则核验两源；不采用领导/无报价模式。",
+      "initial_candidates": [],
+      "discovery_entrypoints": [
+        "https://bulletin.test/directory"
+      ],
+      "source_pages": {
+        "https://bulletin.test/directory": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p><a href=\"/economy\">经济市场</a></p><p><a href=\"/companies\">产业公司</a></p><p><a href=\"/energy\">能源国际</a></p><p><a href=\"/digital-industry\">数字资产行业</a></p><p><a href=\"/protocol\">技术运营</a></p><p><a href=\"/calendar\">日程</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/economy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>经济与市场周报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>官方统计机构10月3日公布：新增就业低于上个月，前两个月就业被下修。统计期为9月。</p><p>10月2日（美国东部时间）股市最近交易日收涨，科技股较强。债券收益率最初下行后回升，收盘高于前一交易日。</p><p>以下原始文件：<a href=\"/employment-release\">劳动统计局发布</a>；<a href=\"/market-close\">市场收盘报道</a>。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/employment-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>劳动统计机构就业发布</h1><time datetime=\"2026-10-03T12:30:00Z\">2026-10-03T12:30:00Z</time><p>发布于2026-10-03T12:30:00Z。9月新增就业2万人，8月为12万人；7、8月合计下修5万人。失业率维持4.2%。单月统计存在抽样误差和后续修订。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/market-close": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>最近交易日市场收盘</h1><time datetime=\"2026-10-02T21:00:00Z\">2026-10-02T21:00:00Z</time><p>统计交易日2026-10-02，美国东部时间16:00。美股三大指数收涨，科技股相对较强。十年期国债收益率先降后升，最终高于周四收盘。报道未提供因果识别。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/companies": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>公司新闻</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>制造商 Orion 10月3日公告称，一座工厂因设备检修暂停一天，公司未调整年度指引。</p><p><a href=\"/orion-ir\">公司投资者关系公告</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/orion-ir": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Orion 公司公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日设备例行检修影响一座工厂，预计一天完成。本次未发布财务指引更新。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/energy": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>能源机构供应更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日，机构监测称部分原油出口航线恢复，成品柴油运输仍受限。</p><p>政府宣布战略储备释放安排，首批计划下周开始。公告没有实际交付数据。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/digital-industry": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>数字资产行业新闻目录</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日监管机构提出扩大合格托管人范围的规则草案，正在征求意见。</p><p><a href=\"/custody-draft\">草案原文</a></p><p>本期行业栏目还列示基金、基础设施和准入事项；浏览下方链接。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/custody-draft": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>托管草案公告</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>规则仍为草案。拟允许符合条件的机构提供托管服务，最终规则尚未发布；意见期截至12月3日。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/protocol": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>协议技术运营日报</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>10月3日 Harbor 协议公告：维护升级已执行，暂停功能现已重开。公告没有披露新的损失或退出计划。</p><p><a href=\"/harbor-release\">项目原始发布</a></p></article></main></body></html>"
+        },
+        "https://bulletin.test/harbor-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Harbor 状态更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>2026年10月3日，版本升级执行完成；用户可使用正常服务。此状态公告不提供独立安全审计结论。</p></article></main></body></html>"
+        },
+        "https://bulletin.test/calendar": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>官方经济日历</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>页面时区：America/New_York。周日10月4日美国股票市场休市。</p><p>下一交易日10月5日周一，服务业调查报告 10:00 EDT；发布时间已确认。报告含就业和价格分项。</p></article></main></body></html>"
+        }
+      },
+      "tool_responses": [
+        {
+          "connection": "app://asdk_app_6a4f02d735388191959c8328877e0bbd",
+          "tool": "mcp__codex_apps__coingecko_get_coin_markets",
+          "input": {
+            "ids": [
+              "bitcoin",
+              "ethereum",
+              "tether"
+            ]
+          },
+          "result": {
+            "structuredContent": {
+              "coins": [
+                {
+                  "id": "bitcoin",
+                  "currentPrice": 70000,
+                  "priceChangePercentage24h": 0.5,
+                  "lastUpdated": "2026-10-04T00:00:00Z"
+                },
+                {
+                  "id": "ethereum",
+                  "currentPrice": 2500,
+                  "priceChangePercentage24h": -0.5,
+                  "lastUpdated": "2026-10-04T00:00:00Z"
+                },
+                {
+                  "id": "tether",
+                  "currentPrice": 1,
+                  "lastUpdated": "2026-10-04T00:00:00Z"
+                }
+              ]
+            }
+          },
+          "completed_at": "2026-10-04T00:00:00Z"
+        },
+        {
+          "tool": "mcp__codex_apps__binance_get_spot_symbol_price_ticker",
+          "input": {
+            "symbol": "BTCUSDT"
+          },
+          "result": {
+            "structuredContent": {
+              "result": {
+                "symbol": "BTCUSDT",
+                "price": "70070"
+              }
+            }
+          },
+          "completed_at": "2026-10-04T00:00:00Z"
+        },
+        {
+          "tool": "mcp__codex_apps__binance_get_spot_symbol_price_ticker",
+          "input": {
+            "symbol": "ETHUSDT"
+          },
+          "result": {
+            "structuredContent": {
+              "result": {
+                "symbol": "ETHUSDT",
+                "price": "2501"
+              }
+            }
+          },
+          "completed_at": "2026-10-04T00:00:00Z"
+        }
+      ],
+      "id": "F08"
+    },
+    {
+      "current_time": "2026-10-04T00:00:00Z",
+      "timezone": "Asia/Shanghai",
+      "previous_valid_cutoff": "2026-10-03T00:00:00Z",
+      "task": "只给我Harbor最近7天的简短新闻摘要，不要代币报价；这不是晨报。",
+      "initial_candidates": [],
+      "discovery_entrypoints": [
+        "https://bulletin.test/harbor-release"
+      ],
+      "source_pages": {
+        "https://bulletin.test/harbor-release": {
+          "status": 200,
+          "content_type": "text/html",
+          "html": "<!doctype html><html><body><main><article><h1>Harbor 状态更新</h1><time datetime=\"2026-10-03T18:00:00Z\">2026-10-03T18:00:00Z</time><p>2026年10月3日，版本升级执行完成；用户可使用正常服务。此状态公告不提供独立安全审计结论。</p></article></main></body></html>"
+        }
+      },
+      "tool_responses": [],
+      "id": "F09"
+    }
+  ]
+}

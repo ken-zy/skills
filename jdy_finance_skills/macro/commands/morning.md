@@ -13,6 +13,10 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - User request: $ARGUMENTS
 - Today's date: !`date "+%Y-%m-%d"`
 
+## 范围选择：先于取数
+
+根据 User request 与已保存任务配置确认范围。明确领导晨报或无报价晨报时，先读取[领导晨报配置](../skills/morning-note/references/executive-brief.md)，直接执行其流程与格式，跳过下方通用 Workflow、Compile、财报表格、交易想法及冲突检查项；不因为通用模板而调用禁止的报价工具。未指定这两类晨报时，继续下方通用流程，保留行情能力。普通无报价新闻摘要不因“无报价”三字改成领导晨报。
+
 ## Data Source Priority
 
 所有网站来源（含后续新增来源）先执行[网站统一浏览器规则](../skills/macro-dashboard/references/web-sources-browser.md)：内置浏览器读原文，搜索仅找链接；CoinGecko/Binance 插件与 DefiLlama 免费 API 保留既有路径。下列分层不构成搜索摘要或外部浏览器兜底授权。
