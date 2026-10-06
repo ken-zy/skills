@@ -3,18 +3,18 @@
   "files": [
     {
       "path": "jdy_finance_skills/macro/skills/catalyst-calendar/SKILL.md",
-      "utf8_bytes": 12079,
-      "sha256": "c5f8ab0d6e3ab676e55be556f45bc67c8a2d295a51c3a6810f05ec55e68151b8"
+      "utf8_bytes": 12540,
+      "sha256": "d3c552240be54f85acbb1f829555666b2e84187372c55439ae043fff82315af2"
     },
     {
       "path": "jdy_finance_skills/macro/commands/catalyst.md",
-      "utf8_bytes": 8815,
-      "sha256": "49071ea25d332ca5bba9260c3083bdb0f73e3f6fb5b6fb7957105ac5202e7994"
+      "utf8_bytes": 9237,
+      "sha256": "fc4deb69fbf935bcd40b32d6ebcffe4b3aa20dd3272f70dca78421fb5aea3ca2"
     },
     {
       "path": "jdy_finance_skills/macro/skills/catalyst-calendar/references/readable-preview.md",
-      "utf8_bytes": 9766,
-      "sha256": "4b2f0f2590eb3825f46f6220600d7b6d73e01cff29a19cc6430a955f68b9715b"
+      "utf8_bytes": 10295,
+      "sha256": "1c6bfc852008f55f99023d1890875aeadfadd986b5d174ca72d7f0d6427bc139"
     },
     {
       "path": "docs/automation/catalyst-calendar-prompt.txt",
@@ -32,7 +32,7 @@
       "sha256": "08bd91f8cbca21f71db97456785c744e2fe4265a30872613aee4c73f1be479c3"
     }
   ],
-  "link_count": 60,
+  "link_count": 62,
   "checks": [
     "UTF-8, LF, final newline and balanced fences",
     "All local Markdown targets exist; HTTP(S) links have a host; no online reachability claim",

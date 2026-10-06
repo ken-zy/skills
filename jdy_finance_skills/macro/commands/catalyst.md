@@ -11,7 +11,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 ## Context
 
 - User request: $ARGUMENTS
-- 当前日期/显示时区：使用客户端上下文；默认 Asia/Shanghai。源时区独立记录，不用执行主机时区覆盖客户端日期。
+- 报告日期/显示时区：采用用户/任务明确指定的显示时区，否则 Asia/Shanghai；按当前时刻在选定显示时区中的日期计算报告日期和窗口。客户端上下文只提供当前时间事实，客户端/主机本地日历日期不覆盖报告日期；源日期/时区独立记录。仅有本地日历日期、缺完整当前时刻且跨区不能可靠换算时，注明当前时刻信息不足、边界待核，不凭空加小时；遵循[展示规范的元数据规则](../skills/catalyst-calendar/references/readable-preview.md)。
 
 ## Data Source Priority
 
@@ -76,7 +76,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - [ ] FOMC 和重大经济数据不遗漏
 - [ ] 三层展示规范的质量检查已完成：最多三项重点、四列主表、逐事件完整附录、关键限制/资格截止前置，压缩不减少采集覆盖
 - [ ] 范围、H/M/L、字段证据状态分开；未来计划未冒充实施，无持仓/领取资格推断
-- [ ] 客户端显示时区、源时区/精度及夏令时换算清楚，未知时区不猜；变化按可比事件语义，缺基线如实说明
+- [ ] 选定的报告显示时区、源时区/精度及夏令时换算清楚，未知时区不猜；变化按可比事件语义，缺基线如实说明
 
 ## Skill Reference
 
