@@ -1,6 +1,6 @@
 {
   "base_commit": "c9ec96f3c96edc2f5bd071f24b070b4160763238",
-  "implementation": "working tree before implementation commit; content hashes in structural report",
+  "implementation": "working tree after source-identity guard correction; content hashes in structural report",
   "comparison": "Full stdout, stderr and exit code equal; no new errors or warnings",
   "base": {
     "exit_code": 1,
