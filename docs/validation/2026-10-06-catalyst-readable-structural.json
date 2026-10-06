@@ -1,0 +1,45 @@
+{
+  "base_commit": "c9ec96f3c96edc2f5bd071f24b070b4160763238",
+  "files": [
+    {
+      "path": "jdy_finance_skills/macro/skills/catalyst-calendar/SKILL.md",
+      "utf8_bytes": 12079,
+      "sha256": "c5f8ab0d6e3ab676e55be556f45bc67c8a2d295a51c3a6810f05ec55e68151b8"
+    },
+    {
+      "path": "jdy_finance_skills/macro/commands/catalyst.md",
+      "utf8_bytes": 8815,
+      "sha256": "49071ea25d332ca5bba9260c3083bdb0f73e3f6fb5b6fb7957105ac5202e7994"
+    },
+    {
+      "path": "jdy_finance_skills/macro/skills/catalyst-calendar/references/readable-preview.md",
+      "utf8_bytes": 9149,
+      "sha256": "e76ebd3f55715fc8c0ad24ea16e38031f3721646079d02ba0aa8d7813bbadc49"
+    },
+    {
+      "path": "docs/automation/catalyst-calendar-prompt.txt",
+      "utf8_bytes": 2878,
+      "sha256": "3953e4a6b520a6cec8a15c0ca916ed75ce8905a2f474507983157ad91eab9ec2"
+    },
+    {
+      "path": "docs/automation/catalyst-calendar-prompt.md",
+      "utf8_bytes": 999,
+      "sha256": "4bd41980597880a683c6e5e7a74436602d1a527ad59c29098c4edecb3b93bdff"
+    },
+    {
+      "path": "docs/examples/catalyst-readable-preview-synthetic.md",
+      "utf8_bytes": 9161,
+      "sha256": "08bd91f8cbca21f71db97456785c744e2fe4265a30872613aee4c73f1be479c3"
+    }
+  ],
+  "link_count": 60,
+  "checks": [
+    "UTF-8, LF, final newline and balanced fences",
+    "All local Markdown targets exist; HTTP(S) links have a host; no online reachability claim",
+    "No private conversation URLs or machine absolute paths in these six delivery files",
+    "Shared macro-dashboard reference bytes unchanged from base",
+    "Frozen plan byte length and SHA256 unchanged",
+    "Full validator stdout/stderr/exit status identical to archived base",
+    "Two entrypoint frontmatter schemas verified separately with Ruby YAML.safe_load"
+  ]
+}
