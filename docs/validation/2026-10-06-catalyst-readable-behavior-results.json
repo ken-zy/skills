@@ -1,0 +1,98 @@
+{
+  "initial_implementation": "a020714870628e30695ddcc2b1d162106da3f4ea",
+  "corrected_content_commit": "22caf084dcf4f6c94559991e5a4c1027f066da8b",
+  "method": "independent implementation vs validation subagents; one validation subagent sequentially edits per entry summaries, reuses same-case timeline and evidence body; not nine isolated model calls; no production web collection",
+  "reports": [
+    {
+      "phase": "初轮",
+      "output": "command-changes.md",
+      "result": "FAIL",
+      "sha256": "a4074ba9d2352097adfc19b90e8538b562673c586d052b3a24e06fc66a1fa918",
+      "priorities": 2
+    },
+    {
+      "phase": "初轮",
+      "output": "command-dense.md",
+      "result": "FAIL",
+      "sha256": "232647304b8a74ed8dbd9385451283a63fd87dc49bb39f1451f1be47f459175a",
+      "priorities": 3
+    },
+    {
+      "phase": "初轮",
+      "output": "command-sparse.md",
+      "result": "PASS",
+      "sha256": "94244b78e12beab34e79166613ad4a287508cf611217f9b7397a6de3aff0b349",
+      "priorities": 1
+    },
+    {
+      "phase": "复验",
+      "output": "retest/command-changes.md",
+      "result": "PASS",
+      "sha256": "326ecab7fcdc44a0ecca0e9ed7d811710e2f3e698ade0112d52c4f21bcaff1b5",
+      "priorities": 2
+    },
+    {
+      "phase": "复验",
+      "output": "retest/command-dense.md",
+      "result": "PASS",
+      "sha256": "57cf41f4f6364a4c30a67fc9a657e87524878338cba04a6f312c09ff5f63f934",
+      "priorities": 3
+    },
+    {
+      "phase": "复验",
+      "output": "retest/skill-changes.md",
+      "result": "PASS",
+      "sha256": "6dc830673f724a2c75159d5b5cded68516307cefb25474874970330e242c6892",
+      "priorities": 2
+    },
+    {
+      "phase": "复验",
+      "output": "retest/weekly-changes.md",
+      "result": "PASS",
+      "sha256": "841c8e26721dfef70de98076011e931007211a387f011c356706a22e9fdfdb59",
+      "priorities": 2
+    },
+    {
+      "phase": "初轮",
+      "output": "skill-changes.md",
+      "result": "FAIL",
+      "sha256": "a9a35228bfc99413e5d7d383be4fc624e2c26f387198695e29df54cb9e3666b5",
+      "priorities": 2
+    },
+    {
+      "phase": "初轮",
+      "output": "skill-dense.md",
+      "result": "PASS",
+      "sha256": "a4e50e219e42820e3a3a4cf52eecf5a504fe87245e78b55c5ad62744e1ba90a6",
+      "priorities": 3
+    },
+    {
+      "phase": "初轮",
+      "output": "skill-sparse.md",
+      "result": "PASS",
+      "sha256": "128089bee461732ea586155be431d87245f4f8634544b6a99eb4cf535c6d3c70",
+      "priorities": 1
+    },
+    {
+      "phase": "初轮",
+      "output": "weekly-changes.md",
+      "result": "FAIL",
+      "sha256": "9c25d605f61b263e35f660f866e89fa3f94fd524ce69f288f652953d7f95697b",
+      "priorities": 2
+    },
+    {
+      "phase": "初轮",
+      "output": "weekly-dense.md",
+      "result": "PASS",
+      "sha256": "9f06e9b7b5c4794fa3f3d97beab36b1e3eba3677b4229f84c49a6ec5e58ac2b7",
+      "priorities": 3
+    },
+    {
+      "phase": "初轮",
+      "output": "weekly-sparse.md",
+      "result": "PASS",
+      "sha256": "e7d5ff6f8ee7fd77cf1eecd33e2e332d5d9e4d6fc7a7951cdfd7c8f8079bda07",
+      "priorities": 1
+    }
+  ]
+}

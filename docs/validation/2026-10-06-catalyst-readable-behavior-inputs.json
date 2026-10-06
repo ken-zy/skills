@@ -1,0 +1,40 @@
+{
+  "purpose": "合成编辑验收材料，非真实市场资料；不联网补充，不把输入当新采集",
+  "cases": [
+    {
+      "name": "dense",
+      "window": "2026-10-05 00:00 <= t < 2026-10-19 00:00 Asia/Shanghai",
+      "cutoff": "2026-10-04 20:00 Asia/Shanghai",
+      "baseline": null,
+      "coverage": "所给事件已读取；未穷尽全市场；快照/TGE 无可纳入明确官方日期",
+      "events": [
+        {"id":"a","identity":"macro-cpi-2026-09","event":"CPI","source_time":"2026-10-14 08:30 ET","impact":"H","scope":"全市场","evidence":"官方未来计划","source":"https://statistics.example/cpi","reason":"通胀与利率预期"},
+        {"id":"b","identity":"BK1-Q3-2026","event":"BK1 Q3 财报","release":"2026-10-14 约06:45 ET","call":"2026-10-14 08:30 ET","impact":"H","scope":"板块","evidence":"官方预计","source":"https://bk1.example/ir","reason":"信用成本与盈利指引"},
+        {"id":"c","identity":"CHIP-Q3-2026-call","event":"CHIP Q3 电话会","source_time":"2026-10-15 14:00 Taiwan Time","release_time":null,"impact":"H","scope":"板块","evidence":"官方未来计划","source":"https://chip.example/ir","reason":"先进制程需求"},
+        {"id":"d","identity":"HYX-contributors-oct","event":"HYX 贡献者分发线索","impact":"M","scope":"单一标的","sources":[{"url":"https://tm.example/hyx","component":"Upcoming","date":"2026-10-06","timezone":null,"amount":"3.75M HYX","allocations":"1 Allocation","ratio":"1.69% of released supply","status":"Announced / Committed","coverage":"卡片及真实首行，完整窗口受限","recipient":"Core Contributors"},{"url":"https://media.example/hyx","date":"2026-10-07","timezone":null,"amount":"3.75M HYX","evidence":"转述 Telegram，不是已读项目原文"},{"url":"https://dl.example/hyx","coverage":"1/6 历史实际转账，未取得本次未来分发"}],"official":"Discord需登录，原帖未取得","reason":"潜在供应安排"},
+        {"id":"e","identity":"ENB-cliff-oct","event":"ENB 解锁线索","impact":"M","scope":"单一标的","sources":[{"url":"https://tm.example/enb","date":"2026-10-05","timezone":null,"amount":"171.88M ENB","allocations":"2 Allocations，分组未取得","ratio":"1.88% of released supply","status":"Pending verification","coverage":"部分"},{"url":"https://dl.example/enb","coverage":"1-6/6 历史速率节点","latest_node":"2026-04-05 Ecosystem 12.58M/week"}],"official":"通用归属规则，未确认当次数量","reason":"潜在供应变化"},
+        {"id":"f","identity":"PMP-cliff-oct","event":"PMP 解锁模型","impact":"M","scope":"单一标的","sources":[{"url":"https://dl.example/pmp","time":"2026-10-12 02:15 UTC","recipients":{"Team":"4.167B","Existing Investors":"2.708B"},"coverage":"连续2-3/19公开cliff组件，两侧范围外边界已读","notes":"Community & Ecosystem 24% TBD"},{"url":"https://tm.example/pmp","component":"Upcoming","status":"No Upcoming Events","coverage":"只检查该组件"}],"official":"条款入口，正文未取得","reason":"潜在归属释放"},
+        {"id":"g","identity":"SYN-season1-2-claim","event":"SYN 剩余fNFT领取截止","source_time":"官方要求在2026-10-15前领取","timezone":null,"exact_hour":null,"impact":"L","scope":"资格相关","evidence":"官方截止计划，未核用户资格","source":"https://syn.example/claim","after":"截止后可由任何人触发销毁，未取得执行证据","reason":"资格相关截止"},
+        {"id":"h","identity":"UPG-testnet","event":"UPG 测试网升级","source_time":"2026-10-06 13:53:36 UTC","impact":"M","scope":"单一标的","evidence":"官方计划","mainnet":"TBD","source":"https://upg.example/testnet","reason":"测试兼容与稳定性"},
+        {"id":"i","identity":"macro-retail-2026-09","event":"零售销售","source_time":"美国日期2026-10-15 08:30","timezone":null,"impact":"H","scope":"全市场","evidence":"官方日期计划，时区未取得","source":"https://statistics.example/retail","reason":"消费需求"}
+      ]
+    },
+    {
+      "name":"sparse",
+      "window":"2026-10-05至2026-10-18 Asia/Shanghai",
+      "cutoff":"2026-10-04 20:00 Asia/Shanghai",
+      "baseline":null,
+      "coverage":"只取得公司活动页；宏观/解锁/空投/升级页面加载失败，未获取",
+      "events":[{"id":"only","identity":"BIO-investor-day","event":"BIO 投资者日","date":"2026-10-08","timezone":null,"exact_hour":null,"impact":"L","scope":"单一标的","evidence":"官方日期计划","source":"https://bio.example/ir","reason":"公司研发更新"}]
+    },
+    {
+      "name":"changes",
+      "window":"2026-10-05至2026-10-18 Asia/Shanghai",
+      "cutoff":"2026-10-04 20:00 Asia/Shanghai",
+      "baseline":{"cutoff":"2026-10-03 20:00 Asia/Shanghai","events":[{"id":"E01","identity":"A-call","date":"2026-10-10","evidence":"官方计划"},{"id":"E02","identity":"B-snapshot","date":"2026-10-12","evidence":"官方计划"},{"id":"E03","identity":"OLD-event","date":"2026-10-01","evidence":"官方计划"}]},
+      "coverage":"本次未穷尽全市场，以下为给定已读公告",
+      "events":[{"id":"E99","identity":"A-call","event":"A 电话会","date":"2026-10-11","exact_hour":null,"timezone":null,"impact":"M","scope":"单一标的","evidence":"10/4官方更正，原10/10改为10/11","source":"https://a.example/corrected","reason":"公司更新"},{"id":"E01","identity":"B-snapshot","event":"B 快照","date":null,"impact":"M","scope":"资格相关","evidence":"10/4官方取消10/12快照，未公布替代日期","source":"https://b.example/cancel","reason":"资格节点取消"},{"id":"E02","identity":"C-event","event":"C 活动","date":"2026-10-13","exact_hour":null,"timezone":null,"impact":"L","scope":"单一标的","evidence":"9/20公告，本次首次纳入核验","source":"https://c.example/event","reason":"生态更新"}],
+      "notes":"OLD-event移出窗口，没有实际执行材料。编号与上次不同。"
+    }
+  ]
+}
