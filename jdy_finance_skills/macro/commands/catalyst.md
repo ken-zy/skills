@@ -11,7 +11,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 ## Context
 
 - User request: $ARGUMENTS
-- Today's date: !`date "+%Y-%m-%d"`
+- 报告日期/显示时区：采用用户/任务明确指定的显示时区，否则 Asia/Shanghai；按当前时刻在选定显示时区中的日期计算报告日期和窗口。客户端上下文只提供当前时间事实，客户端/主机本地日历日期不覆盖报告日期；源日期/时区独立记录。仅有本地日历日期、缺完整当前时刻且跨区不能可靠换算时，注明当前时刻信息不足、边界待核，不凭空加小时；遵循[展示规范的元数据规则](../skills/catalyst-calendar/references/readable-preview.md)。
 
 ## Data Source Priority
 
@@ -39,7 +39,7 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 ## Workflow
 
 ### Step 1: Define Scope
-确认：关注标的、包含宏观事件？包含加密事件？时间范围（默认 2 周）
+确认范围：关注标的、宏观/加密覆盖、时间范围（默认未来 2 周，定时任务沿用指定窗口）。无关注清单时优先影响广泛的事件，不推断持仓或领取资格；注明起止、显示时区、信息截止。
 
 ### Step 2: Gather Events
 - **财报事件**: 季度财报日期、投资者日
@@ -47,17 +47,18 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - **宏观事件**: FOMC、非农、CPI/PPI、GDP
 - **加密事件**: 代币解锁、空投快照、TGE、协议升级、治理投票、加密会议
 
-### Step 3: Build Calendar Table
-按日期排序，标注类型和影响程度。
+### Step 3: Build Calendar
+先完整采集与核验，再读取并执行[三层展示规范](../skills/catalyst-calendar/references/readable-preview.md)。该文件与 skill 共用，规定事件编号、源时间/换算、影响范围、H/M/L、字段状态及完整证据附录。
 将解锁写入日历前，按共享解锁规则检查两站窗口覆盖和边界/停止原因、分项与总量、同事件时间/类型/接收方匹配及分母定义/时点。未完整记录可标为线索，摘要保留字段冲突与限制；缺少合适分母不计算占流通量比例或触发 >5% 筛选，可另说明高关注的依据。其他可靠事件继续输出。
 
 ### Step 4: Weekly Preview
-本周关键事件 + 下周预告 + 持仓影响。
+按同一[展示规范](../skills/catalyst-calendar/references/readable-preview.md)输出一分钟摘要（最多三项重点及关键限制）→ 本次变化 → 两周时间线 → 同会话完整核验附录。预算不删重大限制，未知时区/日期分歧不猜时刻，变化按事件语义比较；缺基线如实说明。不添加持仓推断。
 
 ## Output
 
-- **Primary**: `YYYYMMDD-catalyst-calendar.md`
-- 日历表格 + Weekly Preview
+- **Primary**: 对话中完整三层预告，主表最多四列，事件编号与完整附录对应。
+- **Optional**: `YYYYMMDD-catalyst-calendar.md` 额外副本；同日另次运行或历史重排用后缀区分，保留旧版。文件不能代替同会话完整附录。
+- 展示细则以[三层展示规范](../skills/catalyst-calendar/references/readable-preview.md)为准，不另维护冲突模板。
 
 ## Quality Checklist
 
@@ -73,8 +74,9 @@ allowed-tools: mcp__codex_apps__coingecko_*, mcp__codex_apps__binance_get_spot_*
 - [ ] 财报日期已用内置浏览器核对公司 IR；无法确认的日期已标预计，电话会时间未冒充财报时间
 - [ ] 解锁数量和美元估值分开；比例保留分母，缺少可核实流通量时不计算占流通量比例
 - [ ] FOMC 和重大经济数据不遗漏
-- [ ] 影响程度合理评估
-- [ ] 时区标注
+- [ ] 三层展示规范的质量检查已完成：最多三项重点、四列主表、逐事件完整附录、关键限制/资格截止前置，压缩不减少采集覆盖
+- [ ] 范围、H/M/L、字段证据状态分开；未来计划未冒充实施，无持仓/领取资格推断
+- [ ] 选定的报告显示时区、源时区/精度及夏令时换算清楚，未知时区不猜；变化按可比事件语义，缺基线如实说明
 
 ## Skill Reference
 

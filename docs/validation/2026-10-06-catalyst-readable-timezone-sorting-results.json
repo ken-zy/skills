@@ -1,0 +1,140 @@
+{
+  "root_reported_frozen_head": "36ed55cf65c32170eae4156b023b518e06d436b8",
+  "scope": "Two bounded synthetic reports only; skill and command explicit LA sorting retest. Original eight-case reports and version limitation retained. No Git, repo edits, network or production collection.",
+  "method": "Single validation agent sequentially read frozen complete entry points, shared display specification, applicable IR/web rules; authored both full sparse reports; then independently recalculated with Python stdlib zoneinfo. Not two isolated model calls.",
+  "independent_math": {
+    "current_local": "2026-10-05T18:00:00-07:00",
+    "report_date": "2026-10-05",
+    "window_start": "2026-10-05",
+    "window_end_exclusive": "2026-10-19",
+    "events": [
+      {
+        "identity": "EARLY-investor-day",
+        "source": "2026-10-12T00:30:00Z",
+        "report_time": "2026-10-11T17:30:00-07:00",
+        "report_table_value": "2026-10-11 17:30 PDT（-07:00）",
+        "shanghai_comparison": "2026-10-12T08:30:00+08:00"
+      },
+      {
+        "identity": "LATE-investor-day",
+        "source": "2026-10-12T07:30:00Z",
+        "report_time": "2026-10-12T00:30:00-07:00",
+        "report_table_value": "2026-10-12 00:30 PDT（-07:00）",
+        "shanghai_comparison": "2026-10-12T15:30:00+08:00"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "case": "skill-explicit-LA-sorting",
+      "status": "PASS",
+      "report_path": "local-only/timezone-readability/sorting-retest/skill-explicit-LA-sorting-report.md",
+      "report_sha256": "cc0a79879fbb8afa5040fa5f6e5c67d42905da8168b2ed332d6a61f727dcd7f2",
+      "checks": {
+        "report_date": true,
+        "window": true,
+        "cutoff": true,
+        "selected_report_timezone": true,
+        "event_date_and_time_math": true,
+        "known_event_order": true,
+        "source_values_preserved": true,
+        "all_event_identity_and_links": true,
+        "unknown_date_only_preserved": true,
+        "complete_sections": true,
+        "four_column_tables": true
+      },
+      "observed_known_table_dates": [
+        "2026-10-11 17:30 PDT（-07:00）",
+        "2026-10-12 00:30 PDT（-07:00）"
+      ],
+      "manual_review": "PASS: known instants use selected LA chronology across first/second week; unknown DEMO separately listed without false chronology; original UTC values and all three event fields/links preserved; official plan scope limited to synthetic evidence, not real website read or implementation."
+    },
+    {
+      "case": "command-explicit-LA-sorting",
+      "status": "PASS",
+      "report_path": "local-only/timezone-readability/sorting-retest/command-explicit-LA-sorting-report.md",
+      "report_sha256": "d03633a735368a8043bc97b7f14fa5aa221de5c05df936e160b2bfd4a0df6e5c",
+      "checks": {
+        "report_date": true,
+        "window": true,
+        "cutoff": true,
+        "selected_report_timezone": true,
+        "event_date_and_time_math": true,
+        "known_event_order": true,
+        "source_values_preserved": true,
+        "all_event_identity_and_links": true,
+        "unknown_date_only_preserved": true,
+        "complete_sections": true,
+        "four_column_tables": true
+      },
+      "observed_known_table_dates": [
+        "2026-10-11 17:30 PDT（-07:00）",
+        "2026-10-12 00:30 PDT（-07:00）"
+      ],
+      "manual_review": "PASS: known instants use selected LA chronology across first/second week; unknown DEMO separately listed without false chronology; original UTC values and all three event fields/links preserved; official plan scope limited to synthetic evidence, not real website read or implementation."
+    }
+  ],
+  "freeze_checks": [
+    {
+      "path": "jdy_finance_skills/macro/skills/catalyst-calendar/SKILL.md",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/commands/catalyst.md",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/skills/catalyst-calendar/references/readable-preview.md",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/skills/macro-dashboard/references/company-ir-browser.md",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/skills/macro-dashboard/references/web-sources-browser.md",
+      "unchanged": true
+    }
+  ],
+  "original_eight_draft_checks": [
+    {
+      "path": "local-only/timezone-readability/skill-default-Shanghai-report.md",
+      "unchanged": true
+    },
+    {
+      "path": "local-only/timezone-readability/skill-default-Los_Angeles-report.md",
+      "unchanged": true
+    },
+    {
+      "path": "local-only/timezone-readability/skill-explicit-LA-report.md",
+      "unchanged": true
+    },
+    {
+      "path": "local-only/timezone-readability/command-default-Shanghai-report.md",
+      "unchanged": true
+    },
+    {
+      "path": "local-only/timezone-readability/command-default-Los_Angeles-report.md",
+      "unchanged": true
+    },
+    {
+      "path": "local-only/timezone-readability/command-explicit-LA-report.md",
+      "unchanged": true
+    },
+    {
+      "path": "local-only/timezone-readability/weekly-Shanghai-report.md",
+      "unchanged": true
+    },
+    {
+      "path": "local-only/timezone-readability/weekly-Los_Angeles-report.md",
+      "unchanged": true
+    }
+  ],
+  "all_pass": true,
+  "limitations": [
+    "Still no production scheduler, real source collection or current-time service validation.",
+    "Shared-context sequential authoring, not isolated model sampling.",
+    "Only two supplied known UTC instants and one unknown-source date-only event; no date-only current context or DST-transition-date test.",
+    "Original eight-case results belong to earlier frozen content, with their original limitation text intact; two-case retest is additive, not a replacement or silently expanded full-suite result."
+  ]
+}
