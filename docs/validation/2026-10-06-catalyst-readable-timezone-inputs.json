@@ -1,0 +1,117 @@
+{
+  "purpose": "合成跨客户端时区验收，不是现实时间服务或市场采集。每例按入口与指定窗口规则输出完整稀疏报告。",
+  "common": {
+    "event": {
+      "identity": "DEMO-company-date-only",
+      "event": "DEMO投资者日",
+      "source_date": "2026-10-12",
+      "source_timezone": null,
+      "source_hour": null,
+      "scope": "单一标的",
+      "impact": "L",
+      "evidence": "合成输入明确官方日期计划；来源身份在合成输入已明示",
+      "source": "https://demo.example/ir",
+      "reason": "公司更新"
+    },
+    "baseline": null,
+    "coverage": "仅给一个公司安排；其他类别未提供，非全市场覆盖"
+  },
+  "cases": [
+    {
+      "id": "skill-default-Shanghai",
+      "entry": "skill",
+      "current_instant": "2026-10-06T01:00:00Z",
+      "client_context": {
+        "timezone": "Asia/Shanghai",
+        "local_date": "2026-10-06",
+        "local_time": "09:00"
+      },
+      "report_timezone_request": null,
+      "window_rule": "以报告显示时区本日00:00起连续14个日历日，含本日，终点不含；不要用客户端日期直接选起日"
+    },
+    {
+      "id": "skill-default-Los_Angeles",
+      "entry": "skill",
+      "current_instant": "2026-10-06T01:00:00Z",
+      "client_context": {
+        "timezone": "America/Los_Angeles",
+        "local_date": "2026-10-05",
+        "local_time": "18:00"
+      },
+      "report_timezone_request": null,
+      "window_rule": "以报告显示时区本日00:00起连续14个日历日，含本日，终点不含；不要用客户端日期直接选起日"
+    },
+    {
+      "id": "skill-explicit-LA",
+      "entry": "skill",
+      "current_instant": "2026-10-06T01:00:00Z",
+      "client_context": {
+        "timezone": "Asia/Shanghai",
+        "local_date": "2026-10-06",
+        "local_time": "09:00"
+      },
+      "report_timezone_request": "America/Los_Angeles",
+      "window_rule": "以报告显示时区本日00:00起连续14个日历日，含本日，终点不含"
+    },
+    {
+      "id": "command-default-Shanghai",
+      "entry": "command",
+      "current_instant": "2026-10-06T01:00:00Z",
+      "client_context": {
+        "timezone": "Asia/Shanghai",
+        "local_date": "2026-10-06",
+        "local_time": "09:00"
+      },
+      "report_timezone_request": null,
+      "window_rule": "以报告显示时区本日00:00起连续14个日历日，含本日，终点不含；不要用客户端日期直接选起日"
+    },
+    {
+      "id": "command-default-Los_Angeles",
+      "entry": "command",
+      "current_instant": "2026-10-06T01:00:00Z",
+      "client_context": {
+        "timezone": "America/Los_Angeles",
+        "local_date": "2026-10-05",
+        "local_time": "18:00"
+      },
+      "report_timezone_request": null,
+      "window_rule": "以报告显示时区本日00:00起连续14个日历日，含本日，终点不含；不要用客户端日期直接选起日"
+    },
+    {
+      "id": "command-explicit-LA",
+      "entry": "command",
+      "current_instant": "2026-10-06T01:00:00Z",
+      "client_context": {
+        "timezone": "Asia/Shanghai",
+        "local_date": "2026-10-06",
+        "local_time": "09:00"
+      },
+      "report_timezone_request": "America/Los_Angeles",
+      "window_rule": "以报告显示时区本日00:00起连续14个日历日，含本日，终点不含"
+    },
+    {
+      "id": "weekly-Shanghai",
+      "entry": "weekly",
+      "current_instant": "2026-10-04T01:00:00Z",
+      "client_context": {
+        "timezone": "Asia/Shanghai",
+        "local_date": "2026-10-04",
+        "local_time": "09:00"
+      },
+      "report_timezone_request": null,
+      "window_rule": "使用完整weekly prompt中显式Asia/Shanghai及本次周日后周一至第二周日14天规则；本例是合成手动逻辑调用，不声称20:00生产触发"
+    },
+    {
+      "id": "weekly-Los_Angeles",
+      "entry": "weekly",
+      "current_instant": "2026-10-04T01:00:00Z",
+      "client_context": {
+        "timezone": "America/Los_Angeles",
+        "local_date": "2026-10-03",
+        "local_time": "18:00"
+      },
+      "report_timezone_request": null,
+      "window_rule": "使用完整weekly prompt中显式Asia/Shanghai及本次周日后周一至第二周日14天规则；本例是合成手动逻辑调用，不声称20:00生产触发"
+    }
+  ]
+}

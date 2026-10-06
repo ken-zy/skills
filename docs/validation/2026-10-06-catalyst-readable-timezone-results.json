@@ -1,0 +1,246 @@
+{
+  "method": "Independent validation agent read frozen complete entry points and applicable references, authored eight full sparse model reports sequentially, then used Python standard-library zoneinfo only for independent date/time mathematics. This is not eight isolated model invocations or production market collection.",
+  "cases": [
+    {
+      "id": "skill-default-Shanghai",
+      "status": "PASS",
+      "report_path": "local-only/timezone-readability/skill-default-Shanghai-report.md",
+      "report_sha256": "4b4b2fdd099fe47148e45038c0e2bddd812521f8efb6a406b37920e43809b5ed",
+      "observed_header": "报告日期：2026-10-06；范围：2026-10-06–2026-10-19，含首尾日期；窗口：[2026-10-06 00:00, 2026-10-20 00:00)；显示时区：Asia/Shanghai；信息截止：2026-10-06 09:00 +08:00（2026-10-06T01:00:00Z）。",
+      "independent_math": {
+        "report_timezone": "Asia/Shanghai",
+        "current_local": "2026-10-06T09:00:00+08:00",
+        "window_start_local": "2026-10-06T00:00:00+08:00",
+        "window_end_exclusive_local": "2026-10-20T00:00:00+08:00",
+        "window_start_utc": "2026-10-05T16:00:00+00:00",
+        "window_end_exclusive_utc": "2026-10-19T16:00:00+00:00",
+        "calendar_days": 14
+      },
+      "checks": {
+        "metadata_matches_independent_zoneinfo": true,
+        "all_sections_present": true,
+        "four_column_table": true,
+        "source_identity_date_url_preserved": true,
+        "no_source_timezone_hour_filled": true,
+        "manual_full_report_review": "PASS: source date remains date-only; null/unknown timezone and hour present in appendix; report/client timezones are not assigned to event; no invented event instant or completed implementation."
+      }
+    },
+    {
+      "id": "skill-default-Los_Angeles",
+      "status": "PASS",
+      "report_path": "local-only/timezone-readability/skill-default-Los_Angeles-report.md",
+      "report_sha256": "fb03c58dc5a9839db9e75468211d4d682badba5593765fd2ea88641da22a0280",
+      "observed_header": "报告日期：2026-10-06；范围：2026-10-06–2026-10-19，含首尾日期；窗口：[2026-10-06 00:00, 2026-10-20 00:00)；显示时区：Asia/Shanghai；信息截止：2026-10-06 09:00 +08:00（2026-10-06T01:00:00Z）。",
+      "independent_math": {
+        "report_timezone": "Asia/Shanghai",
+        "current_local": "2026-10-06T09:00:00+08:00",
+        "window_start_local": "2026-10-06T00:00:00+08:00",
+        "window_end_exclusive_local": "2026-10-20T00:00:00+08:00",
+        "window_start_utc": "2026-10-05T16:00:00+00:00",
+        "window_end_exclusive_utc": "2026-10-19T16:00:00+00:00",
+        "calendar_days": 14
+      },
+      "checks": {
+        "metadata_matches_independent_zoneinfo": true,
+        "all_sections_present": true,
+        "four_column_table": true,
+        "source_identity_date_url_preserved": true,
+        "no_source_timezone_hour_filled": true,
+        "manual_full_report_review": "PASS: source date remains date-only; null/unknown timezone and hour present in appendix; report/client timezones are not assigned to event; no invented event instant or completed implementation."
+      }
+    },
+    {
+      "id": "skill-explicit-LA",
+      "status": "PASS",
+      "report_path": "local-only/timezone-readability/skill-explicit-LA-report.md",
+      "report_sha256": "98f6b27dd5e17ea0ef512e4f65665bda581e0202640f531107cdffba1625d68f",
+      "observed_header": "报告日期：2026-10-05；范围：2026-10-05–2026-10-18，含首尾日期；窗口：[2026-10-05 00:00, 2026-10-19 00:00)；显示时区：America/Los_Angeles；信息截止：2026-10-05 18:00 -07:00（PDT；2026-10-06T01:00:00Z）。",
+      "independent_math": {
+        "report_timezone": "America/Los_Angeles",
+        "current_local": "2026-10-05T18:00:00-07:00",
+        "window_start_local": "2026-10-05T00:00:00-07:00",
+        "window_end_exclusive_local": "2026-10-19T00:00:00-07:00",
+        "window_start_utc": "2026-10-05T07:00:00+00:00",
+        "window_end_exclusive_utc": "2026-10-19T07:00:00+00:00",
+        "calendar_days": 14
+      },
+      "checks": {
+        "metadata_matches_independent_zoneinfo": true,
+        "all_sections_present": true,
+        "four_column_table": true,
+        "source_identity_date_url_preserved": true,
+        "no_source_timezone_hour_filled": true,
+        "manual_full_report_review": "PASS: source date remains date-only; null/unknown timezone and hour present in appendix; report/client timezones are not assigned to event; no invented event instant or completed implementation."
+      }
+    },
+    {
+      "id": "command-default-Shanghai",
+      "status": "PASS",
+      "report_path": "local-only/timezone-readability/command-default-Shanghai-report.md",
+      "report_sha256": "13870227f9270a2b0910c44f696859066c78ed9f1cee54577bee8a9b70e7be50",
+      "observed_header": "报告日期：2026-10-06；范围：2026-10-06–2026-10-19，含首尾日期；窗口：[2026-10-06 00:00, 2026-10-20 00:00)；显示时区：Asia/Shanghai；信息截止：2026-10-06 09:00 +08:00（2026-10-06T01:00:00Z）。",
+      "independent_math": {
+        "report_timezone": "Asia/Shanghai",
+        "current_local": "2026-10-06T09:00:00+08:00",
+        "window_start_local": "2026-10-06T00:00:00+08:00",
+        "window_end_exclusive_local": "2026-10-20T00:00:00+08:00",
+        "window_start_utc": "2026-10-05T16:00:00+00:00",
+        "window_end_exclusive_utc": "2026-10-19T16:00:00+00:00",
+        "calendar_days": 14
+      },
+      "checks": {
+        "metadata_matches_independent_zoneinfo": true,
+        "all_sections_present": true,
+        "four_column_table": true,
+        "source_identity_date_url_preserved": true,
+        "no_source_timezone_hour_filled": true,
+        "manual_full_report_review": "PASS: source date remains date-only; null/unknown timezone and hour present in appendix; report/client timezones are not assigned to event; no invented event instant or completed implementation."
+      }
+    },
+    {
+      "id": "command-default-Los_Angeles",
+      "status": "PASS",
+      "report_path": "local-only/timezone-readability/command-default-Los_Angeles-report.md",
+      "report_sha256": "b2495abc5e177d52cb9aaf19d738e3d1a6325546f084b8f62c7be18ab883b9e7",
+      "observed_header": "报告日期：2026-10-06；范围：2026-10-06–2026-10-19，含首尾日期；窗口：[2026-10-06 00:00, 2026-10-20 00:00)；显示时区：Asia/Shanghai；信息截止：2026-10-06 09:00 +08:00（2026-10-06T01:00:00Z）。",
+      "independent_math": {
+        "report_timezone": "Asia/Shanghai",
+        "current_local": "2026-10-06T09:00:00+08:00",
+        "window_start_local": "2026-10-06T00:00:00+08:00",
+        "window_end_exclusive_local": "2026-10-20T00:00:00+08:00",
+        "window_start_utc": "2026-10-05T16:00:00+00:00",
+        "window_end_exclusive_utc": "2026-10-19T16:00:00+00:00",
+        "calendar_days": 14
+      },
+      "checks": {
+        "metadata_matches_independent_zoneinfo": true,
+        "all_sections_present": true,
+        "four_column_table": true,
+        "source_identity_date_url_preserved": true,
+        "no_source_timezone_hour_filled": true,
+        "manual_full_report_review": "PASS: source date remains date-only; null/unknown timezone and hour present in appendix; report/client timezones are not assigned to event; no invented event instant or completed implementation."
+      }
+    },
+    {
+      "id": "command-explicit-LA",
+      "status": "PASS",
+      "report_path": "local-only/timezone-readability/command-explicit-LA-report.md",
+      "report_sha256": "b7c30280188a33fdf8cfa3c9a18855bd95e57e917f6c8859538d75e24017d813",
+      "observed_header": "报告日期：2026-10-05；范围：2026-10-05–2026-10-18，含首尾日期；窗口：[2026-10-05 00:00, 2026-10-19 00:00)；显示时区：America/Los_Angeles；信息截止：2026-10-05 18:00 -07:00（PDT；2026-10-06T01:00:00Z）。",
+      "independent_math": {
+        "report_timezone": "America/Los_Angeles",
+        "current_local": "2026-10-05T18:00:00-07:00",
+        "window_start_local": "2026-10-05T00:00:00-07:00",
+        "window_end_exclusive_local": "2026-10-19T00:00:00-07:00",
+        "window_start_utc": "2026-10-05T07:00:00+00:00",
+        "window_end_exclusive_utc": "2026-10-19T07:00:00+00:00",
+        "calendar_days": 14
+      },
+      "checks": {
+        "metadata_matches_independent_zoneinfo": true,
+        "all_sections_present": true,
+        "four_column_table": true,
+        "source_identity_date_url_preserved": true,
+        "no_source_timezone_hour_filled": true,
+        "manual_full_report_review": "PASS: source date remains date-only; null/unknown timezone and hour present in appendix; report/client timezones are not assigned to event; no invented event instant or completed implementation."
+      }
+    },
+    {
+      "id": "weekly-Shanghai",
+      "status": "PASS",
+      "report_path": "local-only/timezone-readability/weekly-Shanghai-report.md",
+      "report_sha256": "235cccd5ef82dc45edd4f2c0aa4ac93552c1e756ebd5c186072802713905bf62",
+      "observed_header": "报告日期：2026-10-04；范围：2026-10-05–2026-10-18，含首尾日期；窗口：[2026-10-05 00:00, 2026-10-19 00:00)；显示时区：Asia/Shanghai；信息截止：2026-10-04 09:00 +08:00（2026-10-04T01:00:00Z）。",
+      "independent_math": {
+        "report_timezone": "Asia/Shanghai",
+        "current_local": "2026-10-04T09:00:00+08:00",
+        "window_start_local": "2026-10-05T00:00:00+08:00",
+        "window_end_exclusive_local": "2026-10-19T00:00:00+08:00",
+        "window_start_utc": "2026-10-04T16:00:00+00:00",
+        "window_end_exclusive_utc": "2026-10-18T16:00:00+00:00",
+        "calendar_days": 14
+      },
+      "checks": {
+        "metadata_matches_independent_zoneinfo": true,
+        "all_sections_present": true,
+        "four_column_table": true,
+        "source_identity_date_url_preserved": true,
+        "no_source_timezone_hour_filled": true,
+        "manual_full_report_review": "PASS: source date remains date-only; null/unknown timezone and hour present in appendix; report/client timezones are not assigned to event; no invented event instant or completed implementation."
+      }
+    },
+    {
+      "id": "weekly-Los_Angeles",
+      "status": "PASS",
+      "report_path": "local-only/timezone-readability/weekly-Los_Angeles-report.md",
+      "report_sha256": "a659b18d6ff84cfe1c5bf2585751c7f7efb9a0d32a6db2fc60c6c1e528c42f60",
+      "observed_header": "报告日期：2026-10-04；范围：2026-10-05–2026-10-18，含首尾日期；窗口：[2026-10-05 00:00, 2026-10-19 00:00)；显示时区：Asia/Shanghai；信息截止：2026-10-04 09:00 +08:00（2026-10-04T01:00:00Z）。",
+      "independent_math": {
+        "report_timezone": "Asia/Shanghai",
+        "current_local": "2026-10-04T09:00:00+08:00",
+        "window_start_local": "2026-10-05T00:00:00+08:00",
+        "window_end_exclusive_local": "2026-10-19T00:00:00+08:00",
+        "window_start_utc": "2026-10-04T16:00:00+00:00",
+        "window_end_exclusive_utc": "2026-10-18T16:00:00+00:00",
+        "calendar_days": 14
+      },
+      "checks": {
+        "metadata_matches_independent_zoneinfo": true,
+        "all_sections_present": true,
+        "four_column_table": true,
+        "source_identity_date_url_preserved": true,
+        "no_source_timezone_hour_filled": true,
+        "manual_full_report_review": "PASS: source date remains date-only; null/unknown timezone and hour present in appendix; report/client timezones are not assigned to event; no invented event instant or completed implementation."
+      }
+    }
+  ],
+  "freeze_checks": [
+    {
+      "path": "jdy_finance_skills/macro/skills/catalyst-calendar/SKILL.md",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/commands/catalyst.md",
+      "unchanged": true
+    },
+    {
+      "path": "docs/automation/catalyst-calendar-prompt.txt",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/skills/catalyst-calendar/references/readable-preview.md",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/skills/macro-dashboard/references/company-ir-browser.md",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/skills/macro-dashboard/references/web-sources-browser.md",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/skills/macro-dashboard/references/token-unlocks-browser.md",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/skills/macro-dashboard/references/fomc-browser.md",
+      "unchanged": true
+    },
+    {
+      "path": "jdy_finance_skills/macro/skills/macro-dashboard/references/official-x-browser.md",
+      "unchanged": true
+    }
+  ],
+  "all_tested_cases_pass": true,
+  "entry_consistency": "PASS within the eight cases: skill and command agree; default Shanghai unaffected by client local date; explicit LA changes report date/window/cutoff; weekly uses explicit Shanghai and next-Monday 14 calendar-day rule.",
+  "limitations": [
+    "Single agent sequential authoring has shared context; not blind independent eight-model sampling.",
+    "No real source capture, current-time service, 20:00 scheduled trigger or production run was tested.",
+    "Date-only event cannot verify known-source event-hour conversion or explicit-LA chronological sorting.",
+    "Shared readable-preview source still contains Beijing-specific ordering/template/company appendix wording; explicit alternate report timezone behavior for known event instants remains ambiguous and outside these eight cases.",
+    "No date-only current context or DST-transition boundary case supplied."
+  ],
+  "tested_content_commit": "e1327e328580384383180a55a917e600b2a27189",
+  "raw_input_public": "2026-10-06-catalyst-readable-timezone-inputs.json"
+}

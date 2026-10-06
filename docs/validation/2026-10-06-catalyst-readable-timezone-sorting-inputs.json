@@ -1,0 +1,61 @@
+{
+  "purpose": "仅2例有界合成排序补验；不覆盖或修改原8例原稿及原测试版本限制",
+  "common": {
+    "current_instant": "2026-10-06T01:00:00Z",
+    "client_context": {
+      "timezone": "Asia/Shanghai",
+      "local_date": "2026-10-06",
+      "local_time": "09:00"
+    },
+    "report_timezone_request": "America/Los_Angeles",
+    "window_rule": "以报告显示时区本日00:00起连续14个日历日，含本日，終点不含",
+    "baseline": null,
+    "coverage": "仅给三个公司安排；其他类别未提供，非全市场覆盖",
+    "events": [
+      {
+        "identity": "EARLY-investor-day",
+        "event": "EARLY投资者日",
+        "source_datetime": "2026-10-12T00:30:00Z",
+        "source_timezone": "UTC",
+        "scope": "单一标的",
+        "impact": "L",
+        "reason": "公司更新",
+        "source": "https://early.example/ir",
+        "evidence": "合成输入官方明示源UTC日期/时刻及来源身份"
+      },
+      {
+        "identity": "LATE-investor-day",
+        "event": "LATE投资者日",
+        "source_datetime": "2026-10-12T07:30:00Z",
+        "source_timezone": "UTC",
+        "scope": "单一标的",
+        "impact": "L",
+        "reason": "公司更新",
+        "source": "https://late.example/ir",
+        "evidence": "合成输入官方明示源UTC日期/时刻及来源身份"
+      },
+      {
+        "identity": "DEMO-company-date-only",
+        "event": "DEMO投资者日",
+        "source_date": "2026-10-12",
+        "source_timezone": null,
+        "source_hour": null,
+        "scope": "单一标的",
+        "impact": "L",
+        "reason": "公司更新",
+        "source": "https://demo.example/ir",
+        "evidence": "合成输入明确官方日期计划；来源身份在合成输入已明示"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "skill-explicit-LA-sorting",
+      "entry": "skill"
+    },
+    {
+      "id": "command-explicit-LA-sorting",
+      "entry": "command"
+    }
+  ]
+}
