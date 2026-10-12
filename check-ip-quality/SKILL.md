@@ -5,92 +5,37 @@ description: "检查或比较公网 IP 的信誉、归属和代理风险时使�
 
 # Check IP Quality
 
-## Overview
-
-Use this skill to evaluate whether an IP is clean, risky, or unsuitable for a specific use case. Prefer evidence from multiple public sources over one score.
-
-For user-facing answers in this vault, report in Chinese. Keep skill-facing notes, scripts, and source comments in English.
+Evaluate a public IP using traceable evidence and the intended use. Report in Chinese. Read [evidence rules](references/evidence-rules.md) when interpreting DNSBL categories, coverage, or vendor risk thresholds.
 
 ## Workflow
 
-1. Identify the target IP.
-   - If the user says "current IP", query at least two egress sources such as `https://api.ipify.org`, `https://ifconfig.me/ip`, and `https://icanhazip.com`.
-   - If the sources disagree, state that the environment may be using multiple exits and evaluate each visible IP separately.
-2. Run the bundled evidence collector:
+1. Identify the target and use case: browsing/development, account/platform, or direct email sending. If unspecified, report all three. For “current IP”, query at least two HTTPS egress sources (for example `https://api.ipify.org` and `https://ifconfig.me/ip`). Label the queried environment: terminal egress does not prove browser egress. If exits differ, report each separately; never choose one silently.
+2. Resolve this skill's real directory (it may be symlinked). Run from that directory:
+
+   ```bash
+   python3 scripts/check_ip_quality.py <ip>
+   python3 scripts/check_ip_quality.py <ip> --use-case account --format json
+   ```
+
+   Python standard library, curl >=8.4.0, and optional whois are used. Do not install or upgrade dependencies as part of a lookup. Default total query budget is 90 seconds; `--budget 30` can shorten it. Non-global IPs are rejected. IPv4-mapped IPv6 is normalized to IPv4; IPv6 DNSBL checks are explicitly unsupported.
+3. Inspect source status, fields, gaps, DNSBL controls, and the use-case assessment. A failed/unavailable source remains unknown; it is neither a blacklist hit nor a clean result. The script has no synthetic 0–100 quality score. ProxyCheck's original risk score is vendor evidence, not a probability.
+4. Return a conclusion first, followed by useful evidence, missing checks, use-case advice, timestamps, and source links. Distinguish observed risk, no adverse signal in the checked sources, and insufficient evidence. Keep positive findings visible even with missing checks. Never turn a limited negative result into a blanket “clean IP” claim.
+
+## Interpretation boundaries
+
+- Hosting/VPN can be acceptable for browsing and development. Account use is sensitive to hosting/proxy/VPN/Tor labels, but this does not prove maliciousness or predict platform acceptance.
+- Spamhaus PBL is a direct-to-MX email policy listing. It does not imply poor browsing/account reputation or inability to use an authenticated SMTP relay.
+- DNSBL positives require this run's same-path positive and negative controls to pass. Provider error codes, wildcard answers, failed controls, incomplete CNAMEs, and unsupported answers remain unknown. Google DoH cannot bypass a provider's public-resolver restrictions. If restricted, cite the official checker as an uncompleted manual check; do not read keys or configure accounts.
+- ASN/RDAP registration country is not an egress geolocation measurement. Shodan is historical supporting evidence; no data does not mean no exposure. PTR lookup failure differs from confirmed missing PTR; PTR presence alone does not establish correct mail configuration.
+- CleanTalk is optional manual supporting evidence. Blocked/anti-crawler pages are inconclusive. Ping is not collected and must not be invented.
+- Do not infer dedicated ownership, genuine residential use, target-platform access, current infection, or future reputation from these databases. Website/API lookup failure is not an IP risk signal.
+
+When comparing IPs, use identical use cases and coverage rules. An IP with fewer completed checks is not cleaner. Keep classification labels separate from confirmed abuse categories and describe the scope of each source.
+
+## Verification after changes
 
 ```bash
-python3 /Users/jdy/Documents/skills/check-ip-quality/scripts/check_ip_quality.py <ip>
+python3 -B -m unittest discover -s tests -v
 ```
 
-3. If the script cannot reach a source, continue with available evidence and say which checks were unavailable. Do not treat source failure as an IP risk signal.
-4. Interpret the evidence for the user's intended use case:
-   - Normal browsing / development testing: tolerate hosting and some proxy labels if no blacklist is present.
-   - Account registration, login, social platforms, payments, ads: penalize hosting, VPN, proxy, shared Cloudflare/WARP exits, DNSBL hits, and inconsistent geography.
-   - Email sending: require clean DNSBL, PTR/rDNS, non-proxy reputation, and preferably a dedicated mail-friendly ASN. No PTR is a meaningful negative.
-5. Return a concise verdict with a score, table of key signals, and use-case recommendations.
-
-## Evidence Sources
-
-Prefer these checks:
-
-- `proxycheck.io` API for `proxy`, `type`, `risk`, ASN, provider, country, and range.
-- Team Cymru whois for BGP ASN and routed prefix.
-- RDAP (`rdap.org` or registry RDAP) for registered holder and allocation range.
-- PTR/rDNS with `dig -x`.
-- Google DoH DNSBL lookups for Spamhaus, SpamCop, Barracuda, SORBS, SpamRATS, InterServer, DroneBL, PSBL, and Mailspike.
-- DroneBL lookup page or DNS TXT for incident class details.
-- Shodan InternetDB for exposed services when available.
-- CleanTalk only as supporting evidence; ignore "Anti-Crawler" or blocked pages as inconclusive.
-
-Avoid relying on local resolver DNSBL responses. If local `dig` returns fake-IP ranges such as `198.18.0.0/15` across many DNSBL zones, discard those results and use DNS-over-HTTPS instead.
-
-## Scoring Heuristic
-
-Use the script score as a starting point, then adjust with judgment:
-
-- `85-100`: clean or low-risk IP.
-- `70-84`: usable, but with tradeoffs such as hosting ASN or missing PTR.
-- `50-69`: risky for account or platform use; may still work for browsing/API.
-- `<50`: poor quality for trust-sensitive use.
-
-Major negative signals:
-
-- `proxy=yes`, `VPN`, `Proxy`, `Tor`, `Open SOCKS proxy`, `Open HTTP proxy`.
-- SpamCop, DroneBL, Spamhaus, or multiple DNSBL listings.
-- Cloudflare `AS13335` plus VPN/proxy labeling, often WARP/Gateway-like egress.
-- Hosting/datacenter ASN when the user needs "real user" behavior.
-- No PTR for mail-related use.
-
-Do not over-penalize:
-
-- Ping failure by itself. Many hosts and Cloudflare-like networks block ICMP.
-- One unavailable website/API.
-- Generic "hosting" when the user only needs server/API access.
-
-## Report Shape
-
-Use this structure unless the user asks for raw output:
-
-```markdown
-`<ip>` 查完了。结论：<one sentence with score and suitability>.
-
-| 项目 | 结果 |
-|---|---|
-| ASN | ... |
-| 归属 | ... |
-| proxy/VPN | ... |
-| 地理 | ... |
-| DNSBL | ... |
-| PTR | ... |
-| Shodan | ... |
-| Ping | ... |
-
-使用建议：
-- 普通浏览 / 开发测试：...
-- 注册 / 登录 / 社媒 / 支付 / 广告：...
-- 邮件发送：...
-
-参考源：...
-```
-
-When comparing several IPs, normalize scores to the same rubric and call out whether differences are per-IP or inherited from the same `/24`, ASN, or provider.
+The suite includes offline response fixtures and a loopback chunked-body limit check using the existing curl. Live checks are separate evidence and must not be claimed from fixtures.
