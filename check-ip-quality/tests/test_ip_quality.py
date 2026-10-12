@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import unittest
@@ -84,6 +85,14 @@ class InputTests(unittest.TestCase):
             self.assertEqual(m.main(['10.0.0.1']), 2)
             self.assertEqual(m.main([IP, '--budget', 'nan']), 2)
             collect.assert_not_called()
+
+    def test_site_local_ipv6_rejected_before_collection(self):
+        for ip in ('fec0::1', 'fedf:ffff::1', 'feff:ffff:ffff:ffff::1'):
+            with self.subTest(ip=ip), self.assertRaises(ValueError):
+                m.normalize_ip(ip)
+            with patch.object(m, 'collect') as collect, contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(m.main([ip]), 2)
+                collect.assert_not_called()
 
 
 class DNSParsingTests(unittest.TestCase):
@@ -175,8 +184,65 @@ class DNSParsingTests(unittest.TestCase):
         body['Authority'][0]['name'] = 'different.example'
         self.assertEqual(m.dnsbl_reply(response(body), NAME, ZONE)['status'], 'unknown')
 
+    def test_soa_names_and_all_uint32_fields_validated(self):
+        for field in ('4294967296', '-1', '１', '9' * 5000):
+            for position in range(2, 7):
+                body = dns(soa=True)
+                parts = body['Authority'][0]['data'].split()
+                parts[position] = field
+                body['Authority'][0]['data'] = ' '.join(parts)
+                with self.subTest(field=field[:20], position=position):
+                    self.assertEqual(m.dnsbl_reply(response(body), NAME, ZONE)['status'], 'unknown')
+        for name in ('a..example.', 'a' * 64 + '.example.', '.', 'bad\\032name.example.'):
+            for position in (0, 1):
+                body = dns(soa=True)
+                parts = body['Authority'][0]['data'].split()
+                parts[position] = name
+                body['Authority'][0]['data'] = ' '.join(parts)
+                self.assertEqual(m.dnsbl_reply(response(body), NAME, ZONE)['status'], 'unknown')
+        body = dns(soa=True)
+        body['Authority'][0]['data'] = 'ns.example.org. hostmaster.example.org. ' + ' '.join(['4294967295'] * 5)
+        self.assertEqual(m.dnsbl_reply(response(body), NAME, ZONE)['status'], 'not_listed')
+
 
 class CollectorTests(unittest.TestCase):
+    def test_malformed_dns_content_in_collect_preserves_other_positive(self):
+        for field in ('dronebl', 'soa', 'ptr'):
+            for other_positive in (False, True):
+                with self.subTest(field=field, other_positive=other_positive):
+                    client = FakeClient()
+                    original_dns = client.dns
+                    def malformed(name, qtype=1):
+                        if field == 'ptr' and name.endswith('.arpa'):
+                            return response(dns(name, ['a..example.'], qtype=12))
+                        if not name.startswith(('2.0.0.127.', '1.0.0.127.')):
+                            if field == 'dronebl' and name.endswith('dnsbl.dronebl.org'):
+                                return response(dns(name, ['127.0.0.' + '9' * 5000]))
+                            if field == 'soa' and name.endswith('dnsbl.dronebl.org'):
+                                body = dns(name, soa=True)
+                                body['Authority'][0]['name'] = 'dnsbl.dronebl.org.'
+                                body['Authority'][0]['data'] = 'ns.example.org. hostmaster.example.org. 4294967296 1 1 1 1'
+                                return response(body)
+                            if other_positive and name.endswith(ZONE) and qtype == 1:
+                                return response(dns(name, ['127.0.0.4']))
+                        return original_dns(name, qtype)
+                    client.dns = malformed
+                    report = m.collect(IP, client=client)
+                    key = 'ptr' if field == 'ptr' else 'dnsbl.dronebl.org'
+                    self.assertEqual(report['sources'][key]['status'], 'unknown')
+                    self.assertEqual(report['assessments']['mail']['verdict'],
+                                     'observed_risk' if other_positive else 'insufficient_evidence')
+
+    def test_ptr_dns_name_label_and_total_boundaries(self):
+        valid = ('a' * 63 + '.example.', '.'.join(['a' * 63] * 3 + ['b' * 61]) + '.')
+        invalid = ('a..example.', 'a' * 64 + '.example.', 'example..',
+                   '.'.join(['a' * 63] * 3 + ['b' * 62]) + '.')
+        for hostname in (*valid, *invalid):
+            client = FakeClient()
+            client.json = lambda url: response(dns('8.8.8.8.in-addr.arpa', [hostname], qtype=12))
+            source = m.get_ptr(client, IP)
+            self.assertEqual(source['status'], 'ok' if hostname in valid else 'unknown')
+
     def test_positive_control_nxdomain_invalidates_negative(self):
         client = FakeClient()
         client.dns = lambda name, qtype=1: response(dns(name, status=3))
@@ -291,6 +357,7 @@ class CollectorTests(unittest.TestCase):
             self.assertEqual(result['status'], 'ok')
             self.assertEqual(result['data']['asn'], '15169')
             self.assertTrue(command.call_args.args[0][-1].startswith(' -v '))
+            self.assertEqual(command.call_args.kwargs['max_output'], m.MAX_BODY)
 
     def test_shodan_malformed_object_unknown(self):
         client = FakeClient()
@@ -474,6 +541,55 @@ class TransportTests(unittest.TestCase):
                 self.assertEqual(client.command(['curl'])['stdout'], b'')
                 self.assertIsNotNone(client.command(['curl'])['error'])
 
+    def test_real_whois_stream_overflow_reaped_and_not_accepted(self):
+        client = self.client()
+        original_command = client.command
+        producer = "import sys; sys.stdout.buffer.write(b'15169 | 8.8.8.8 | 8.8.8.0/24 | US | arin | 2023-12-28 | GOOGLE\\n'); sys.stdout.buffer.write(b'x' * 2097152); sys.stdout.flush()"
+        processes, received = [], []
+        popen, read = subprocess.Popen, m.os.read
+        def track_popen(*args, **kwargs):
+            proc = popen(*args, **kwargs)
+            processes.append(proc)
+            self.assertEqual(kwargs['stderr'], subprocess.DEVNULL)
+            return proc
+        def track_read(fd, count):
+            data = read(fd, count)
+            received.append(len(data))
+            return data
+        def substitute(argv, **kwargs):
+            return original_command([sys.executable, '-c', producer], **kwargs)
+        with patch.object(m.subprocess, 'Popen', side_effect=track_popen), patch.object(m.os, 'read', side_effect=track_read), patch.object(client, 'command', side_effect=substitute):
+            source = m.get_cymru(client, IP)
+        self.assertEqual(source['status'], 'unknown')
+        self.assertIn('体积', source['error'])
+        self.assertEqual(sum(received), m.MAX_BODY + 1)
+        self.assertLess(sum(received), 2097152)
+        self.assertIsNotNone(processes[0].returncode)
+        self.assertTrue(processes[0].stdout.closed)
+
+    def test_bounded_process_exact_cap_timeout_and_nonzero(self):
+        client = self.client()
+        cases = (("import sys; sys.stdout.buffer.write(b'x' * 32)", 1, None),
+                 ("import time; time.sleep(2)", 0.05, '超时'),
+                 ("raise SystemExit(7)", 1, '退出码 7'))
+        for program, timeout, error in cases:
+            result = client.command([sys.executable, '-c', program], timeout=timeout, max_output=32)
+            if error:
+                self.assertEqual(result['stdout'], b'')
+                self.assertIn(error, result['error'])
+            else:
+                self.assertEqual(result['stdout'], b'x' * 32)
+                self.assertIsNone(result['error'])
+
+    def test_bounded_missing_command_and_exhausted_budget(self):
+        client = self.client()
+        with patch.object(m.subprocess, 'Popen', side_effect=FileNotFoundError()):
+            self.assertIsNotNone(client.command(['whois'], max_output=m.MAX_BODY)['error'])
+        client.deadline = time.monotonic() - 1
+        with patch.object(m.subprocess, 'Popen') as popen:
+            self.assertIsNotNone(client.command(['whois'], max_output=m.MAX_BODY)['error'])
+            popen.assert_not_called()
+
     def test_real_chunked_body_stops_before_full_buffer(self):
         if not shutil.which('curl'):
             self.fail('curl required to verify reviewed transport contract')
@@ -514,6 +630,41 @@ class TransportTests(unittest.TestCase):
 
 
 class ReportTests(unittest.TestCase):
+    def test_escaped_surrogates_through_json_to_real_utf8_cli_output(self):
+        payload = pc('yes', 'HTTP', 100)
+        payload[IP]['provider'] = '\ud800'
+        raw = json.dumps(payload).encode('ascii') + b'\n200'
+        with patch.object(m.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, b'curl 8.7.1 (system)\n', b'')):
+            transport = m.Client()
+        with patch.object(transport, 'command', return_value={'stdout': raw, 'error': None}):
+            parsed = transport.json('https://proxycheck.io/v2/8.8.8.8')
+        self.assertIsNone(parsed['error'])
+        client = FakeClient()
+        original_json, original_dns = client.json, client.dns
+        client.json = lambda url: parsed if 'proxycheck' in url else original_json(url)
+        def bad_dns(name, qtype=1):
+            if name.endswith('dnsbl.dronebl.org') and not name.startswith(('2.0.0.127.', '1.0.0.127.')):
+                return response(dns(name, ['\udfff']))
+            return original_dns(name, qtype)
+        client.dns = bad_dns
+        report = m.collect(IP, client=client)
+        self.assertEqual(report['sources']['dnsbl.dronebl.org']['status'], 'unknown')
+        self.assertEqual(report['sources']['proxycheck']['data']['provider'], '\ufffd')
+        for format in ('json', 'markdown'):
+            buffer = io.BytesIO()
+            stream = io.TextIOWrapper(buffer, encoding='utf-8', errors='strict')
+            with patch.object(m, 'collect', return_value=report), contextlib.redirect_stdout(stream):
+                self.assertEqual(m.main([IP, '--format', format]), 0)
+            stream.flush()
+            content = buffer.getvalue().decode('utf-8')
+            self.assertTrue(content)
+            if format == 'json':
+                decoded = json.loads(content)
+                self.assertEqual(decoded['assessments']['browsing']['verdict'], 'observed_risk')
+            else:
+                self.assertIn('observed_risk', content)
+            stream.detach()
+
     def test_mock_cli_integration_json_markdown_same_verdict(self):
         report = m.collect(IP, client=FakeClient())
         for format in ('json', 'markdown'):

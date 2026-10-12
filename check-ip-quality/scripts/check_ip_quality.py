@@ -6,7 +6,9 @@ import argparse
 import datetime as dt
 import ipaddress
 import json
+import os
 import re
+import selectors
 import subprocess
 import sys
 import time
@@ -47,10 +49,21 @@ def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')
 
 
+def output_safe(value: Any) -> Any:
+    """Keep the shared evidence model encodable, including diagnostic strings."""
+    if isinstance(value, str):
+        return re.sub(r'[\ud800-\udfff]', '\ufffd', value)
+    if isinstance(value, list):
+        return [output_safe(v) for v in value]
+    if isinstance(value, dict):
+        return {output_safe(k): output_safe(v) for k, v in value.items()}
+    return value
+
+
 def evidence(source: str, url: str, status: str = 'unknown',
              data: dict | None = None, error: str | None = None) -> dict:
-    return dict(source=source, url=url, checked_at_utc=utc_now(), status=status,
-                data=data or {}, error=error)
+    return output_safe(dict(source=source, url=url, checked_at_utc=utc_now(), status=status,
+                            data=data or {}, error=error))
 
 
 def normalize_ip(value: str) -> str:
@@ -60,7 +73,8 @@ def normalize_ip(value: str) -> str:
     addr = ipaddress.ip_address(value.strip())
     if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
         addr = addr.ipv4_mapped
-    if not addr.is_global or addr.is_multicast or addr.is_reserved or addr.is_unspecified:
+    if (not addr.is_global or addr.is_multicast or addr.is_reserved or addr.is_unspecified or
+        (isinstance(addr, ipaddress.IPv6Address) and addr.is_site_local)):
         raise ValueError('只接受全球公网单播 IP，不接受私网、保留或回环地址')
     return str(addr)
 
@@ -81,11 +95,13 @@ class Client:
     def remaining(self) -> float:
         return max(0.0, self.deadline - time.monotonic())
 
-    def command(self, argv: list[str], timeout: float = 10) -> dict:
+    def command(self, argv: list[str], timeout: float = 10, max_output: int | None = None) -> dict:
         remaining = self.remaining()
         if remaining <= 0.01:
             return dict(stdout=b'', error='全局查询预算已耗尽')
         try:
+            if max_output is not None:
+                return self.bounded_command(argv, min(timeout, remaining), max_output)
             proc = subprocess.run(argv, capture_output=True,
                                   timeout=min(timeout, remaining), check=False)
         except subprocess.TimeoutExpired:
@@ -97,6 +113,40 @@ class Client:
         if proc.returncode:
             return dict(stdout=b'', error=f'查询命令失败（退出码 {proc.returncode}）')
         return dict(stdout=proc.stdout, error=None)
+
+    def bounded_command(self, argv: list[str], timeout: float, max_output: int) -> dict:
+        """Bound WHOIS while receiving, discard stderr, always kill/reap on failure."""
+        deadline = min(self.deadline, time.monotonic() + timeout)
+        proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        selector = selectors.DefaultSelector()
+        data = bytearray()
+        try:
+            selector.register(proc.stdout, selectors.EVENT_READ)
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not selector.select(remaining):
+                    return dict(stdout=b'', error='查询超时')
+                # Read at most one byte beyond the cap to distinguish exact-size EOF.
+                chunk = os.read(proc.stdout.fileno(), min(16384, max_output + 1 - len(data)))
+                if not chunk:
+                    break
+                data.extend(chunk)
+                if len(data) > max_output:
+                    return dict(stdout=b'', error='响应超过体积上限')
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return dict(stdout=b'', error='查询超时')
+            code = proc.wait(timeout=remaining)
+            if code:
+                return dict(stdout=b'', error=f'查询命令失败（退出码 {code}）')
+            return dict(stdout=bytes(data), error=None)
+        finally:
+            selector.close()
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait()
+            proc.stdout.close()
 
     def json(self, url: str) -> dict:
         if self.http_error:
@@ -136,7 +186,15 @@ class Client:
 def short_text(value: Any, limit: int = 160) -> str | None:
     if not isinstance(value, str) or not value.strip():
         return None
-    return re.sub(r'[\x00-\x1f\x7f]', ' ', value.strip())[:limit]
+    return re.sub(r'[\x00-\x1f\x7f]', ' ', output_safe(value.strip()))[:limit]
+
+
+def valid_dns_name(value: str) -> bool:
+    # Conservatively support simple ASCII DNS names; reject escaped/other forms.
+    name = value[:-1] if value.endswith('.') else value
+    return (1 <= len(name) <= 253 and all(
+        re.fullmatch(r'[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?', label)
+        for label in name.split('.')))
 
 
 def parse_proxycheck(body: Any, ip: str) -> tuple[dict, str | None]:
@@ -221,8 +279,10 @@ def dns_records(body: Any, name: str, qtype: int) -> dict:
         if row['type'] == 6 and owner and (norm(name) == owner or norm(name).endswith('.' + owner)):
             # RFC1035 SOA: MNAME RNAME plus five numeric fields.
             parts = row['data'].split()
-            if len(parts) == 7 and all(p.isdecimal() for p in parts[2:]):
-                soa = True
+            if (len(parts) != 7 or not all(valid_dns_name(p) for p in parts[:2]) or
+                not all(re.fullmatch(r'[0-9]{1,10}', p) and int(p) <= 4294967295 for p in parts[2:])):
+                return unknown('相关 SOA 内容无效')
+            soa = True
     if body['Status'] == 3:
         return unknown('NXDOMAIN 与 Answer 矛盾') if answers else dict(state='absent', values=[], error=None)
     if values:
@@ -301,16 +361,16 @@ def get_ptr(client: Client, ip: str) -> dict:
     parsed = dns_records(response['body'], name, 12)
     if parsed['error']:
         return evidence('PTR/rDNS', url, error=parsed['error'])
-    hostnames = [value.rstrip('.') for value in parsed['values']]
-    if any(not re.fullmatch(r'[a-zA-Z0-9_.-]{1,253}', h) for h in hostnames):
+    if any(not valid_dns_name(value) for value in parsed['values']):
         return evidence('PTR/rDNS', url, error='PTR 主机名格式无效')
+    hostnames = [value[:-1] if value.endswith('.') else value for value in parsed['values']]
     return evidence('PTR/rDNS', url, 'ok', {'records': hostnames, 'record_status': parsed['state']})
 
 
 def get_cymru(client: Client, ip: str) -> dict:
     url = 'https://www.team-cymru.com/ip-asn-mapping'
     # Leading space keeps macOS whois from interpreting the remote '-v' query as a local option.
-    result = client.command(['whois', '-h', 'whois.cymru.com', f' -v {ip}'])
+    result = client.command(['whois', '-h', 'whois.cymru.com', f' -v {ip}'], max_output=MAX_BODY)
     if result['error']:
         return evidence('Team Cymru', url, error=result['error'])
     try:

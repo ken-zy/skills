@@ -8,6 +8,8 @@ Each enabled IPv4 zone (Spamhaus ZEN, SpamCop, DroneBL) must pass fresh same-res
 
 Validate DNS Status, `TC=false`, Question name/type, answer owners/types and record structure. NXDOMAIN must have no contradictory Answer. NOERROR absence requires a relevant SOA with valid fields. CNAMEs are conservatively unknown. TXT is only supporting evidence. DNSBL response codes must match the provider map; mixed valid/invalid answers remain unknown.
 
+SOA MNAME/RNAME and PTR use conservative ASCII DNS names: nonempty labels, at most 63 characters per label and 253 characters overall (excluding one terminal dot). Unsupported escaped names are unknown. All five SOA numeric fields must be ASCII unsigned 32-bit integers. Deprecated IPv6 site-local addresses are rejected before lookup.
+
 - Spamhaus: SBL `.2`, CSS `.3`, XBL `.4`, DROP `.9`, PBL `.10/.11`, BCL `.30` in `127.0.0.x`. Error codes and all other answers are unknown. PBL affects direct-MX mail only.
 - SpamCop: `127.0.0.2` means reported spam.
 - DroneBL: use the official threat-class map in the collector. Testing/sample/uncategorized entries cannot supply negative coverage; no specific attack is invented. Experimental or possible-compromise categories retain those qualifications.
@@ -41,6 +43,8 @@ A confirmed missing PTR is a direct-mail configuration risk, whereas a failed lo
 ## Transport and privacy
 
 curl must be identifiable as >=8.4.0 before HTTP. First argument `-q` disables curlrc; no automatic or manual decompression. HTTPS-only redirects, 512 KiB transport-time body cap, per-request hard timeout and shared monotonic deadline are enforced. Failed/oversized responses are not parsed; raw stderr, webpages, RDAP personal contacts and credentials are not printed. No new packages are required.
+
+WHOIS stdout is capped during receipt at 512 KiB, with only one extra byte read to detect overflow; stderr is discarded. Overflow or timeout terminates and reaps the process and yields unknown, even if a valid record preceded the overflow. External lone surrogate code points are replaced with U+FFFD in the shared evidence model, including diagnostic text, so JSON/Markdown UTF-8 output retains other valid evidence.
 
 ## Primary references (checked 2026-10-12)
 
