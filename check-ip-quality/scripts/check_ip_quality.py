@@ -35,10 +35,12 @@ DRONEBL = {
     15: 'compromised_gateway', 16: 'worm', 17: 'experimental_botnet',
     18: 'possibly_compromised_dns_mx', 19: 'abused_vpn', 255: 'uncategorized',
 }
-TYPE_NAMES = {
-    'business', 'residential', 'wireless', 'hosting', 'vpn', 'tor',
-    'proxy', 'http', 'https', 'socks', 'socks4', 'socks5', 'compromised server',
+DRONEBL_A = {f'127.0.0.{code}': category for code, category in DRONEBL.items()}
+PROXY_TYPES = {
+    'vpn', 'tor', 'proxy', 'http', 'https', 'socks', 'socks4', 'socks4a',
+    'socks5', 'socks5h', 'shadowsocks', 'openvpn', 'scraper', 'inference engine',
 }
+TYPE_NAMES = {'business', 'residential', 'wireless', 'hosting', 'compromised server'} | PROXY_TYPES
 
 
 def utc_now() -> str:
@@ -164,7 +166,7 @@ def parse_proxycheck(body: Any, ip: str) -> tuple[dict, str | None]:
         value = short_text(item.get(key))
         if value:
             data[key] = value
-    if data.get('proxy') == 'no' and data.get('type', '').lower() in ('vpn', 'tor', 'proxy', 'http', 'https', 'socks', 'socks4', 'socks5'):
+    if data.get('proxy') == 'no' and data.get('type', '').lower() in PROXY_TYPES:
         missing.append('proxy/type 相互矛盾')
     data['complete'] = not missing
     data['missing_fields'] = missing
@@ -238,8 +240,8 @@ def classify_dnsbl(zone: str, values: list[str]) -> tuple[list[str], str | None]
         elif zone == 'bl.spamcop.net':
             category = 'reported_spam' if value == '127.0.0.2' else None
         else:
-            match = re.fullmatch(r'127\.0\.0\.(\d+)', value)
-            category = DRONEBL.get(int(match[1])) if match else None
+            # Exact ASCII address strings only: never normalize a malformed A code.
+            category = DRONEBL_A.get(value)
         if not category:
             return [], f'不支持或错误 DNSBL 返回码：{short_text(value)}'
         if category not in categories:
@@ -399,7 +401,7 @@ def assess(sources: dict, use_case: str) -> dict:
         elif risk is not None and ((proxy == 'no' and risk >= 67) or
                                   (proxy == 'yes' and typ == 'vpn' and risk >= 74)):
             risks.append(f'ProxyCheck 供应商风险判断达到保守阈值（原分 {risk}，不是恶意概率）')
-        if use_case == 'account' and (proxy == 'yes' or typ in ('hosting', 'vpn', 'tor', 'proxy', 'http', 'https', 'socks', 'socks4', 'socks5')):
+        if use_case == 'account' and (proxy == 'yes' or typ in PROXY_TYPES or typ == 'hosting'):
             risks.append('代理/VPN/Tor/机房标签可能影响平台风控，属于平台敏感性信号')
         if typ in ('hosting', 'vpn'):
             notes.append(f'{pc.get("type")} 类型可用于浏览/开发，但不能据此保证平台接受或独享')

@@ -18,6 +18,8 @@ Removed old or unverified zones and automated CleanTalk scraping must not be tre
 
 Only top-level `ok` or `warning` admits fields. A complete result requires proxy yes/no, a recognized type, and integer risk 0–100. Complete warnings remain usable and display a warning. Independently valid positive fields are retained on incomplete responses; they cannot supply negative coverage. Denied/error/unknown top-level statuses do not supply evidence.
 
+Recognized v2 non-VPN proxy types include OpenVPN, Shadowsocks, SOCKS4A, SOCKS5H, Scraper and Inference Engine as well as TOR/HTTP/HTTPS/SOCKS variants. OpenVPN here means a public proxy, distinct from the generic VPN service label; it does not inherit VPN's <=73 exception. Unknown future types remain incomplete and never supply negative coverage. DroneBL A codes use exact ASCII IPv4 strings; leading zeros, Unicode digits and valid/invalid mixtures are unknown.
+
 Browsing/direct-MX apply the vendor's conservative table:
 
 | Detection | Risk trigger |

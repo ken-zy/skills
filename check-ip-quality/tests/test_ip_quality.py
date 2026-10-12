@@ -126,6 +126,19 @@ class DNSParsingTests(unittest.TestCase):
         for values in (['198.18.0.1'], ['127.0.0.99'], ['127.0.0.2', '127.255.255.254'], ['8.8.8.8']):
             self.assertEqual(m.dnsbl_reply(response(dns(values=values)), NAME, ZONE)['status'], 'unknown')
 
+    def test_dronebl_requires_exact_ascii_ipv4_codes(self):
+        zone = 'dnsbl.dronebl.org'
+        name = '8.8.8.8.' + zone
+        for value in ('127.0.0.008', '127.0.0.0008', '127.0.0.0001',
+                      '127.0.0.８', '127.0.0.٨', '127.0.0.' + '8' * 5000):
+            with self.subTest(value=value[:40]):
+                result = m.dnsbl_reply(response(dns(name, [value])), name, zone)
+                self.assertEqual(result['status'], 'unknown')
+                self.assertEqual(result['categories'], [])
+        result = m.dnsbl_reply(response(dns(name, ['127.0.0.8', '127.0.0.008'])), name, zone)
+        self.assertEqual(result['status'], 'unknown')
+        self.assertEqual(result['categories'], [])
+
     def test_truncated_or_missing_tc_unknown(self):
         for value in (True, None, 0):
             body = dns(values=['127.0.0.2'])
@@ -286,6 +299,26 @@ class CollectorTests(unittest.TestCase):
 
 
 class PolicyTests(unittest.TestCase):
+    def test_documented_nonvpn_proxy_types_retain_positive(self):
+        for typ in ('OpenVPN', 'Shadowsocks', 'SOCKS4A', 'SOCKS5H', 'Scraper', 'Inference Engine'):
+            for risk in (0, 66, 73, 74, None):
+                with self.subTest(typ=typ, risk=risk):
+                    sources = base_sources('yes', typ, risk)
+                    data = sources['proxycheck']['data']
+                    self.assertEqual(data.get('type'), typ)
+                    self.assertEqual(data['complete'], risk is not None)
+                    for case in m.USE_CASES:
+                        result = m.assess(sources, case)
+                        self.assertEqual(result['verdict'], 'observed_risk')
+                        self.assertTrue(any('非 VPN 代理' in r for r in result['reasons']))
+                        if risk is None:
+                            self.assertTrue(result['gaps'])
+
+    def test_future_proxy_type_not_assumed_nonvpn(self):
+        sources = base_sources('yes', 'Future Mystery Type', 73)
+        self.assertFalse(sources['proxycheck']['data']['complete'])
+        self.assertEqual(m.assess(sources, 'browsing')['verdict'], 'insufficient_evidence')
+
     def test_proxycheck_status_contract(self):
         for status in ('ok', 'warning'):
             self.assertIsNone(m.parse_proxycheck(pc(status=status), IP)[1])
