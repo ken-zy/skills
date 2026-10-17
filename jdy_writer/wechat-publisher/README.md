@@ -22,7 +22,7 @@ Fork from [baoyu-skills/baoyu-post-to-wechat](https://github.com/JimLiu/baoyu-sk
 ## 用法
 
 ```bash
-cd /Users/jdy/Documents/obsidian/.claude/skills/jdy_writer/wechat-publisher
+cd /Users/jdy/Code/obsidian/.claude/skills/jdy_writer/wechat-publisher
 npx -y bun install   # 首次
 npx -y bun wechat-api.ts <markdown-file> \
   --title "191/1000 让 agent 替我决定" \

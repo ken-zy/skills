@@ -1,6 +1,6 @@
 ---
 name: ask-codex
-description: Use when jdy explicitly invokes /ask-codex to consult Codex (GPT-5.5, high effort) for diagnosis, review, second opinions, or any task where jdy wants Codex's raw response back in the main context. Auto-detects tmux: if running in tmux with a codex CLI pane in the same cwd, sends prompt to that pane (preserves codex's session memory); otherwise falls back to direct Bash bridge to companion.mjs.
+description: "Use when jdy explicitly invokes /ask-codex to consult Codex (GPT-5.5, high effort) for diagnosis, review, second opinions, or any task where jdy wants Codex's raw response back in the main context. Auto-detects tmux: if running in tmux with a codex CLI pane in the same cwd, sends prompt to that pane (preserves codex's session memory); otherwise falls back to direct Bash bridge to companion.mjs."
 ---
 
 # ask-codex
