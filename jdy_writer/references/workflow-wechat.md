@@ -121,7 +121,7 @@ Prompt: <完整的英文 prompt，按 6.1.3 规则>
   #   R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / IMG_SUBDOMAIN / R2_BUCKET / R2_ACCOUNT_ID
   # 这些变量 *不在* shell startup config 中——必须显式 source；不要尝试读取 env 文件内容（含密钥）
   set -a && source /Users/jdy/.config/r2-pipeline/env && set +a
-  R2_URL="$(bash /Users/jdy/Documents/obsidian/scripts/r2-upload.sh \
+  R2_URL="$(bash /Users/jdy/Code/obsidian/scripts/r2-upload.sh \
     "/tmp/jdy-writer-illustrations/<topic-slug>/NN-<slug>.png" \
     "illustrations/<YYYYMMDD>-<topic-slug>-NN-<slug>")"
   ```
@@ -161,7 +161,7 @@ Prompt: <按 cover-design-framework.md 规则的英文 prompt，含 16:9>
 ```bash
 # r2-upload.sh 需要 5 个 env vars，必须先 source（参考 6.1.5）
 set -a && source /Users/jdy/.config/r2-pipeline/env && set +a
-COVER_URL="$(bash /Users/jdy/Documents/obsidian/scripts/r2-upload.sh \
+COVER_URL="$(bash /Users/jdy/Code/obsidian/scripts/r2-upload.sh \
   "/tmp/jdy-writer-cover/<YYYYMMDD>-cover.png" \
   "illustrations/<YYYYMMDD>-cover")"
 # r2-upload.sh: cwebp q=90 + wrangler put + 删 /tmp/.../cover.png 本地副本
