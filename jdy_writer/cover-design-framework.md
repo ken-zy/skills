@@ -124,8 +124,8 @@
 
 ## 输出位置
 
-封面图最终路径：`60_Output/公众号/{YYYYMM}/attachments/cover.png`
+临时封面放 Vault 外，如 `/tmp/jdy-writer-cover/{YYYYMMDD}-cover.png`；不创建 Vault 内的 attachments 目录。
 
-R2 上传 key：`illustrations/{YYYYMMDD}-cover.png`（多版本：`-cover-v2.png`）
+按[公众号流程](references/workflow-wechat.md#623-r2-上传--正文嵌入)上传并核验后引用：`https://img.jdy.systems/illustrations/{YYYYMMDD}-cover.webp`（多版本用 `-v2` 后缀）。上传脚本可能删除输入副本，原始生成文件应另行保留。
 
-R2 公网 URL：`https://pub-48c71f8223274ef1bc0c403d79a30f15.r2.dev/illustrations/{YYYYMMDD}-cover.png`
+这里是文章封面规范；视频封面独立选择，不能把文章封面作为视频封面的默认回退。
