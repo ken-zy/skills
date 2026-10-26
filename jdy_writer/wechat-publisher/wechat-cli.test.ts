@@ -1,0 +1,67 @@
+import { test, expect } from "bun:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+// Full CLI with fake credentials and in-process fake API. No real WeChat/R2 request is allowed.
+test("CLI roundtrip: metadata -> original URL, one create, cached images, one in-place update, stable number", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wechat-cli-test-"));
+  const file = path.join(dir, "article.md");
+  const state = path.join(dir, "state.json");
+  const image = path.join(dir, "image.png");
+  const api = path.join(import.meta.dir, "wechat-api.ts");
+  const remote = path.join(dir, "remote.json");
+  const log = path.join(dir, "calls.jsonl");
+  const prelude = `
+    import fs from "node:fs";
+    const remote=${JSON.stringify(remote)}, log=${JSON.stringify(log)};
+    globalThis.fetch=async(input,init)=>{
+      const url=String(input); const pathname=new URL(url).pathname;
+      fs.appendFileSync(log,JSON.stringify({pathname})+"\\n");
+      if(url==="https://img.example/0") return new Response(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6X1sAAAAASUVORK5CYII=","base64"),{headers:{"Content-Type":"image/png"}});
+      if(!url.startsWith("https://api.weixin.qq.com/")) throw new Error("Unexpected request");
+      if(pathname.endsWith("/token")) return Response.json({access_token:"FAKE_TOKEN"});
+      if(pathname.endsWith("/uploadimg")) return Response.json({url:"https://mmbiz.qpic.cn/body"});
+      if(pathname.endsWith("/add_material")) return Response.json({media_id:"cover",url:"https://mmbiz.qpic.cn/cover"});
+      const payload=JSON.parse(init.body);
+      if(pathname.endsWith("/add")){fs.writeFileSync(remote,JSON.stringify(payload.articles[0]));return Response.json({media_id:"same-draft"});}
+      if(pathname.endsWith("/get")) return Response.json({news_item:[JSON.parse(fs.readFileSync(remote,"utf8"))]});
+      if(pathname.endsWith("/update")){fs.writeFileSync(remote,JSON.stringify(payload.articles));return Response.json({errcode:0});}
+      throw new Error("Unexpected endpoint");
+    };
+    process.argv=[process.execPath,${JSON.stringify(api)},...JSON.parse(process.env.FAKE_ARGS)];
+    await import(${JSON.stringify(api)});
+  `;
+  const run = (extra: string[]) => Bun.spawnSync([process.execPath, "-e", prelude], {
+    cwd: dir,
+    env: { ...process.env, HOME: dir, WECHAT_APP_ID: "FAKE_APP", WECHAT_APP_SECRET: "FAKE_SECRET", FAKE_ARGS: JSON.stringify([file, "--state-file", state, ...extra]) },
+  });
+  try {
+    fs.writeFileSync(image, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6X1sAAAAASUVORK5CYII=", "base64"));
+    fs.writeFileSync(file, '# Title\n\nBody one.\n\n![](./image.png)\n\n[观看宣传片](https://v.example/one.mp4)\n\n<!-- 公众号阅读原文: https://v.example/one.mp4 -->\n');
+    const dry = run(["--dry-run"]);
+    if (dry.exitCode) throw new Error(dry.stderr.toString());
+    expect(dry.exitCode).toBe(0);
+    expect(JSON.parse(dry.stdout.toString()).sourceUrl).toBe("https://v.example/one.mp4");
+    expect(fs.existsSync(log)).toBe(false);
+    const first = run(["--title", "215. Title", "--cover", image]);
+    if (first.exitCode) throw new Error(first.stderr.toString());
+    expect(JSON.parse(first.stdout.toString())).toMatchObject({ operation: "created", published: false, status: "draft_verified" });
+    fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("Body one.", "Body two."));
+    const second = run([]);
+    if (second.exitCode) throw new Error(second.stderr.toString());
+    expect(JSON.parse(second.stdout.toString())).toMatchObject({ operation: "updated", media_id: "same-draft", title: "215. Title" });
+    const third = run([]);
+    if (third.exitCode) throw new Error(third.stderr.toString());
+    expect(JSON.parse(third.stdout.toString()).operation).toBe("unchanged");
+    const saved = JSON.parse(fs.readFileSync(remote, "utf8"));
+    expect(saved.content).toContain("Body two.");
+    expect(saved.content).toContain("引用链接");
+    expect(saved.content_source_url).toBe("https://v.example/one.mp4");
+    expect(saved.content).not.toContain("公众号阅读原文");
+    const paths = fs.readFileSync(log, "utf8").trim().split("\n").map(x => JSON.parse(x).pathname);
+    for (const endpoint of ["/cgi-bin/draft/add", "/cgi-bin/draft/update", "/cgi-bin/material/add_material", "/cgi-bin/media/uploadimg"]) expect(paths.filter(x => x === endpoint)).toHaveLength(1);
+    const receipt = fs.readFileSync(state, "utf8");
+    expect(receipt).not.toContain("FAKE_TOKEN"); expect(receipt).not.toContain("FAKE_SECRET");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

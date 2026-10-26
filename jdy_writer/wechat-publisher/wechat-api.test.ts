@@ -84,3 +84,36 @@ test("uploadImage(material) converts WebP to a WeChat-accepted format before POS
     globalThis.fetch = originalFetch;
   }
 });
+
+test("remote JPEG URL ending /0 gets a .jpg filename even with the correct MIME type; repeated upload is cached", async () => {
+  const { DraftSession } = await import("./wechat-draft.ts");
+  const { createWechatApiClient } = await import("./wechat-network.ts");
+  const jpeg = await new Jimp({ width: 16, height: 16, color: 0xff0000ff }).getBuffer(JimpMime.jpeg);
+  const original = globalThis.fetch;
+  const bodies: string[] = [];
+  globalThis.fetch = (async () => new Response(jpeg, { headers: { "Content-Type": "image/jpeg" } })) as typeof fetch;
+  const client = createWechatApiClient(null, async (_url, init) => {
+    bodies.push(Buffer.from(init!.body as Uint8Array).toString("latin1"));
+    return Response.json({ media_id: "permanent-cover", url: "https://mmbiz.qpic.cn/0" });
+  });
+  const session = DraftSession.open(path.join(tmpDir, "cover-cache.json"), "/fixture.md", "fake");
+  try {
+    await uploadImage("https://mmbiz.qpic.cn/0", "fake", undefined, "material", client, session);
+    await uploadImage("https://mmbiz.qpic.cn/0", "fake", undefined, "material", client, session);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toContain('filename="0.jpg"');
+    expect(bodies[0]).toContain("Content-Type: image/jpeg");
+  } finally { session.close(); globalThis.fetch = original; }
+});
+
+test("direct draft helper supports read-original and refuses native video", async () => {
+  const { publishToDraft } = await import("./wechat-api.ts");
+  const { createWechatApiClient } = await import("./wechat-network.ts");
+  const requests: any[] = [];
+  const client = createWechatApiClient(null, async (_url, init) => { requests.push(JSON.parse(String(init!.body))); return Response.json({ media_id: "draft" }); });
+  const options = { title: "Title", content: "<p>ref</p>", thumbMediaId: "cover", articleType: "news" as const, sourceUrl: "https://example.com/video.mp4" };
+  await publishToDraft(options, "fake", client);
+  expect(requests[0].articles[0].content_source_url).toBe(options.sourceUrl);
+  await expect(publishToDraft({ ...options, content: '<iframe data-mpvid="apiv_1"></iframe>' }, "fake", client)).rejects.toThrow("unverified");
+  expect(requests).toHaveLength(1);
+});
