@@ -43,19 +43,41 @@ chmod 600 ~/.jdy_writer/.env
 # 检查凭据文件
 [ -s ~/.jdy_writer/.env ] || { echo "缺凭据，先按 Phase 6.0 配置 ~/.jdy_writer/.env"; exit 1; }
 
-# 获取当前公网 IP
-IP=$(curl -s https://api.ipify.org)
-echo "当前公网 IP：$IP"
-echo "→ 继续发布；如公众号 API 返回 40164 invalid ip，再提示用户把该 IP 加入白名单"
+# 固定出口由 wechat-api.ts 在读取凭据前自动检查。
+# 不用普通 api.ipify.org 请求推断微信出口，分流网络下两者可能不同。
 ```
 
-**执行规则**：不要在发布前询问用户 IP 是否已加入白名单。直接进入 Phase 6.3 调用发布 API；只有实际报错 `40164: invalid ip` 时，才停下来提示用户把错误信息中的 IP 加入公众号后台白名单后重试。
+**执行规则**：不要在发布前询问用户 IP 是否已加入白名单。直接进入 Phase 6.3 调用发布 API；只有实际报错 `40164` 时，才停下来提示用户把经过脱敏提取的 `whitelist IP` 加入公众号后台白名单后重试。
 
 **Secret 泄露应急流程**（如果 secret 已经出现在对话/transcript/任何日志里）：
 
 1. 立即去公众号后台重置 AppSecret
 2. 用户自己 `nano ~/.jdy_writer/.env` 改新值
 3. AI 不参与读写
+
+---
+
+### 6.0.1 公众号专用固定出口
+
+设备本地无密钥配置：`~/.config/jdy-writer/wechat-network.json`：
+
+```json
+{
+  "proxy": "http://127.0.0.1:17993",
+  "expectedEgressIp": "95.169.12.176"
+}
+```
+
+本机 Clash 的 `wechat-publisher` HTTP listener 直接绑定实际节点“固定美国”。配置里的 IP 是本机预期值，不代表其他设备也已配置，换服务器时必须重新核实。
+
+- 正常上传前自动检查国内、海外探针是否都为预期 IP，失败中止；不会回退家庭直连。
+- 只有 token、正文图片上传、封面素材上传、创建草稿四个微信 endpoint 使用专用出口；源图片下载、生成封面、上传 R2 和其他程序沿用原行为。
+- 本机 Bun 1.3.11 会让 NO_PROXY 覆盖显式代理，因此专用请求使用私有 stdio 子进程，在子进程内清除代理绕过变量。父进程/全局环境不变；请求 URL、凭据和响应 token 不进入命令行参数或诊断日志。
+- `--dry-run` 不加载此网络配置、不执行探针、不调用 loadCredentials；保留原有 EXTEND 元数据解析。
+- 未配置本文件的设备保持原有行为；配置文件存在但错误时必须修复或回滚，不能自动忽略。
+- 网络失败只显示受控阶段/错误类型；微信白名单错误显示数字错误码和校验过的 IPv4，不显示原始 errmsg、完整 URL 或凭据。
+
+配置、激活与回滚由 `wechat-publisher/wechat-egress-setup.ts` 分阶段执行。`prepare` 只生成私有候选与备份，审查通过才执行 `apply`。私有 manifest 位于 `~/.local/state/jdy-writer/fixed-egress/install-*/`，不得上传仓库。回滚按 manifest 恢复原文件；仅当原先不存在且当前哈希仍匹配本次安装时删除新文件。Clash 重载可能短暂影响连接。
 
 ---
 

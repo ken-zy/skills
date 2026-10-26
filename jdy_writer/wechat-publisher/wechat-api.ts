@@ -10,6 +10,10 @@ import {
   detectImageFormatFromBuffer,
 } from "./wechat-image-processor.ts";
 
+import { createWechatApiClient, loadWechatNetworkConfig, verifyWechatEgress, type WechatApiClient } from "./wechat-network.ts";
+
+const defaultWechatClient = createWechatApiClient();
+
 interface AccessTokenResponse {
   access_token?: string;
   errcode?: number;
@@ -62,19 +66,10 @@ const UPLOAD_BODY_IMG_URL = "https://api.weixin.qq.com/cgi-bin/media/uploadimg";
 const UPLOAD_MATERIAL_URL = "https://api.weixin.qq.com/cgi-bin/material/add_material";
 const DRAFT_URL = "https://api.weixin.qq.com/cgi-bin/draft/add";
 
-async function fetchAccessToken(appId: string, appSecret: string): Promise<string> {
-  const url = `${TOKEN_URL}?grant_type=client_credential&appid=${appId}&secret=${appSecret}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch access token: ${res.status}`);
-  }
-  const data = await res.json() as AccessTokenResponse;
-  if (data.errcode) {
-    throw new Error(`Access token error ${data.errcode}: ${data.errmsg}`);
-  }
-  if (!data.access_token) {
-    throw new Error("No access_token in response");
-  }
+export async function fetchAccessToken(appId: string, appSecret: string, client: WechatApiClient = defaultWechatClient): Promise<string> {
+  const url = `${TOKEN_URL}?grant_type=client_credential&appid=${encodeURIComponent(appId)}&secret=${encodeURIComponent(appSecret)}`;
+  const data = await client.json<AccessTokenResponse>("token", url);
+  if (typeof data.access_token !== "string" || !data.access_token.trim()) throw new Error("WeChat token: missing access_token");
   return data.access_token;
 }
 
@@ -162,7 +157,8 @@ export async function uploadImage(
   imagePath: string,
   accessToken: string,
   baseDir?: string,
-  uploadType: "body" | "material" = "body"
+  uploadType: "body" | "material" = "body",
+  client: WechatApiClient = defaultWechatClient,
 ): Promise<UploadResponse> {
   const asset = await loadUploadAsset(imagePath, baseDir);
   let uploadAsset = asset;
@@ -193,6 +189,7 @@ export async function uploadImage(
     uploadAsset.contentType,
     accessToken,
     uploadType,
+    client,
   );
 
   // media/uploadimg 接口只返回 URL，material/add_material 返回 media_id
@@ -213,7 +210,8 @@ async function uploadToWechat(
   filename: string,
   contentType: string,
   accessToken: string,
-  uploadType: "body" | "material"
+  uploadType: "body" | "material",
+  client: WechatApiClient,
 ): Promise<UploadResponse> {
   const boundary = `----WebKitFormBoundary${Date.now().toString(16)}`;
   const header = [
@@ -231,18 +229,13 @@ async function uploadToWechat(
 
   const uploadUrl = uploadType === "body" ? UPLOAD_BODY_IMG_URL : UPLOAD_MATERIAL_URL;
   const url = `${uploadUrl}?type=image&access_token=${accessToken}`;
-  const res = await fetch(url, {
+  const data = await client.json<UploadResponse>(uploadType === "body" ? "uploadimg" : "material", url, {
     method: "POST",
     headers: {
       "Content-Type": `multipart/form-data; boundary=${boundary}`,
     },
     body,
   });
-
-  const data = await res.json() as UploadResponse;
-  if (data.errcode && data.errcode !== 0) {
-    throw new Error(`Upload failed ${data.errcode}: ${data.errmsg}`);
-  }
 
   return data;
 }
@@ -254,6 +247,7 @@ async function uploadImagesInHtml(
   contentImages: ImageInfo[] = [],
   articleType: ArticleType = "news",
   collectNewsCoverFallback: boolean = false,
+  client: WechatApiClient = defaultWechatClient,
 ): Promise<{ html: string; firstCoverMediaId: string; imageMediaIds: string[] }> {
   const imgRegex = /<img[^>]*\ssrc=["']([^"']+)["'][^>]*>/gi;
   const matches = [...html.matchAll(imgRegex)];
@@ -274,7 +268,7 @@ async function uploadImagesInHtml(
     if (src.startsWith("https://mmbiz.qpic.cn")) {
       if (collectNewsCoverFallback && !firstCoverMediaId) {
         try {
-          const coverResp = await uploadImage(src, accessToken, baseDir, "material");
+          const coverResp = await uploadImage(src, accessToken, baseDir, "material", client);
           firstCoverMediaId = coverResp.media_id;
         } catch (err) {
           console.error(`[wechat-api] Failed to reuse existing WeChat image as cover: ${src}`, err);
@@ -291,7 +285,7 @@ async function uploadImagesInHtml(
       let resp = uploadedBySource.get(imagePath);
       if (!resp) {
         // 正文图片使用 media/uploadimg 接口获取 URL
-        resp = await uploadImage(imagePath, accessToken, baseDir, "body");
+        resp = await uploadImage(imagePath, accessToken, baseDir, "body", client);
         uploadedBySource.set(imagePath, resp);
       }
       const newTag = fullTag
@@ -302,7 +296,7 @@ async function uploadImagesInHtml(
       if (shouldUploadMaterial) {
         let materialResp = uploadedBySource.get(`${imagePath}:material`);
         if (!materialResp) {
-          materialResp = await uploadImage(imagePath, accessToken, baseDir, "material");
+          materialResp = await uploadImage(imagePath, accessToken, baseDir, "material", client);
           uploadedBySource.set(`${imagePath}:material`, materialResp);
         }
         if (articleType === "newspic" && materialResp.media_id) {
@@ -328,7 +322,7 @@ async function uploadImagesInHtml(
       let resp = uploadedBySource.get(imagePath);
       if (!resp) {
         // 正文图片使用 media/uploadimg 接口获取 URL
-        resp = await uploadImage(imagePath, accessToken, baseDir, "body");
+        resp = await uploadImage(imagePath, accessToken, baseDir, "body", client);
         uploadedBySource.set(imagePath, resp);
       }
 
@@ -338,7 +332,7 @@ async function uploadImagesInHtml(
       if (shouldUploadMaterial) {
         let materialResp = uploadedBySource.get(`${imagePath}:material`);
         if (!materialResp) {
-          materialResp = await uploadImage(imagePath, accessToken, baseDir, "material");
+          materialResp = await uploadImage(imagePath, accessToken, baseDir, "material", client);
           uploadedBySource.set(`${imagePath}:material`, materialResp);
         }
         if (articleType === "newspic" && materialResp.media_id) {
@@ -357,9 +351,10 @@ async function uploadImagesInHtml(
   return { html: updatedHtml, firstCoverMediaId, imageMediaIds };
 }
 
-async function publishToDraft(
+export async function publishToDraft(
   options: ArticleOptions,
-  accessToken: string
+  accessToken: string,
+  client: WechatApiClient = defaultWechatClient,
 ): Promise<PublishResponse> {
   const url = `${DRAFT_URL}?access_token=${accessToken}`;
 
@@ -396,7 +391,7 @@ async function publishToDraft(
     if (options.digest) article.digest = options.digest;
   }
 
-  const res = await fetch(url, {
+  const data = await client.json<PublishResponse>("draft", url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -404,9 +399,8 @@ async function publishToDraft(
     body: JSON.stringify({ articles: [article] }),
   });
 
-  const data = await res.json() as PublishResponse;
-  if (data.errcode && data.errcode !== 0) {
-    throw new Error(`Publish failed ${data.errcode}: ${data.errmsg}`);
+  if (typeof data.media_id !== "string" || !data.media_id.trim()) {
+    throw new Error("WeChat draft: missing media_id; draft creation not confirmed");
   }
 
   return data;
@@ -713,13 +707,20 @@ async function main(): Promise<void> {
     return;
   }
 
+  const network = loadWechatNetworkConfig();
+  if (network) {
+    const ip = await verifyWechatEgress(network);
+    console.error(`[wechat-api] Fixed egress verified: ${ip}`);
+  }
+  const wechatClient = createWechatApiClient(network);
+
   const creds = loadCredentials(resolved);
   for (const skippedSource of creds.skippedSources) {
     console.error(`[wechat-api] Skipped incomplete credential source: ${skippedSource}`);
   }
   console.error(`[wechat-api] Credentials source: ${creds.source}`);
   console.error("[wechat-api] Fetching access token...");
-  const accessToken = await fetchAccessToken(creds.appId, creds.appSecret);
+  const accessToken = await fetchAccessToken(creds.appId, creds.appSecret, wechatClient);
 
   const rawCoverPath = args.cover ||
     frontmatter.coverImage ||
@@ -739,6 +740,7 @@ async function main(): Promise<void> {
     contentImages,
     args.articleType,
     needNewsCoverFallback,
+    wechatClient,
   );
   htmlContent = processedHtml;
 
@@ -747,7 +749,7 @@ async function main(): Promise<void> {
   if (coverPath) {
     console.error(`[wechat-api] Uploading cover: ${coverPath}`);
     // 封面图片使用 material/add_material 接口
-    const coverResp = await uploadImage(coverPath, accessToken, baseDir, "material");
+    const coverResp = await uploadImage(coverPath, accessToken, baseDir, "material", wechatClient);
     thumbMediaId = coverResp.media_id;
     console.error(`[wechat-api] Cover uploaded successfully, media_id: ${thumbMediaId}`);
   } else if (firstCoverMediaId && args.articleType === "news") {
@@ -777,7 +779,7 @@ async function main(): Promise<void> {
     imageMediaIds: args.articleType === "newspic" ? imageMediaIds : undefined,
     needOpenComment: resolved.need_open_comment,
     onlyFansCanComment: resolved.only_fans_can_comment,
-  }, accessToken);
+  }, accessToken, wechatClient);
 
   console.log(JSON.stringify({
     success: true,
