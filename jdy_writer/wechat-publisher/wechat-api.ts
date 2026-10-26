@@ -792,7 +792,8 @@ async function main(): Promise<void> {
     );
     htmlContent = processedHtml;
 
-    let thumbMediaId = args.coverMediaId || (current ? session.recoverCover(current) : "");
+    const existingCoverId = current ? session.recoverCover(current) : "";
+    let thumbMediaId = args.coverMediaId || existingCoverId;
 
     if (coverPath) {
       console.error(`[wechat-api] Uploading cover: ${coverPath}`);
@@ -828,7 +829,7 @@ async function main(): Promise<void> {
     if (sourceUrl !== undefined) article.content_source_url = sourceUrl;
     if (args.articleType === "news") article.thumb_media_id = thumbMediaId;
     if (args.articleType === "newspic") article.image_info = { image_list: imageMediaIds.map(id => ({ image_media_id: id })) };
-    if (coverPath && current && current.thumb_media_id !== thumbMediaId) delete article.cover_info; // A new image needs new cropping, not the old image's crop.
+    if (coverPath && current && existingCoverId !== thumbMediaId) delete article.cover_info; // A new image needs new cropping, not the old image's crop.
     console.error("[wechat-api] Saving draft (no public publication)...");
     const result = await session.save(article, accessToken, wechatClient);
     console.log(JSON.stringify({ success: true, ...result, title: article.title, articleType: args.articleType, stateFile }, null, 2));

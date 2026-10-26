@@ -16,6 +16,12 @@ export class WechatNetworkError extends Error {
   constructor(message: string) { super(message); this.name = "WechatNetworkError"; }
 }
 
+// An authenticated API JSON response explicitly rejected the request. Transport,
+// HTTP and malformed-response errors do not establish the write outcome.
+export class WechatApiRejectedError extends WechatNetworkError {
+  constructor(message: string, readonly code: number) { super(message); this.name = "WechatApiRejectedError"; }
+}
+
 export function validateNetworkConfig(value: unknown): Readonly<WechatNetworkConfig> {
   const fail = () => { throw new WechatNetworkError("Invalid WeChat network configuration"); };
   if (!value || typeof value !== "object" || Array.isArray(value)) return fail();
@@ -133,7 +139,9 @@ export function createWechatApiClient(config: WechatNetworkConfig | null = null,
         const candidate = code === 40164 && typeof data.errmsg === "string"
           ? data.errmsg.match(/invalid ip\s+((?:\d{1,3}\.){3}\d{1,3})\b/)?.[1] : undefined;
         const ip = candidate && isIP(candidate) === 4 ? `; whitelist IP ${candidate}` : "";
-        throw new WechatNetworkError(`WeChat ${stage}: error ${code}${ip}`);
+        const message = `WeChat ${stage}: error ${code}${ip}`;
+        if (typeof code === "number") throw new WechatApiRejectedError(message, code);
+        throw new WechatNetworkError(message);
       }
       return data as T;
     },

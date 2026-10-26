@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { createHash } from "node:crypto";
-import type { WechatApiClient } from "./wechat-network.ts";
+import { WechatApiRejectedError, type WechatApiClient } from "./wechat-network.ts";
 
 export type DraftArticle = Record<string, unknown> & { content: string; title: string };
 type UploadReceipt = { media_id: string; url: string };
@@ -141,10 +141,21 @@ export class DraftSession {
     this.state.pending = { operation: mediaId ? "update" : "create", article: candidate };
     this.persist(); // A timeout/crash must not trigger an automatic duplicate create.
     const url = `https://api.weixin.qq.com/cgi-bin/draft/${mediaId ? "update" : "add"}?access_token=${encodeURIComponent(token)}`;
-    const result = await client.json<{ media_id?: string; errcode?: number }>("draft", url, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(mediaId ? { media_id: mediaId, index: 0, articles: candidate } : { articles: [candidate] }),
-    });
+    let result: { media_id?: string; errcode?: number };
+    try {
+      result = await client.json("draft", url, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mediaId ? { media_id: mediaId, index: 0, articles: candidate } : { articles: [candidate] }),
+      });
+    } catch (error) {
+      if (error instanceof WechatApiRejectedError) {
+        // The platform explicitly refused this write. Keep the draft snapshot and
+        // uploaded images, but let a corrected request proceed on a later run.
+        delete this.state.pending;
+        this.persist();
+      }
+      throw error;
+    }
     if (mediaId && result.errcode !== 0) throw new Error("Draft update not confirmed; inspect before retrying");
     const savedId = mediaId || result.media_id;
     if (typeof savedId !== "string" || !savedId.trim()) throw new Error("Draft creation not confirmed; inspect before retrying");

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 // Full CLI with fake credentials and in-process fake API. No real WeChat/R2 request is allowed.
-test("CLI roundtrip: metadata -> original URL, one create, cached images, one in-place update, stable number", () => {
+test("CLI roundtrip: metadata -> original URL, one create, cached images, one in-place update, stable number, same-cover crop after mobile editing", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wechat-cli-test-"));
   const file = path.join(dir, "article.md");
   const state = path.join(dir, "state.json");
@@ -17,16 +17,16 @@ test("CLI roundtrip: metadata -> original URL, one create, cached images, one in
     const remote=${JSON.stringify(remote)}, log=${JSON.stringify(log)};
     globalThis.fetch=async(input,init)=>{
       const url=String(input); const pathname=new URL(url).pathname;
-      fs.appendFileSync(log,JSON.stringify({pathname})+"\\n");
+      fs.appendFileSync(log,JSON.stringify({pathname, ...(pathname.endsWith("/update") ? {sentCover:JSON.parse(init.body).articles.thumb_media_id,sentCrop:JSON.parse(init.body).articles.cover_info} : {})})+"\\n");
       if(url==="https://img.example/0") return new Response(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6X1sAAAAASUVORK5CYII=","base64"),{headers:{"Content-Type":"image/png"}});
       if(!url.startsWith("https://api.weixin.qq.com/")) throw new Error("Unexpected request");
       if(pathname.endsWith("/token")) return Response.json({access_token:"FAKE_TOKEN"});
       if(pathname.endsWith("/uploadimg")) return Response.json({url:"https://mmbiz.qpic.cn/body"});
       if(pathname.endsWith("/add_material")) return Response.json({media_id:"cover",url:"https://mmbiz.qpic.cn/cover"});
       const payload=JSON.parse(init.body);
-      if(pathname.endsWith("/add")){fs.writeFileSync(remote,JSON.stringify(payload.articles[0]));return Response.json({media_id:"same-draft"});}
+      if(pathname.endsWith("/add")){fs.writeFileSync(remote,JSON.stringify({...payload.articles[0],thumb_url:"https://mmbiz.qpic.cn/article-cover"}));return Response.json({media_id:"same-draft"});}
       if(pathname.endsWith("/get")) return Response.json({news_item:[JSON.parse(fs.readFileSync(remote,"utf8"))]});
-      if(pathname.endsWith("/update")){fs.writeFileSync(remote,JSON.stringify(payload.articles));return Response.json({errcode:0});}
+      if(pathname.endsWith("/update")){fs.writeFileSync(remote,JSON.stringify({...JSON.parse(fs.readFileSync(remote,"utf8")),...payload.articles}));return Response.json({errcode:0});}
       throw new Error("Unexpected endpoint");
     };
     process.argv=[process.execPath,${JSON.stringify(api)},...JSON.parse(process.env.FAKE_ARGS)];
@@ -63,5 +63,21 @@ test("CLI roundtrip: metadata -> original URL, one create, cached images, one in
     for (const endpoint of ["/cgi-bin/draft/add", "/cgi-bin/draft/update", "/cgi-bin/material/add_material", "/cgi-bin/media/uploadimg"]) expect(paths.filter(x => x === endpoint)).toHaveLength(1);
     const receipt = fs.readFileSync(state, "utf8");
     expect(receipt).not.toContain("FAKE_TOKEN"); expect(receipt).not.toContain("FAKE_SECRET");
+    const mobileCrop = { crop_percent_list: [{ ratio: "1_1", x1: "0.25", x2: "0.75" }] };
+    fs.writeFileSync(remote, JSON.stringify({ ...saved, thumb_media_id: "", cover_info: mobileCrop }));
+    fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("Body two.", "Merged mobile body."));
+    const mobile = run(["--accept-remote", "--cover", image]);
+    if (mobile.exitCode) throw new Error(mobile.stderr.toString());
+    expect(JSON.parse(mobile.stdout.toString())).toMatchObject({ operation: "updated", media_id: "same-draft" });
+    const final = JSON.parse(fs.readFileSync(remote, "utf8"));
+    expect(final.thumb_media_id).toBe("cover");
+    expect(final.cover_info).toEqual(mobileCrop);
+    const calls = fs.readFileSync(log, "utf8").trim().split("\n").map(x => JSON.parse(x));
+    const writes = calls.filter(x => x.pathname === "/cgi-bin/draft/update");
+    expect(writes).toHaveLength(2);
+    expect(writes[1].sentCover).toBe("cover");
+    expect(writes[1].sentCrop).toEqual(mobileCrop);
+    expect(calls.filter(x => x.pathname === "/cgi-bin/material/add_material")).toHaveLength(1);
+
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

@@ -16,17 +16,19 @@ function fixture(initial?: DraftArticle) {
   let beforeUpdate: (() => void) | undefined;
   let corruptWrite = false;
   let dropAfterCommit = false;
+  let rejection: number | string | undefined;
   const client = createWechatApiClient({ proxy: "http://127.0.0.1:17993", expectedEgressIp: "95.169.12.176" }, async (url, init) => {
     const endpoint = new URL(url).pathname;
     const body = JSON.parse(String(init?.body));
     calls.push({ endpoint, body, proxy: init?.proxy });
     if (endpoint.endsWith("/get")) return Response.json({ news_item: [live] });
+    if (rejection !== undefined) return Response.json({ errcode: rejection, errmsg: "fake rejected request" });
     beforeUpdate?.();
     if (endpoint.endsWith("/add")) { live = structuredClone(body.articles[0]); return Response.json({ media_id: "draft-1" }); }
     if (endpoint.endsWith("/update")) { live = { ...live, ...structuredClone(body.articles) }; if (corruptWrite) live.content = "Platform altered body"; if (dropAfterCommit) throw new Error("Connection dropped after commit"); return Response.json({ errcode: 0 }); }
     throw new Error("Unexpected test request");
   });
-  return { file, client, calls, corrupt: () => { corruptWrite = true; }, drop: () => { dropAfterCommit = true; }, open: () => DraftSession.open(file, source, account), mutate: (patch: Partial<DraftArticle>) => { live = { ...live!, ...patch }; }, failWrites: () => { beforeUpdate = () => { throw new Error("fake timeout with fake-token"); }; }, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+  return { file, client, calls, reject: (value?: number | string) => { rejection = value; }, corrupt: () => { corruptWrite = true; }, drop: () => { dropAfterCommit = true; }, open: () => DraftSession.open(file, source, account), mutate: (patch: Partial<DraftArticle>) => { live = { ...live!, ...patch }; }, failWrites: () => { beforeUpdate = () => { throw new Error("fake timeout with fake-token"); }; }, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 
 test("read-original metadata handles precedence inputs, conflict and unsafe schemes", () => {
@@ -166,5 +168,37 @@ test("receipt lock and account/source binding prevent concurrent or cross-articl
     expect(() => DraftSession.open(f.file, source, "other-account")).toThrow("identity");
     expect(() => DraftSession.open(f.file, "/other.md", account)).toThrow("identity");
     const t = f.open(); expect(t.cachedUpload("hash")?.media_id).toBe("image-1"); t.close();
+  } finally { s.close(); f.cleanup(); }
+});
+
+
+test("explicit API rejection clears pending for create and update, allowing corrected requests", async () => {
+  for (const initial of [undefined, article]) {
+    const f = fixture(initial); let s = f.open();
+    try {
+      const live = await s.prepare("fake-token", f.client, initial ? "draft-1" : undefined);
+      f.reject(40007);
+      await expect(s.save({ ...(live || article), content: "corrected body", thumb_media_id: "bad-cover" }, "fake-token", f.client)).rejects.toThrow("error 40007");
+      expect(JSON.parse(fs.readFileSync(f.file, "utf8")).pending).toBeUndefined();
+      s.close(); s = f.open();
+      f.reject(undefined);
+      const next = await s.prepare("fake-token", f.client);
+      expect(next?.content).toBe(initial?.content);
+      const saved = await s.save({ ...(next || article), content: "corrected body", thumb_media_id: "full-image" }, "fake-token", f.client);
+      expect(saved.operation).toBe(initial ? "updated" : "created");
+      expect(JSON.parse(fs.readFileSync(f.file, "utf8")).pending).toBeUndefined();
+    } finally { s.close(); f.cleanup(); }
+  }
+});
+
+test("malformed API rejection cannot clear a potentially unconfirmed write", async () => {
+  const f = fixture(); let s = f.open();
+  try {
+    f.reject("40007");
+    await expect(s.save(article, "fake-token", f.client)).rejects.toThrow("error invalid");
+    expect(JSON.parse(fs.readFileSync(f.file, "utf8")).pending.operation).toBe("create");
+    s.close(); s = f.open();
+    await expect(s.prepare("fake-token", f.client)).rejects.toThrow("outcome unknown");
+    expect(f.calls.filter(x => x.endpoint.endsWith("/add"))).toHaveLength(1);
   } finally { s.close(); f.cleanup(); }
 });
