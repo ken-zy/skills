@@ -91,7 +91,7 @@ async function loadUploadAsset(
   let fileSize = 0;
   let fileExt = "";
 
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+  if (/^https?:\/\//i.test(imagePath)) {
     const response = await fetch(imagePath);
     if (!response.ok) {
       throw new Error(`Failed to download image: ${imagePath}`);
@@ -774,7 +774,7 @@ async function main(): Promise<void> {
       frontmatter.featureImage ||
       frontmatter.cover ||
       frontmatter.image : undefined);
-    const coverPath = rawCoverPath && !path.isAbsolute(rawCoverPath) && args.cover
+    const coverPath = rawCoverPath && !/^https?:\/\//i.test(rawCoverPath) && !path.isAbsolute(rawCoverPath) && args.cover
       ? path.resolve(process.cwd(), rawCoverPath)
       : rawCoverPath;
     const needNewsCoverFallback = args.articleType === "news" && !coverPath && !current && !args.coverMediaId;

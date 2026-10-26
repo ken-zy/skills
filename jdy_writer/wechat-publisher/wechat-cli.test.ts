@@ -81,3 +81,46 @@ test("CLI roundtrip: metadata -> original URL, one create, cached images, one in
 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("CLI accepts HTTP/HTTPS cover URLs and still resolves local relative cover paths", () => {
+  for (const cover of ["http://img.example/0", "https://img.example/0", "covers/relative cover.png"]) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wechat-cover-cli-"));
+    const file = path.join(dir, "article.html");
+    const calls = path.join(dir, "calls.json");
+    const api = path.join(import.meta.dir, "wechat-api.ts");
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6X1sAAAAASUVORK5CYII=";
+    const prelude = `
+      import fs from "node:fs";
+      let article; const calls=[];
+      globalThis.fetch=async(input,init)=>{
+        const url=String(input); calls.push(url); fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));
+        if(url===${JSON.stringify(cover)}) return new Response(Buffer.from(${JSON.stringify(png)},"base64"),{headers:{"Content-Type":"image/png"}});
+        if(!url.startsWith("https://api.weixin.qq.com/")) throw new Error("Unexpected request");
+        const pathname=new URL(url).pathname;
+        if(pathname.endsWith("/token")) return Response.json({access_token:"FAKE_TOKEN"});
+        if(pathname.endsWith("/add_material")) return Response.json({media_id:"cover",url:"https://mmbiz.qpic.cn/cover"});
+        const body=JSON.parse(init.body);
+        if(pathname.endsWith("/add")){article=body.articles[0];return Response.json({media_id:"draft"});}
+        if(pathname.endsWith("/get")) return Response.json({news_item:[article]});
+        throw new Error("Unexpected endpoint");
+      };
+      process.argv=[process.execPath,${JSON.stringify(api)},${JSON.stringify(file)},"--cover",${JSON.stringify(cover)}];
+      await import(${JSON.stringify(api)});
+    `;
+    try {
+      fs.writeFileSync(file, "<html><head><title>Cover test</title></head><body><p>No body images.</p></body></html>");
+      if (!cover.startsWith("http")) {
+        fs.mkdirSync(path.join(dir, "covers"));
+        fs.writeFileSync(path.join(dir, cover), Buffer.from(png, "base64"));
+      }
+      const result = Bun.spawnSync([process.execPath, "-e", prelude], {
+        cwd: dir, env: { ...process.env, HOME: dir, WECHAT_APP_ID: "FAKE_APP", WECHAT_APP_SECRET: "FAKE_SECRET" },
+      });
+      if (result.exitCode) throw new Error(result.stderr.toString());
+      expect(JSON.parse(result.stdout.toString())).toMatchObject({ operation: "created", status: "draft_verified", published: false });
+      const urls: string[] = JSON.parse(fs.readFileSync(calls, "utf8"));
+      expect(urls.filter(url => new URL(url).pathname === "/cgi-bin/material/add_material")).toHaveLength(1);
+      expect(urls.filter(url => url === cover)).toHaveLength(cover.startsWith("http") ? 1 : 0);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  }
+});

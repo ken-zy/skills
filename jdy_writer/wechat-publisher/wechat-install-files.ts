@@ -44,3 +44,16 @@ export async function replaceFileBatch(entries: Entry[], direction: "apply" | "r
     written.push(entry);
   }
 }
+
+
+// Keep installation and startup verification tied to the CLI's runtime closure.
+export const PUBLISHER_INSTALL_FILES = ["wechat-network.ts", "wechat-proxy-worker.ts", "wechat-draft.ts", "wechat-api.ts"] as const;
+
+export function verifyInstalledPublisher(directory: string) {
+  const result = Bun.spawnSync([process.execPath, path.join(directory, "wechat-api.ts"), "--help"], {
+    cwd: directory, stdin: "ignore", stdout: "pipe", stderr: "pipe", timeout: 15_000,
+  });
+  // --help loads the runtime modules but returns before configuration or credentials.
+  // Avoid forwarding startup diagnostics: an installation path may be private.
+  if (result.exitCode !== 0) throw new Error("Installed publisher startup check failed");
+}

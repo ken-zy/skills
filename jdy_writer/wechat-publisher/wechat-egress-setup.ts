@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { type Entry, sha, fileSha, save, replaceFileBatch } from "./wechat-install-files.ts";
+import { type Entry, sha, fileSha, save, replaceFileBatch, PUBLISHER_INSTALL_FILES, verifyInstalledPublisher } from "./wechat-install-files.ts";
 
 const appDir = path.join(os.homedir(), "Library/Application Support/io.github.clash-verge-rev.clash-verge-rev");
 const installedSkill = path.join(os.homedir(), "Documents/skills/jdy_writer");
@@ -97,7 +97,7 @@ async function prepare() {
   save(path.join(dir, "core-check.log"), Buffer.concat([check.stdout, check.stderr]));
   if (check.exitCode !== 0) throw new Error("Core candidate validation failed; private diagnostic retained");
   phase = "stage-publisher";
-  for (const name of ["wechat-network.ts", "wechat-proxy-worker.ts", "wechat-api.ts"]) {
+  for (const name of PUBLISHER_INSTALL_FILES) {
     const source = path.join(import.meta.dir, name);
     stage(path.join(installedSkill, "wechat-publisher", name), fs.readFileSync(source), source);
   }
@@ -143,6 +143,8 @@ async function apply(dir: string, manifest: Manifest) {
     phase = "apply-check-and-write";
     await replaceFileBatch(manifest.entries, "apply", () => checkContext(manifest), written);
     await checkContext(manifest);
+    phase = "verify-publisher";
+    verifyInstalledPublisher(path.join(installedSkill, "wechat-publisher"));
     phase = "reload-and-verify";
     reloadAttempted = true;
     await controller("/configs?force=true", { path: manifest.runtime });

@@ -77,7 +77,7 @@ chmod 600 ~/.jdy_writer/.env
 - 未配置本文件的设备保持原有行为；配置文件存在但错误时必须修复或回滚，不能自动忽略。
 - 网络失败只显示受控阶段/错误类型；微信白名单错误显示数字错误码和校验过的 IPv4，不显示原始 errmsg、完整 URL 或凭据。
 
-配置、激活与回滚由 `wechat-publisher/wechat-egress-setup.ts` 分阶段执行。`prepare` 只生成私有候选与备份，审查通过才执行 `apply`。私有 manifest 位于 `~/.local/state/jdy-writer/fixed-egress/install-*/`，不得上传仓库。回滚按 manifest 恢复原文件；仅当原先不存在且当前哈希仍匹配本次安装时删除新文件。Clash 重载可能短暂影响连接。
+配置、激活与回滚由 `wechat-publisher/wechat-egress-setup.ts` 分阶段执行。安装清单包含草稿模块；激活时先用安装目标的 `--help` 检查完整发布器能否启动，再重载网络配置，启动检查失败则回滚。`prepare` 只生成私有候选与备份，审查通过才执行 `apply`。私有 manifest 位于 `~/.local/state/jdy-writer/fixed-egress/install-*/`，不得上传仓库。回滚按 manifest 恢复原文件；仅当原先不存在且当前哈希仍匹配本次安装时删除新文件。Clash 重载可能短暂影响连接。
 
 ---
 
