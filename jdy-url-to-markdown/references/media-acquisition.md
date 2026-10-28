@@ -224,9 +224,13 @@ Network/fragment retries are disabled so denial/rate limits stop promptly.
 Unavailable stream fragments abort the download instead of producing a
 successful manifest for a partial video.
 `--timeout` is seconds per command, default 600, range 1–7200.
-`--max-size-mib` defaults to 256 per file/stream, range 1–4096. A size limit is not
-a transcode request; a rejected file must not silently fall back to a silent
-format or exceed the selected budget.
+`--max-size-mib` defaults to 256 per accepted output file (including a merged
+video), range 1–4096. Actual sizes are checked before FFprobe, hashing and a
+successful manifest. yt-dlp also receives a filesize limit, but unknown-length
+HTTP or fragmented streams can exceed it during transfer; this is not a hard
+network-byte or temporary-disk quota. Native transfers additionally count bytes
+while reading. Oversized files are retained as failures, never silently accepted,
+transcoded or replaced with a silent format.
 
 Each successful download gets a unique private subdirectory with media/subtitles
 and `manifest.json`. The manifest includes source navigation URL (signed share

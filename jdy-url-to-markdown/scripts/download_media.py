@@ -300,7 +300,7 @@ def subtitle_entries(path: Path) -> int:
         return 0
 
 
-def verified_files(directory: Path, action: str, ffprobe: str | None, timeout: int, *, only_file: Path | None = None) -> list[dict]:
+def verified_files(directory: Path, action: str, ffprobe: str | None, timeout: int, *, only_file: Path | None = None, max_bytes: int | None = None) -> list[dict]:
     files = []
     for path in ([only_file] if only_file else sorted(directory.iterdir())):
         if not path.is_file() or path.suffix in (".part", ".ytdl", ".temp"):
@@ -308,6 +308,8 @@ def verified_files(directory: Path, action: str, ffprobe: str | None, timeout: i
         size = path.stat().st_size
         if size == 0:
             raise MediaError("verify", "An empty output file was produced")
+        if max_bytes is not None and size > max_bytes:
+            raise MediaError("verify", "Output exceeds the selected size budget; retained files must not be reported as complete", "size_limit")
         record = {"path": str(path.resolve()), "bytes": size}
         if path.suffix.lower() in SUBTITLE_SUFFIXES:
             entries = subtitle_entries(path)
@@ -370,7 +372,7 @@ def acquire_local(args, adapter, url) -> dict:
         run([require_tool("ffmpeg"), "-nostdin", "-v", "error", "-n", "-i", str(source), "-vn", "-c:a", "copy", str(output)], args.timeout, "audio_extract")
     else:
         shutil.copyfile(source, output)
-    result["files"] = verified_files(directory, args.action, require_tool("ffprobe"), args.timeout)
+    result["files"] = verified_files(directory, args.action, require_tool("ffprobe"), args.timeout, max_bytes=args.max_size_mib * 1024 * 1024)
     if args.quality != "best" and args.action in ("video", "bundle"):
         if any(s.get("height", 0) > int(args.quality) for f in result["files"] for s in f.get("streams", [])):
             raise MediaError("verify", "Local video exceeds the selected height cap; original retained", "quality_limit")
@@ -414,7 +416,7 @@ def acquire_native(args, adapter, url) -> dict:
                                args.timeout, getattr(args, "max_size_mib", 256) * 1024 * 1024)
         if args.action == "audio":
             run([require_tool("ffmpeg"), "-nostdin", "-v", "error", "-n", "-i", str(source), "-vn", "-c:a", "copy", str(media_dir / "audio.mka")], args.timeout, "audio_extract")
-        result["files"] = verified_files(media_dir, args.action, require_tool("ffprobe"), args.timeout)
+        result["files"] = verified_files(media_dir, args.action, require_tool("ffprobe"), args.timeout, max_bytes=getattr(args, "max_size_mib", 256) * 1024 * 1024)
         if any(f.get("audio_present") for f in result["files"]):
             result["source_audio_status"] = "present"
         if args.quality != "best" and args.action != "audio":
@@ -521,7 +523,7 @@ def acquire(args) -> dict:
             command[command.index("--output") + 1] = "media.%(ext)s"
         command = command[:-2] + ["--max-filesize", str(getattr(args, "max_size_mib", 256)) + "M"] + command[-2:]
         run(command, args.timeout, "download")
-        result["files"] = verified_files(directory, args.action, ffprobe, args.timeout)
+        result["files"] = verified_files(directory, args.action, ffprobe, args.timeout, max_bytes=getattr(args, "max_size_mib", 256) * 1024 * 1024)
         if any(f.get("audio_present") for f in result["files"]):
             result["source_audio_status"] = "present"
         if expects_audio and args.action in ("video", "bundle") and not any(f.get("audio_present") for f in result["files"]):
@@ -554,7 +556,7 @@ def main(argv=None) -> int:
     parser.add_argument("--impersonate", choices=("chrome", "safari", "edge"), help="Use a reviewed installed curl_cffi browser compatibility target")
     parser.add_argument("--wechat-online", action="store_true", help="Explicit consent to send this public share URL to the selected fixed resolver only")
     parser.add_argument("--wechat-resolver", choices=("sph", "qiaomu"), default="sph", help="One fixed resolver; requires explicit user consent naming its domain, never automatic failover")
-    parser.add_argument("--max-size-mib", type=int, default=256, help="Maximum bytes per media file/stream in MiB; default 256")
+    parser.add_argument("--max-size-mib", type=int, default=256, help="Maximum accepted output file size in MiB; default 256; unknown-size transfers may exceed it before validation")
     parser.add_argument("--local-file", help="Import a user-supplied media file without contacting any platform or resolver")
     parser.add_argument("--timeout", type=int, default=600, help="Seconds per command; default 600")
     args = parser.parse_args(argv)

@@ -172,6 +172,24 @@ class MediaTests(unittest.TestCase):
             manifest = Path(result["directory"]) / "manifest.json"
             self.assertEqual(json.loads(manifest.read_text())["files"], result["files"])
 
+    def test_oversized_download_cannot_write_a_success_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def fake_run(argv, timeout, stage):
+                if stage == "dependency":
+                    return "offline-fixture"
+                if stage == "download":
+                    destination = Path(argv[argv.index("--paths") + 1])
+                    # Model a downloader succeeding despite unknown source length.
+                    (destination / "oversized.m4a").write_bytes(b"x" * (1024 * 1024 + 1))
+                    return ""
+                raise AssertionError("Oversized output must fail before FFprobe/hashing")
+            with patch.object(media, "require_tool", side_effect=lambda name: name), patch.object(media, "probe", return_value={"id":"fixture", "title":"title"}), patch.object(media, "run", side_effect=fake_run):
+                with self.assertRaises(media.MediaError) as error:
+                    media.acquire(options("audio", dir=directory, max_size_mib=1))
+            self.assertEqual(error.exception.code, "size_limit")
+            self.assertEqual(len(list(Path(directory).rglob("oversized.m4a"))), 1)
+            self.assertEqual(list(Path(directory).rglob("manifest.json")), [])
+
     def test_video_accepts_silent_video_and_rejects_audio_only(self):
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / "fixture.mp4").write_bytes(b"fake")

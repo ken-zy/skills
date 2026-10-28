@@ -90,6 +90,11 @@ class RealFileTests(unittest.TestCase):
                 handle.writeframes(b"\0\0" * 16000)
             files = media.verified_files(audio, "audio", media.find_tool("ffprobe"), 20)
             self.assertAlmostEqual(files[0]["duration_seconds"], 1.0, places=2)
+            size = (audio / "fixture.wav").stat().st_size
+            with self.assertRaises(media.MediaError) as error:
+                media.verified_files(audio, "audio", media.find_tool("ffprobe"), 20, max_bytes=size - 1)
+            self.assertEqual(error.exception.code, "size_limit")
+            self.assertEqual(media.verified_files(audio, "audio", media.find_tool("ffprobe"), 20, max_bytes=size)[0]["bytes"], size)
             video = root / "video"
             video.mkdir()
             media.run([media.find_tool("ffmpeg"), "-nostdin", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=64x64:r=10:d=1",
