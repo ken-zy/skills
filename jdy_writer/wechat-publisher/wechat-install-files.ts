@@ -47,7 +47,7 @@ export async function replaceFileBatch(entries: Entry[], direction: "apply" | "r
 
 
 // Keep installation and startup verification tied to the CLI's runtime closure.
-export const PUBLISHER_INSTALL_FILES = ["wechat-network.ts", "wechat-proxy-worker.ts", "wechat-draft.ts", "wechat-api.ts"] as const;
+export const PUBLISHER_INSTALL_FILES = ["wechat-network.ts", "wechat-proxy-worker.ts", "wechat-html.ts", "wechat-draft.ts", "wechat-api.ts", "wechat-number.ts"] as const;
 
 export function verifyInstalledPublisher(directory: string) {
   const result = Bun.spawnSync([process.execPath, path.join(directory, "wechat-api.ts"), "--help"], {

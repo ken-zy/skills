@@ -516,6 +516,7 @@ Options:
   --accept-remote     After reconciling local text, adopt current remote metadata
   --state-file <path> Stable private receipt; repeat runs update the same draft
   --cover-media-id <id> Verified original permanent cover ID (preserves crop)
+  --verify-only       Read existing draft and verify receipt; no rendering/uploads/remote writes
   --dry-run           Parse and render only, don't publish
   --help              Show this help
 
@@ -562,6 +563,7 @@ interface CliArgs {
   account?: string;
   citeStatus: boolean;
   dryRun: boolean;
+  verifyOnly?: boolean;
   sourceUrl?: string;
   updateMediaId?: string;
   stateFile?: string;
@@ -617,6 +619,8 @@ function parseArgs(argv: string[]): CliArgs {
       args.acceptRemote = true;
     } else if (arg === "--clear-source-url") {
       args.sourceUrl = "";
+    } else if (arg === "--verify-only") {
+      args.verifyOnly = true;
     } else if (arg === "--dry-run") {
       args.dryRun = true;
     } else if (arg.startsWith("--") && argv[i + 1] && !argv[i + 1]!.startsWith("-")) {
@@ -648,11 +652,28 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   const filePath = path.resolve(args.filePath);
-  if (!fs.existsSync(filePath)) {
+  if (!args.verifyOnly && !fs.existsSync(filePath)) {
     console.error(`Error: File not found: ${filePath}`);
     process.exit(1);
   }
 
+  if (args.verifyOnly) {
+    if (args.dryRun || args.acceptRemote || args.cover !== undefined || args.coverMediaId !== undefined || args.title !== undefined || args.author !== undefined || args.summary !== undefined || args.sourceUrl !== undefined) throw new Error("--verify-only cannot be combined with draft edits or --dry-run");
+    const resolved = resolveAccount(loadWechatExtendConfig(), args.account);
+    const network = loadWechatNetworkConfig();
+    if (network) await verifyWechatEgress(network);
+    const client = createWechatApiClient(network);
+    const creds = loadCredentials(resolved);
+    const key = createHash("sha256").update(creds.appId).digest("hex");
+    const stateFile = args.stateFile ? path.resolve(args.stateFile) : defaultReceiptPath(filePath, key);
+    if (!fs.existsSync(stateFile)) throw new Error("--verify-only requires an existing receipt");
+    const session = DraftSession.open(stateFile, filePath, key);
+    try {
+      const token = await fetchAccessToken(creds.appId, creds.appSecret, client);
+      console.log(JSON.stringify({ success: true, ...await session.verifyOnly(token, client, args.updateMediaId), stateFile }, null, 2));
+    } finally { session.close(); }
+    return;
+  }
   const baseDir = path.dirname(filePath);
   let sourceText = fs.readFileSync(filePath, "utf8");
   let title = args.title || "";
