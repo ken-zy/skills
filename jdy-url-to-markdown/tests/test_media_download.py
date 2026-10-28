@@ -49,6 +49,16 @@ class MediaTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_platform("https://bilibili.com/video/BVfixture/?p=invalid")
 
+    def test_vimeo_public_player_keeps_original_provenance(self):
+        adapter, url = resolve_platform("https://vimeo.com/76979871")
+        self.assertEqual(adapter.extraction_url(url), "https://player.vimeo.com/video/76979871")
+        for original in ["https://vimeo.com/76979871/unlistedhash", "https://vimeo.com/showcase/123", "https://vimeo.com/76979871/password"]:
+            self.assertEqual(adapter.extraction_url(original), original)
+        with patch.object(media, "require_tool", return_value="yt-dlp"), patch.object(media, "probe", return_value={"id":"76979871","title":"Public video"}) as prober, patch.object(media, "run", return_value="offline"):
+            result = media.acquire(options(url=url))
+        self.assertEqual(prober.call_args.args[1], "https://player.vimeo.com/video/76979871")
+        self.assertEqual(result["metadata"]["source_url"], url)
+
     def test_wechat_requires_consent_before_network(self):
         from adapters import native_media
         with patch.object(native_media, "probe_wechat") as fetcher, self.assertRaises(media.MediaError) as error:

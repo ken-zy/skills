@@ -435,7 +435,7 @@ def acquire(args) -> dict:
         base += ["--impersonate", args.impersonate]
     if args.action in ("video", "bundle"):
         base += ["--ffmpeg-location", require_tool("ffmpeg")]
-    download_url = url
+    download_url = adapter.extraction_url(url)
     download_quality = args.quality
     browser_session_used = False
     expects_audio = False
@@ -477,7 +477,7 @@ def acquire(args) -> dict:
         browser_session_used = True
         expects_audio = bool(context.get("expects_audio"))
     else:
-        info = probe(base, url, args.timeout)
+        info = probe(base, download_url, args.timeout)
     metadata = safe_metadata(info, adapter.name, url)
     result = {"ok": True, "action": args.action, "backend": adapter.backend,
               "downloader_version": run([ytdlp, "--version"], 15, "dependency").strip(),

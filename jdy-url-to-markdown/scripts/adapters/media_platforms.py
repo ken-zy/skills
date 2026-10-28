@@ -1,5 +1,6 @@
 """Platform routing for the explicit media CLI (separate from article extraction)."""
 from dataclasses import dataclass
+import re
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 
@@ -24,6 +25,16 @@ class PlatformAdapter:
                     raise ValueError("Bilibili p must be a positive part number")
                 return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode({"p": part}), ""))
         return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, parsed.query, ""))
+
+    def extraction_url(self, url: str) -> str:
+        parsed = urlsplit(url)
+        # Canonical Vimeo video pages can fall into an API client that requires
+        # login even when the official embedded player exposes the public video.
+        # Select that same video's player directly; preserve unlisted/password/
+        # collection paths for the upstream extractor and retain source provenance.
+        if self.name == "vimeo" and parsed.hostname in ("vimeo.com", "www.vimeo.com") and re.fullmatch(r"/\d+/?", parsed.path):
+            return urlunsplit(("https", "player.vimeo.com", "/video/" + parsed.path.strip("/"), parsed.query, ""))
+        return url
 
 
 ADAPTERS = (

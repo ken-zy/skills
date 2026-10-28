@@ -103,6 +103,19 @@ extractor does not prove the current URL works; only a real successful run does.
 | WeChat Channels | `weixin.qq.com/sph/` | Fixed resolver requires consent; provider 401/403 is reported separately from WeChat login |
 | Kuaishou | `kuaishou.com/short-video/<id>` | Native Apollo state for that exact photo; short-link expansion is not implemented |
 
+For canonical Vimeo `/numeric-id` URLs, acquisition selects the same video's
+official `player.vimeo.com/video/<id>` URL while retaining the original source in
+the manifest. A public embedded player can work when the main-page API client
+asks for login. This route does not use or export a browser session; it still
+honors Vimeo's player access restrictions. Unlisted path hashes, password paths
+and collections are left intact for the upstream extractor.
+On the 2026-10-28 Mini test, sample `76979871` exposed metadata and an English VTT
+with 14 validated cues, but video transfer reported DRM. Another historical
+sample, `33951933`, returned HTTP 401. Vimeo video download is therefore still
+unverified for this test run; subtitle success does not establish video success.
+No DRM decryption is implemented. A login prompt from the old main-page API does
+not establish that buying a plan will resolve the observed download failures.
+
 Unknown hosts fail explicitly instead of accidentally scraping HTML and calling
 it a completed video download. The WeChat article adapter's embedded MP4 support
 does not imply WeChat Channels support. No proxy change, certificate installation,
