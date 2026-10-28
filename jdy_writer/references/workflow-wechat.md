@@ -210,7 +210,12 @@ R2 公网 URL：`$COVER_URL`（已由 r2-upload.sh stdout 捕获，格式为 `ht
 
 格式：`N. 标题`。计数器：`/Users/jdy/Documents/skills/jdy_writer/article-counter.txt`，仓库根目录 `/Users/jdy/Documents/skills`（远端 `git@github.com:ken-zy/skills.git`）。
 
-- 新文章先获取最新 `origin/main`，读取远端计数器 N，拟用 `{N+1}. 原标题`；缺失或为空时询问当前序号，不从 Vault 数量推断。
+- 新文章先运行取号助手，汇总最新 `origin/main`、活动目录计数器、私有已确认草稿回执及未合并 PR 的计数器值，使用最大已占用序号加一；不能只取远端 main 加一。回执目录只放活动回执；已知 `.before-*` 备份不参与。共享计数器按全局序号保守取最大值，不按账号降低已占用序号。
+  ```bash
+  SKILL_DIR=/Users/jdy/Documents/skills/jdy_writer
+  bun "$SKILL_DIR/wechat-publisher/wechat-number.ts" --repo /Users/jdy/Documents/skills
+  ```
+  输出包含 `next` 及来源证据；例如 main 为 215、已确认回执为 216/217 时，下一篇为 218。未确认写入、无编号的已确认草稿、重复占号、证据读取失败时停止，不猜值。助手不读取公众号凭据，不创建草稿，也不预占号码；并行发布仍须协调，在创建前重新检查。
 - 使用独立 worktree 处理计数器，遵守机器级 Git 交付规则；不要在包含用户改动的活动目录执行 `pull --rebase --autostash`。
 - 已有草稿沿用其标题和序号，不再次递增。先查看私有回执，避免把重试误当新文章。
 - 无法同步或有并行文章占用同一序号时，先协调编号再创建草稿；不猜值或强制覆盖。
@@ -256,7 +261,7 @@ bun "$SKILL_DIR/wechat-publisher/wechat-api.ts" \
   --state-file "$HOME/.local/state/jdy-writer/drafts/<文章唯一键>.json"
 ```
 
-先 `--dry-run` 检查渲染和原文 URL；这一步不加载凭据、不探测网络、不写回执。实际保存时才经过专用出口。
+先 `--dry-run` 检查渲染和原文 URL；有表格时核对表格数量、单元格内容及内联对齐。这一步不加载凭据、不探测网络、不写回执。实际保存时才经过专用出口。
 
 运行环境应使用已安装的 Bun 和依赖，不通过 `npx -y` 临时下载运行时。依赖缺失时按机器级依赖规则处理。
 
@@ -282,6 +287,13 @@ bun "$SKILL_DIR/wechat-publisher/wechat-api.ts" \
 - 更换封面时不沿用旧图的裁剪参数，实际裁剪需在官方编辑器核实；重复指定同一封面仍保留当前裁剪。文章封面和视频封面分别管理，不相互兜底。
 - API JSON 明确返回非零数值错误码时，本次写入已被拒绝：清除该次 pending，保留草稿快照和图片缓存；修正对应参数后可重试，不创建替代草稿。HTTP 错误、传输异常及畸形错误码不能据此判定写入被拒绝。
 - 请求超时、响应不完整或回读不一致，保留 pending 记录，报告“结果待核实”；不自动重建或删除草稿。已知 ID 时重试先回读，匹配待写内容才恢复；创建结果未知时，人工核实草稿箱并提供实际 ID，不能猜测。
+- 回读核验仅兼容已观察到的格式变化：同一微信图片的 `src` / `data-src` 与 `/0` / `/640` 尺寸地址，以及 `br` / `hr` 的自闭合写法或紧随的闭合标签。比较不改写 HTML；正文、空白、数字、表格、样式、链接、图片身份和其他草稿字段仍须一致。已确认的后台快照仍逐字段严格比较，人工编辑不会因格式兼容被自动接管。
+- 已知草稿 ID 的结果核实使用同一源路径和回执的恢复命令：
+  ```bash
+  bun "$SKILL_DIR/wechat-publisher/wechat-api.ts" "<原来的-publish.md路径>" \
+    --state-file "$HOME/.local/state/jdy-writer/drafts/<文章唯一键>.json" --verify-only
+  ```
+  源文件即使已清理也可核验，路径只用于原有身份绑定。命令只获取 token、调用 `draft/get`，不渲染、不上传、不调用 `draft/add` 或 `draft/update`；成功后备份并更新私有回执、清除已核实 pending，返回 `operation: verified`、`published: false`。存在实质差异时保留原回执和 pending，不手改回执清除标记。若创建返回丢失、回执尚无 ID，先在官方后台核实，再在恢复命令附加 `--update-media-id <已核实ID>`，不能猜测。
 - 若进程崩溃遗留 `.lock` 或 `.tmp`，先根据锁中的 PID 确认没有活动进程、备份回执并核实远端，再清理残留；不自动抢锁或丢弃 pending。多篇图文草稿暂交官方编辑器处理。
 
 #### 6.3.4 末尾引流段落

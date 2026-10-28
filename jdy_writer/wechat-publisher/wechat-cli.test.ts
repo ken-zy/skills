@@ -124,3 +124,47 @@ test("CLI accepts HTTP/HTTPS cover URLs and still resolves local relative cover 
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   }
 });
+
+test('verify-only uses receipt identity after source cleanup and only calls token/get; mismatch keeps pending', () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'wechat-verify-cli-'));
+  const source=path.join(dir,'deleted-publish.md'),state=path.join(dir,'state.json'),log=path.join(dir,'calls.jsonl');
+  const api=path.join(import.meta.dir,'wechat-api.ts');
+  const expected={title:'217. PF',content:'<p><img src="https://mmbiz.qpic.cn/mmbiz_jpg/abc123/0?from=appmsg"><br>35%</p>',thumb_media_id:'cover',cover_info:{crop:'keep'}};
+  const {createHash}=require('node:crypto');
+  const key=createHash('sha256').update('FAKE_APP').digest('hex');
+  const identity=createHash('sha256').update(key+'\0'+source).digest('hex');
+  const initial={version:1,identity,mediaId:'existing-draft',uploads:{},pending:{operation:'create',article:expected}};
+  const prelude=`
+    import fs from 'node:fs';
+    globalThis.fetch=async(input,init)=>{
+      const pathname=new URL(String(input)).pathname;
+      fs.appendFileSync(${JSON.stringify(log)},pathname+'\\n');
+      if(pathname.endsWith('/token'))return Response.json({access_token:'FAKE_TOKEN'});
+      if(pathname.endsWith('/draft/get')){
+        const a=${JSON.stringify(expected)};
+        a.content=a.content.replace('src=','data-src=').replace('/0?','/640?').replace('<br>','<br></br>');
+        if(process.env.CORRUPT==='yes')a.content=a.content.replace('35%','100%');
+        return Response.json({news_item:[a]});
+      }
+      throw new Error('Unexpected mutation/upload/render request');
+    };
+    process.argv=[process.execPath,${JSON.stringify(api)},${JSON.stringify(source)},'--state-file',${JSON.stringify(state)},'--verify-only',...JSON.parse(process.env.EXTRA||'[]')];
+    await import(${JSON.stringify(api)});
+  `;
+  const run=(corrupt=false,extra:string[]=[])=>Bun.spawnSync([process.execPath,'-e',prelude],{cwd:dir,env:{...process.env,HOME:dir,WECHAT_APP_ID:'FAKE_APP',WECHAT_APP_SECRET:'FAKE_SECRET',CORRUPT:corrupt?'yes':'no',EXTRA:JSON.stringify(extra)}});
+  try {
+    fs.writeFileSync(state,JSON.stringify(initial),{mode:0o600});
+    const bad=run(true);expect(bad.exitCode).toBe(1);expect(JSON.parse(fs.readFileSync(state,'utf8')).pending).toBeDefined();
+    const ok=run();if(ok.exitCode)throw new Error(ok.stderr.toString());
+    expect(JSON.parse(ok.stdout.toString())).toMatchObject({operation:'verified',published:false,title:'217. PF'});
+    expect(JSON.parse(fs.readFileSync(state,'utf8')).pending).toBeUndefined();
+    const calls=fs.readFileSync(log,'utf8').trim().split('\n');
+    expect(calls).toEqual(['/cgi-bin/token','/cgi-bin/draft/get','/cgi-bin/token','/cgi-bin/draft/get']);
+    expect(fs.existsSync(source)).toBe(false);
+    const before=fs.readFileSync(log,'utf8');
+    expect(run(false,['--title','overwrite']).exitCode).toBe(1);
+    expect(fs.readFileSync(log,'utf8')).toBe(before);
+    fs.unlinkSync(state);expect(run().exitCode).toBe(1);
+    expect(fs.readFileSync(log,'utf8')).toBe(before);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});

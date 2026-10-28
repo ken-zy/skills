@@ -17,6 +17,7 @@ function fixture(initial?: DraftArticle) {
   let corruptWrite = false;
   let dropAfterCommit = false;
   let rejection: number | string | undefined;
+  let format: ((html: string) => string) | undefined;
   const client = createWechatApiClient({ proxy: "http://127.0.0.1:17993", expectedEgressIp: "95.169.12.176" }, async (url, init) => {
     const endpoint = new URL(url).pathname;
     const body = JSON.parse(String(init?.body));
@@ -24,11 +25,11 @@ function fixture(initial?: DraftArticle) {
     if (endpoint.endsWith("/get")) return Response.json({ news_item: [live] });
     if (rejection !== undefined) return Response.json({ errcode: rejection, errmsg: "fake rejected request" });
     beforeUpdate?.();
-    if (endpoint.endsWith("/add")) { live = structuredClone(body.articles[0]); return Response.json({ media_id: "draft-1" }); }
-    if (endpoint.endsWith("/update")) { live = { ...live, ...structuredClone(body.articles) }; if (corruptWrite) live.content = "Platform altered body"; if (dropAfterCommit) throw new Error("Connection dropped after commit"); return Response.json({ errcode: 0 }); }
+    if (endpoint.endsWith("/add")) { live = structuredClone(body.articles[0]); if (format) live!.content = format(live!.content); return Response.json({ media_id: "draft-1" }); }
+    if (endpoint.endsWith("/update")) { live = { ...live, ...structuredClone(body.articles) }; if (format) live.content = format(live.content); if (corruptWrite) live.content = "Platform altered body"; if (dropAfterCommit) throw new Error("Connection dropped after commit"); return Response.json({ errcode: 0 }); }
     throw new Error("Unexpected test request");
   });
-  return { file, client, calls, reject: (value?: number | string) => { rejection = value; }, corrupt: () => { corruptWrite = true; }, drop: () => { dropAfterCommit = true; }, open: () => DraftSession.open(file, source, account), mutate: (patch: Partial<DraftArticle>) => { live = { ...live!, ...patch }; }, failWrites: () => { beforeUpdate = () => { throw new Error("fake timeout with fake-token"); }; }, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+  return { file, client, calls, format: (fn: (html: string) => string) => { format = fn; }, reject: (value?: number | string) => { rejection = value; }, corrupt: () => { corruptWrite = true; }, drop: () => { dropAfterCommit = true; }, open: () => DraftSession.open(file, source, account), mutate: (patch: Partial<DraftArticle>) => { live = { ...live!, ...patch }; }, failWrites: () => { beforeUpdate = () => { throw new Error("fake timeout with fake-token"); }; }, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 
 test("read-original metadata handles precedence inputs, conflict and unsafe schemes", () => {
@@ -200,5 +201,69 @@ test("malformed API rejection cannot clear a potentially unconfirmed write", asy
     s.close(); s = f.open();
     await expect(s.prepare("fake-token", f.client)).rejects.toThrow("outcome unknown");
     expect(f.calls.filter(x => x.endpoint.endsWith("/add"))).toHaveLength(1);
+  } finally { s.close(); f.cleanup(); }
+});
+
+test('platform-normalized readback succeeds on create and avoids needless update on rerun', async () => {
+  const f = fixture(); let s = f.open();
+  const html = '<p><img src="https://mmbiz.qpic.cn/mmbiz_jpg/abc123/0?from=appmsg"><br>35%</p><hr>';
+  try {
+    f.format(h => h.replace('src=', 'data-src=').replace('/0?', '/640?').replace('<br>', '<br></br>').replace('<hr>', '<hr></hr>'));
+    expect((await s.save({ ...article, content: html }, 'fake-token', f.client)).status).toBe('draft_verified'); s.close();
+    f.mutate({ content: html.replace('src=', 'data-src=').replace('/0?', '/640?').replace('<br>', '<br></br>').replace('<hr>', '<hr></hr>') });
+    // Seed an unresolved create as if a previous publisher stopped at readback.
+    const r = JSON.parse(fs.readFileSync(f.file, 'utf8'));
+    r.pending = { operation: 'create', article: { ...r.article, content: html } };
+    fs.writeFileSync(f.file, JSON.stringify(r));
+    s = f.open();
+    const before = f.calls.length;
+    expect(await s.verifyOnly('fake-token', f.client)).toMatchObject({ operation: 'verified', status: 'draft_verified', published: false });
+    expect(f.calls.slice(before).map(x => x.endpoint)).toEqual(['/cgi-bin/draft/get']);
+    expect(fs.readdirSync(path.dirname(f.file)).some(x => x.includes('before-verify'))).toBe(true);
+    expect(JSON.parse(fs.readFileSync(f.file, 'utf8')).pending).toBeUndefined();
+    const live = await s.prepare('fake-token', f.client);
+    expect((await s.save({ ...live!, content: html }, 'fake-token', f.client)).operation).toBe('unchanged');
+    expect(f.calls.filter(x => x.endpoint.endsWith('/add'))).toHaveLength(1);
+    expect(f.calls.filter(x => x.endpoint.endsWith('/update'))).toHaveLength(0);
+  } finally { s.close(); f.cleanup(); }
+});
+
+test('verify-only preserves receipt and pending on real content or metadata differences', async () => {
+  for (const patch of [{ content: '<p>100%</p>' }, { thumb_media_id: 'another-cover' }, { title: '216. Different' }, { cover_info: { crop: 'different' } }]) {
+    const f = fixture(); let s = f.open();
+    try {
+      await s.save(article, 'fake-token', f.client); s.close();
+      const r = JSON.parse(fs.readFileSync(f.file, 'utf8')); r.pending = { operation: 'create', article };
+      fs.writeFileSync(f.file, JSON.stringify(r)); const before = fs.readFileSync(f.file, 'utf8');
+      f.mutate(patch); s = f.open();
+      const calls = f.calls.length;
+      await expect(s.verifyOnly('fake-token', f.client)).rejects.toThrow('verification differs');
+      expect(fs.readFileSync(f.file, 'utf8')).toBe(before);
+      expect(f.calls.slice(calls).every(x => x.endpoint.endsWith('/get'))).toBe(true);
+    } finally { s.close(); f.cleanup(); }
+  }
+});
+
+test('verify-only without a known ID/expected body fails before any remote call', async () => {
+  const f = fixture(); const s = f.open();
+  try {
+    await expect(s.verifyOnly('fake-token', f.client)).rejects.toThrow('existing receipt');
+    expect(f.calls).toHaveLength(0);
+  } finally { s.close(); f.cleanup(); }
+});
+
+test('verify-only API refusal leaves the original pending receipt untouched', async () => {
+  const f = fixture(); let s = f.open();
+  try {
+    await s.save(article, 'fake-token', f.client); s.close();
+    const r = JSON.parse(fs.readFileSync(f.file, 'utf8')); r.pending = { operation: 'create', article: r.article };
+    fs.writeFileSync(f.file, JSON.stringify(r)); const before = fs.readFileSync(f.file, 'utf8');
+    let requests = 0;
+    const denied = createWechatApiClient(null, async url => {
+      expect(new URL(url).pathname).toBe('/cgi-bin/draft/get'); requests++;
+      return Response.json({ errcode: 40007, errmsg: 'invalid material ID' });
+    });
+    s = f.open(); await expect(s.verifyOnly('fake-token', denied)).rejects.toThrow('40007');
+    expect(requests).toBe(1); expect(fs.readFileSync(f.file, 'utf8')).toBe(before);
   } finally { s.close(); f.cleanup(); }
 });

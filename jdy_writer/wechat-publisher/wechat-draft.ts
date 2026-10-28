@@ -4,6 +4,8 @@ import os from "node:os";
 import { createHash } from "node:crypto";
 import { WechatApiRejectedError, type WechatApiClient } from "./wechat-network.ts";
 
+import { sameWechatHtml } from "./wechat-html.ts";
+
 export type DraftArticle = Record<string, unknown> & { content: string; title: string };
 type UploadReceipt = { media_id: string; url: string };
 interface Receipt {
@@ -44,8 +46,11 @@ function canonical(value: unknown): unknown {
   return value;
 }
 function field(value: unknown) { return JSON.stringify(canonical(value ?? "")); }
-function same(a: Record<string, unknown>, b: Record<string, unknown>, keys = observed) {
-  return keys.every(key => field(key === "article_type" ? a[key] || "news" : a[key]) === field(key === "article_type" ? b[key] || "news" : b[key]));
+function same(a: Record<string, unknown>, b: Record<string, unknown>, keys = observed, platformFormatting = false) {
+  return keys.every(key => {
+    if (platformFormatting && key === "content" && typeof a[key] === "string" && typeof b[key] === "string") return sameWechatHtml(a[key], b[key]);
+    return field(key === "article_type" ? a[key] || "news" : a[key]) === field(key === "article_type" ? b[key] || "news" : b[key]);
+  });
 }
 function select(article: DraftArticle): DraftArticle {
   return Object.fromEntries(writable.filter(k => article[k] !== undefined).map(k => [k, article[k]])) as DraftArticle;
@@ -109,7 +114,7 @@ export class DraftSession {
     if (!live.thumb_media_id && previous?.url && previous.url === live.thumb_url) this.originalCover = previous.mediaId;
     if (live.thumb_media_id && live.thumb_url) this.state.cover = { mediaId: String(live.thumb_media_id), url: String(live.thumb_url) };
     if (this.state.pending) {
-      if (!same(select(live), this.state.pending.article, Object.keys(this.state.pending.article))) throw new Error("Previous draft write outcome unresolved; inspect remotely before editing or retrying");
+      if (!same(select(live), this.state.pending.article, Object.keys(this.state.pending.article), true)) throw new Error("Previous draft write outcome unresolved; inspect remotely before editing or retrying");
       delete this.state.pending;
     } else if (this.state.article && !same(live, this.state.article)) {
       if (acceptRemote) {
@@ -123,6 +128,24 @@ export class DraftSession {
     this.persist();
     return structuredClone(live);
   }
+  async verifyOnly(token: string, client: WechatApiClient, explicitId?: string) {
+    if (explicitId && this.state.mediaId && explicitId !== this.state.mediaId) throw new Error("Draft ID conflicts with receipt");
+    const mediaId = this.state.mediaId || explicitId;
+    const expected = this.state.pending?.article || this.state.article;
+    if (!mediaId || !expected) throw new Error("Verification requires an existing receipt and a known draft ID");
+    const live = await this.get(mediaId, token, client);
+    const matches = this.state.pending
+      ? same(live, expected, Object.keys(expected), true)
+      : same(live, expected); // Editor changes remain strict after confirmation.
+    if (!matches) throw new Error("Draft verification differs; receipt and pending preserved, no remote writes sent");
+    fs.writeFileSync(this.file + `.before-verify-${Date.now()}.json`, JSON.stringify(this.state, null, 2), { flag: "wx", mode: 0o600 });
+    this.state.mediaId = mediaId;
+    this.state.article = live;
+    if (live.thumb_media_id && live.thumb_url) this.state.cover = { mediaId: String(live.thumb_media_id), url: String(live.thumb_url) };
+    delete this.state.pending;
+    this.persist();
+    return { media_id: mediaId, title: live.title, operation: "verified", status: "draft_verified", published: false };
+  }
   recoverCover(live: DraftArticle) {
     // Never substitute a cropped thumbnail URL for a permanent full-image cover.
     return typeof live.thumb_media_id === "string" && live.thumb_media_id ? live.thumb_media_id : this.originalCover;
@@ -135,7 +158,7 @@ export class DraftSession {
     if (mediaId) {
       const fresh = await this.get(mediaId, token, client);
       if (!this.state.article || !same(fresh, this.state.article)) throw new Error("Draft changed while preparing upload; no update sent");
-      if (same(fresh, candidate, Object.keys(candidate))) return { media_id: mediaId, operation: "unchanged", status: "draft_verified", published: false };
+      if (same(fresh, candidate, Object.keys(candidate), true)) return { media_id: mediaId, operation: "unchanged", status: "draft_verified", published: false };
     }
     if ((candidate.article_type ?? "news") === "news" && !candidate.thumb_media_id) throw new Error("Permanent article cover ID missing; supply --cover-media-id for the verified original image, or --cover for a new image");
     this.state.pending = { operation: mediaId ? "update" : "create", article: candidate };
@@ -162,7 +185,7 @@ export class DraftSession {
     this.state.mediaId = savedId;
     this.persist();
     const verified = await this.get(savedId, token, client);
-    if (!same(verified, candidate, Object.keys(candidate))) throw new Error("Draft readback differs; inspect remotely before retrying");
+    if (!same(verified, candidate, Object.keys(candidate), true)) throw new Error("Draft readback differs; inspect remotely before retrying");
     this.state.article = verified;
     if (verified.thumb_media_id && verified.thumb_url) this.state.cover = { mediaId: String(verified.thumb_media_id), url: String(verified.thumb_url) };
     delete this.state.pending;
