@@ -177,7 +177,7 @@ def download_command(base: list[str], url: str, directory: Path, action: str,
         # Preserve the original audio stream; ASR conversion is a subsequent step.
         args += ["--format", "bestaudio"]
     else:
-        selector = "bestvideo+bestaudio/best" if quality == "best" else f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]"
+        selector = "bestvideo+bestaudio/best/bestvideo" if quality == "best" else f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/bestvideo[height<={quality}]"
         args += ["--format", selector, "--merge-output-format", "mkv"]
     if action in ("subtitles", "bundle"):
         args += ["--sub-langs", sub_langs]
@@ -278,10 +278,11 @@ def verified_files(directory: Path, action: str, ffprobe: str | None, timeout: i
                 kinds = {s.get("codec_type") for s in streams}
             except (KeyError, ValueError, TypeError):
                 raise MediaError("verify", "Invalid media metadata") from None
-            required = {"audio"} if action == "audio" else {"audio", "video"}
+            required = {"audio"} if action == "audio" else {"video"}
             if not math.isfinite(duration) or duration <= 0 or not required.issubset(kinds):
                 raise MediaError("verify", "Output lacks a valid duration or required media tracks")
-            record.update(kind="audio" if action == "audio" else "video", duration_seconds=duration, streams=streams)
+            record.update(kind="audio" if action == "audio" else "video", duration_seconds=duration, streams=streams,
+                          audio_present="audio" in kinds)
         digest = hashlib.sha256()
         with path.open("rb") as handle:
             for block in iter(lambda: handle.read(1024 * 1024), b""):

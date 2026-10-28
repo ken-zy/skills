@@ -46,16 +46,19 @@ python3 {baseDir}/scripts/download_media.py subtitles 'URL' --dir ~/Downloads/�
 # Preserve an original audio-only track, without lossy MP3 conversion
 python3 {baseDir}/scripts/download_media.py audio 'URL' --dir ~/Downloads/资料/video-guide
 
-# Video with sound, capped at 720p; fails rather than silently exceeding the cap
+# Video, preserving sound when present, capped at 720px height
 python3 {baseDir}/scripts/download_media.py video 'URL' --dir ~/Downloads/资料/video-guide --quality 720
 
-# Video with sound plus requested caption tracks
+# Video plus requested caption tracks
 python3 {baseDir}/scripts/download_media.py bundle 'URL' --dir ~/Downloads/资料/video-guide --quality 1080
 ```
 
 `--quality` accepts `480`, `720` (default), `1080`, `2160`, `best`. Video merging
 uses MKV without transcoding; the actual codecs and dimensions come from
-ffprobe. `audio` requires an audio-only format and fails if none is exposed;
+ffprobe. Caps use the frame height, not its shorter edge: a portrait format
+labelled 540p can be 576×1024 and requires a higher height cap. Inspect formats
+before choosing a cap. Silent videos are valid video outputs and explicitly
+report `audio_present: false`; do not attempt ASR on them. `audio` requires an audio-only format and fails if none is exposed;
 extracting from a combined file must be a subsequent explicit choice. To create
 an ASR input, keep the original and separately convert with existing FFmpeg, e.g.
 `ffmpeg -nostdin -n -i ORIGINAL -vn -ac 1 -ar 16000 asr-input.wav`.

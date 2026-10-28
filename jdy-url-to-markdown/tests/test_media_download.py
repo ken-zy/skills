@@ -74,7 +74,7 @@ class MediaTests(unittest.TestCase):
         self.assertIn("--no-cookies-from-browser", base)
         self.assertNotIn("--cookies-from-browser", base)
         cmd = media.download_command(base, "https://x.com/a/status/1", Path("/tmp/a b"), "video", "720", "zh.*", "both")
-        self.assertEqual(cmd[cmd.index("--format") + 1], "bestvideo[height<=720]+bestaudio/best[height<=720]")
+        self.assertEqual(cmd[cmd.index("--format") + 1], "bestvideo[height<=720]+bestaudio/best[height<=720]/bestvideo[height<=720]")
         self.assertEqual(cmd[-2:], ["--", "https://x.com/a/status/1"])
         self.assertIn("/tmp/a b", cmd)
         self.assertNotIn("--write-subs", cmd)
@@ -147,10 +147,13 @@ class MediaTests(unittest.TestCase):
             manifest = Path(result["directory"]) / "manifest.json"
             self.assertEqual(json.loads(manifest.read_text())["files"], result["files"])
 
-    def test_video_requires_audio_and_video_tracks(self):
+    def test_video_accepts_silent_video_and_rejects_audio_only(self):
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / "fixture.mp4").write_bytes(b"fake")
             with patch.object(media, "run", return_value=json.dumps({"format": {"duration": "10"}, "streams": [{"codec_type": "video"}]})):
+                files = media.verified_files(Path(directory), "video", "ffprobe", 10)
+                self.assertFalse(files[0]["audio_present"])
+            with patch.object(media, "run", return_value=json.dumps({"format": {"duration": "10"}, "streams": [{"codec_type": "audio"}]})):
                 with self.assertRaisesRegex(media.MediaError, "required media tracks"):
                     media.verified_files(Path(directory), "video", "ffprobe", 10)
 
@@ -176,9 +179,9 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertFalse(json.loads(output.getvalue())["ok"])
 
-    @unittest.skipUnless(shutil.which("yt-dlp"), "yt-dlp not installed; no automatic installation")
+    @unittest.skipUnless(media.find_tool("yt-dlp"), "yt-dlp not installed; no automatic installation")
     def test_installed_ytdlp_accepts_base_options_without_network(self):
-        output = media.run(media.base_command(shutil.which("yt-dlp")) + ["--list-extractors"], 15, "dependency")
+        output = media.run(media.base_command(media.find_tool("yt-dlp")) + ["--list-extractors"], 15, "dependency")
         self.assertIn("BiliBili", output)
 
     def test_media_output_cannot_enter_vault(self):
