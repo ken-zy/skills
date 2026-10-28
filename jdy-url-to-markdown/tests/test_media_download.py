@@ -204,6 +204,11 @@ class MediaTests(unittest.TestCase):
                                           browser_cdp="http://127.0.0.1:9226"))
                 self.assertEqual(error.exception.code, "source_audio_missing")
 
+    def test_missing_download_audio_does_not_prove_silent_source(self):
+        self.assertEqual(media.source_audio_status({"formats": [{"acodec":"none","vcodec":"h264"}]}), "unknown")
+        self.assertEqual(media.source_audio_status({}, {"source_audio_status":"absent"}), "absent")
+        self.assertEqual(media.source_audio_status({"formats": [{"acodec":"aac","vcodec":"none"}]}, {"source_audio_status":"absent"}), "present")
+
     def test_multi_video_and_live_guard(self):
         with self.assertRaises(media.MediaError):
             media.one_video({"entries": [{"id": "a", "title": "a"}, {"id": "b", "title": "b"}]})

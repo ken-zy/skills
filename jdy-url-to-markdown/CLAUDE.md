@@ -26,7 +26,7 @@ URL to Markdown tool, used as a Claude Code skill.
 - `scripts/adapters/media_platforms.py` -- media platform routing, share-URL handling and explicit backend limits
 - `scripts/download_media.py` -- bounded yt-dlp invocation, original subtitles/audio, ffprobe checks and JSON manifests; independent of Bun/article/R2 paths
 - `scripts/adapters/native_media.py` -- requested-photo Apollo state, bounded HTTPS MP4 transfers and opt-in fixed WeChat resolver
-- `scripts/browser_media.ts` -- Deno/CDP read-only browser fallback for explicitly selected Reddit/Douyin/Xiaohongshu pages; no cookie/storage APIs
+- `scripts/browser_media.ts` -- Deno/CDP fixed browser reads for selected Reddit/Douyin/Xiaohongshu pages and Vimeo official download dialogs; no cookie/storage APIs
 - `scripts/media/` -- site-independent image download, classified R2-script/PicList upload, WebP verification, and Markdown URL rewrite
 - `scripts/media/video-nodes.ts` -- preserve embedded MP4 players and unresolved video positions before HTML cleanup
 - `scripts/media/persist-videos.ts` -- bounded MP4 download, ffprobe validation, R2 upload and public verification

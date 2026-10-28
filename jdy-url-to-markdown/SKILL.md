@@ -30,10 +30,12 @@ Xiaohongshu, Instagram, Facebook, Vimeo, Twitch, Reddit, Weibo and AcFun via
 yt-dlp. These are integration routes, not a guarantee that every URL works.
 Kuaishou has a native share-state adapter. WeChat Channels has an optional fixed
 resolver requiring explicit consent to send the public share URL; provider
-authentication failure is not a request for WeChat login. Reddit, Douyin and
-Xiaohongshu can also use a selected local browser endpoint when authorized,
+authentication failure is not a request for WeChat login. Reddit, Douyin,
+Xiaohongshu and Vimeo can also use a selected local browser endpoint when authorized,
 without exporting cookies. Missing tools are reported, never automatically
 installed or upgraded. Browser sessions require explicit scope.
+Vimeo's browser route uses only the owner's official download dialog, where
+downloads are enabled; it does not decrypt protected player streams.
 
 ## CLI Setup
 

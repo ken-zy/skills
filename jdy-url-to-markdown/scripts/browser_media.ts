@@ -1,7 +1,7 @@
-// Read one public Reddit/Douyin/Xiaohongshu video through an explicitly selected browser.
+// Read one public platform video through an explicitly selected browser.
 // No cookie/storage APIs, login automation, arbitrary expressions or remote imports.
-import { selectBrowserStream } from "./adapters/browser_media_select.ts";
-const [endpoint, source] = Deno.args;
+import { selectBrowserStream, selectVimeoDownload } from "./adapters/browser_media_select.ts";
+const [endpoint, source, quality = "best"] = Deno.args;
 const base = new URL(endpoint);
 const post = new URL(source);
 if (base.protocol !== "http:" || base.hostname !== "127.0.0.1" || !base.port || base.username || base.password || base.pathname !== "/") {
@@ -10,14 +10,19 @@ if (base.protocol !== "http:" || base.hostname !== "127.0.0.1" || !base.port || 
 const reddit = ["reddit.com", "www.reddit.com"].includes(post.hostname) && /\/comments\/[a-z0-9]+\//i.test(post.pathname);
 const douyin = ["douyin.com", "www.douyin.com"].includes(post.hostname) && /^\/video\/\d+/.test(post.pathname);
 const xhs = ["xiaohongshu.com", "www.xiaohongshu.com"].includes(post.hostname) && /^\/(explore|discovery\/item)\/[a-z0-9]+/i.test(post.pathname);
-if (post.protocol !== "https:" || !(reddit || douyin || xhs)) throw new Error("Expected one supported platform video URL");
-const allowedHosts = reddit ? ["reddit.com", "www.reddit.com"] : douyin ? ["douyin.com", "www.douyin.com"] : ["xiaohongshu.com", "www.xiaohongshu.com"];
+const vimeo = ["vimeo.com", "www.vimeo.com"].includes(post.hostname) && /^\/\d+\/?$/.test(post.pathname);
+if (post.protocol !== "https:" || !(reddit || douyin || xhs || vimeo)) throw new Error("Expected one supported platform video URL");
+const allowedHosts = reddit ? ["reddit.com", "www.reddit.com"] : douyin ? ["douyin.com", "www.douyin.com"] : vimeo ? ["vimeo.com", "www.vimeo.com"] : ["xiaohongshu.com", "www.xiaohongshu.com"];
+const requestedId = post.pathname.split("/").filter(Boolean).at(-1);
 const tabs = await (await fetch(new URL("/json/list", base))).json();
-const tab = tabs.find((t: { type: string; url: string }) => t.type === "page" && allowedHosts.includes(new URL(t.url).hostname));
+const tab = tabs.find((t: { type: string; url: string }) => {
+  if (t.type !== "page") return false;
+  const url = new URL(t.url);
+  return allowedHosts.includes(url.hostname) && (reddit || url.pathname.split("/").filter(Boolean).at(-1) === requestedId);
+});
 if (!tab) throw new Error("No matching platform page in the selected browser; ask the user to open it there");
 const target = new URL(tab.webSocketDebuggerUrl);
 if (target.protocol !== "ws:" || target.hostname !== "127.0.0.1" || target.port !== base.port) throw new Error("Unexpected browser target");
-const requestedId = post.pathname.split("/").filter(Boolean).at(-1);
 if (reddit) {
   post.pathname = post.pathname.replace(/\/?$/, "/") + ".json";
   post.search = "?raw_json=1&limit=0";
@@ -31,7 +36,24 @@ const expression = reddit ? `(async()=>{
   const p=data?.[0]?.data?.children?.[0]?.data;
   const video=p?.secure_media?.reddit_video||p?.media?.reddit_video;
   if(!video?.dash_url)return {ok:false,code:'no_reddit_video'};
-  return {ok:true,id:p.id,title:p.title,duration:video.duration,dash_url:video.dash_url};
+  const audioStatus=video.has_audio===true?'present':video.has_audio===false||video.is_gif===true?'absent':'unknown';
+  return {ok:true,id:p.id,title:p.title,duration:video.duration,dash_url:video.dash_url,source_audio_status:audioStatus,expects_audio:audioStatus==='present'};
+})()` : vimeo ? `(async()=>{
+  if(!${JSON.stringify(allowedHosts)}.includes(location.hostname)||location.pathname.split('/').filter(Boolean).join('/')!==${JSON.stringify(requestedId)})return {ok:false,code:'wrong_video_page'};
+  const dialog=()=>[...document.querySelectorAll('[role=dialog]')].find(d=>d.innerText.startsWith('Download video'));
+  if(!dialog()){
+    const button=document.querySelector('button[aria-label="Download button"]');
+    if(!button)return {ok:false,code:'download_not_enabled'};
+    button.click();
+    for(let i=0;i<20&&!dialog();i++)await new Promise(r=>setTimeout(r,250));
+  }
+  for(let i=0;i<20&&!dialog()?.querySelector('a[aria-label="Download"]');i++)await new Promise(r=>setTimeout(r,250));
+  const rows=[...(dialog()?.querySelectorAll('a[aria-label="Download"]')||[])].map(a=>({url:a.href,text:a.parentElement.innerText}));
+  const select=${selectVimeoDownload.toString()};
+  const selected=select(rows,${JSON.stringify(requestedId)},${JSON.stringify(quality)});
+  if(!selected)return {ok:false,code:rows.length?'quality_limit':'download_not_ready'};
+  const duration=[...document.querySelectorAll('video')].map(v=>v.duration).find(Number.isFinite);
+  return {ok:true,id:${JSON.stringify(requestedId)},title:document.title.slice(0,180),duration,...selected,user_agent:navigator.userAgent,official_download:true};
 })()` : `(()=>{
   if(!${JSON.stringify(allowedHosts)}.includes(location.hostname))return {ok:false,code:'wrong_browser_page'};
   const path=location.pathname.split('/').filter(Boolean);

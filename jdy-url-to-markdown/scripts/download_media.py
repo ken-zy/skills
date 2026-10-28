@@ -177,6 +177,15 @@ def finite_number(value):
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) else None
 
 
+def source_audio_status(info: dict, context: dict | None = None) -> str:
+    context = context or {}
+    offered = any(f.get("acodec") not in (None, "none") or (f.get("vcodec") == "none" and f.get("acodec") != "none")
+                  for f in info.get("formats") or [])
+    if offered or context.get("expects_audio") or context.get("source_audio_status") == "present":
+        return "present"
+    return "absent" if context.get("source_audio_status") == "absent" else "unknown"
+
+
 def caption_summary(tracks) -> list[dict]:
     if not isinstance(tracks, dict):
         return []
@@ -344,6 +353,7 @@ def acquire_local(args, adapter, url) -> dict:
     files = verified_files(source.parent, source_action, require_tool("ffprobe"), args.timeout, only_file=source)
     result = {"ok": True, "action": args.action, "backend": "local-file", "cookies_used": False,
               "share_url_sent_to_resolver": False, "metadata": {"platform": adapter.name, "source_url": public_source(url), "title": source.stem}, "files": files}
+    result["source_audio_status"] = "present" if any(f.get("audio_present") for f in files) else "absent"
     if args.action == "probe":
         return result
     if args.action in ("video", "bundle") and source_action == "audio":
@@ -376,13 +386,17 @@ def acquire_native(args, adapter, url) -> dict:
     if args.action == "subtitles":
         raise MediaError("subtitles", "Native share backends do not expose original subtitle tracks", "subtitles_unavailable")
     if adapter.name == "wechat-channels" and not getattr(args, "wechat_online", False):
-        raise MediaError("consent", "Sending this public share URL to sph.litao.workers.dev requires explicit user consent", "resolver_consent_required")
+        service = urlsplit(native.WECHAT_RESOLVERS[getattr(args, "wechat_resolver", "sph")]).hostname
+        raise MediaError("consent", f"Sending this public share URL to {service} requires explicit user consent", "resolver_consent_required")
     directory = None
     try:
-        info = native.probe_wechat(url, args.timeout) if adapter.name == "wechat-channels" else native.extract_kuaishou(native.fetch_share(url, args.timeout), url)
+        info = native.probe_wechat(url, args.timeout, getattr(args, "wechat_resolver", "sph")) if adapter.name == "wechat-channels" else native.extract_kuaishou(native.fetch_share(url, args.timeout), url)
         metadata = safe_metadata(info, adapter.name, url)
         result = {"ok": True, "action": args.action, "backend": adapter.backend, "cookies_used": False,
                   "share_url_sent_to_resolver": adapter.name == "wechat-channels", "metadata": metadata, "files": []}
+        result["source_audio_status"] = "unknown"
+        if adapter.name == "wechat-channels":
+            result["resolver_service"] = getattr(args, "wechat_resolver", "sph")
         if args.action == "probe":
             return result
         root = Path(args.dir).expanduser().resolve()
@@ -401,6 +415,8 @@ def acquire_native(args, adapter, url) -> dict:
         if args.action == "audio":
             run([require_tool("ffmpeg"), "-nostdin", "-v", "error", "-n", "-i", str(source), "-vn", "-c:a", "copy", str(media_dir / "audio.mka")], args.timeout, "audio_extract")
         result["files"] = verified_files(media_dir, args.action, require_tool("ffprobe"), args.timeout)
+        if any(f.get("audio_present") for f in result["files"]):
+            result["source_audio_status"] = "present"
         if args.quality != "best" and args.action != "audio":
             if any(s.get("height", 0) > int(args.quality) for f in result["files"] for s in f.get("streams", [])):
                 raise MediaError("verify", "Actual video exceeds the selected height cap", "quality_limit")
@@ -439,15 +455,16 @@ def acquire(args) -> dict:
     download_quality = args.quality
     browser_session_used = False
     expects_audio = False
+    context = {}
     cdp = getattr(args, "browser_cdp", None)
     if cdp:
-        if adapter.name not in ("reddit", "douyin", "xiaohongshu") or browser:
-            raise MediaError("validate", "--browser-cdp is only for explicitly authorized Reddit/Douyin/Xiaohongshu browser sessions; do not combine cookie extraction")
+        if adapter.name not in ("reddit", "douyin", "xiaohongshu", "vimeo") or browser:
+            raise MediaError("validate", "--browser-cdp is only for explicitly authorized Reddit/Douyin/Xiaohongshu/Vimeo browser sessions; do not combine cookie extraction")
         parsed_cdp = urlsplit(cdp)
         if parsed_cdp.scheme != "http" or parsed_cdp.hostname != "127.0.0.1" or not parsed_cdp.port or parsed_cdp.path not in ("", "/") or parsed_cdp.username or parsed_cdp.password:
             raise MediaError("validate", "Browser endpoint must be an explicitly authorized loopback HTTP port")
         raw = run([require_tool("deno"), "run", "--no-config", "--no-lock", f"--allow-net=127.0.0.1:{parsed_cdp.port}",
-                   str(Path(__file__).with_name("browser_media.ts")), cdp.rstrip("/") + "/", url], min(args.timeout, 60), "browser_read")
+                   str(Path(__file__).with_name("browser_media.ts")), cdp.rstrip("/") + "/", url, args.quality], min(args.timeout, 60), "browser_read")
         try:
             context = json.loads(raw)
         except ValueError:
@@ -457,7 +474,7 @@ def acquire(args) -> dict:
         from adapters.native_media import allowed_url
         download_url = context.get("dash_url") or context.get("media_url")
         hosts = {"reddit": ("v.redd.it",), "douyin": ("douyinvod.com", "douyin.com", "douyincdn.com", "snssdk.com", "bytecdn.cn", "ibytedtos.com"),
-                 "xiaohongshu": ("xhscdn.com", "xiaohongshu.com")}[adapter.name]
+                 "xiaohongshu": ("xhscdn.com", "xiaohongshu.com"), "vimeo": ("player.vimeo.com",)}[adapter.name]
         if not allowed_url(download_url, hosts):
             raise MediaError("browser_read", "Browser exposed an unexpected media host", "media_host_rejected")
         if context.get("media_url"):
@@ -478,12 +495,15 @@ def acquire(args) -> dict:
         expects_audio = bool(context.get("expects_audio"))
     else:
         info = probe(base, download_url, args.timeout)
+    audio_status = source_audio_status(info, context)
+    expects_audio = audio_status == "present"
     metadata = safe_metadata(info, adapter.name, url)
     result = {"ok": True, "action": args.action, "backend": adapter.backend,
               "downloader_version": run([ytdlp, "--version"], 15, "dependency").strip(),
               "cookies_used": bool(args.cookies_from_browser), "metadata": metadata, "files": []}
     result["browser_session_used"] = browser_session_used
     result["source_audio_expected"] = expects_audio
+    result["source_audio_status"] = audio_status
     if args.action == "probe":
         return result
     if args.action == "subtitles" and not (metadata["subtitles"] or metadata["automatic_captions"]):
@@ -502,6 +522,8 @@ def acquire(args) -> dict:
         command = command[:-2] + ["--max-filesize", str(getattr(args, "max_size_mib", 256)) + "M"] + command[-2:]
         run(command, args.timeout, "download")
         result["files"] = verified_files(directory, args.action, ffprobe, args.timeout)
+        if any(f.get("audio_present") for f in result["files"]):
+            result["source_audio_status"] = "present"
         if expects_audio and args.action in ("video", "bundle") and not any(f.get("audio_present") for f in result["files"]):
             raise MediaError("verify", "The source exposes audio but the downloaded video lacks it", "source_audio_missing")
         if browser_session_used and args.quality != "best":
@@ -530,7 +552,8 @@ def main(argv=None) -> int:
     parser.add_argument("--browser-profile", help="Explicitly authorized isolated browser profile; no automatic profile discovery")
     parser.add_argument("--browser-cdp", help="Explicitly authorized local platform browser CDP endpoint; cookies are never exported")
     parser.add_argument("--impersonate", choices=("chrome", "safari", "edge"), help="Use a reviewed installed curl_cffi browser compatibility target")
-    parser.add_argument("--wechat-online", action="store_true", help="Explicit consent to send this public share URL to sph.litao.workers.dev only")
+    parser.add_argument("--wechat-online", action="store_true", help="Explicit consent to send this public share URL to the selected fixed resolver only")
+    parser.add_argument("--wechat-resolver", choices=("sph", "qiaomu"), default="sph", help="One fixed resolver; requires explicit user consent naming its domain, never automatic failover")
     parser.add_argument("--max-size-mib", type=int, default=256, help="Maximum bytes per media file/stream in MiB; default 256")
     parser.add_argument("--local-file", help="Import a user-supplied media file without contacting any platform or resolver")
     parser.add_argument("--timeout", type=int, default=600, help="Seconds per command; default 600")

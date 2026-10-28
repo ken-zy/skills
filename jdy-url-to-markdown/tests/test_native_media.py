@@ -54,6 +54,18 @@ class NativeTests(unittest.TestCase):
                 native.probe_wechat('https://weixin.qq.com/sph/test', 10)
         self.assertEqual(result.exception.code, 'resolver_invalid_response')
 
+    def test_only_selected_fixed_resolver_receives_public_link(self):
+        payload = {"data": {"feedInfo": {"videoUrl": "https://finder.video.qq.com/example.mp4"}}}
+        with patch.object(native.urllib.request, 'build_opener') as opener:
+            opener.return_value.open.return_value.__enter__.return_value.read.return_value = json.dumps(payload).encode()
+            native.probe_wechat('https://weixin.qq.com/sph/test', 10, 'qiaomu')
+            request = opener.return_value.open.call_args.args[0]
+            self.assertEqual(request.full_url, 'https://wx-dl.qiaomu.ai/api/fetch_video_profile')
+            self.assertEqual(json.loads(request.data), {"url": "https://weixin.qq.com/sph/test"})
+            self.assertEqual(opener.return_value.open.call_count, 1)
+        with self.assertRaises(native.NativeError):
+            native.probe_wechat('https://weixin.qq.com/sph/test', 10, 'unknown')
+
 
 if __name__=='__main__':
     unittest.main()

@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
 WECHAT_RESOLVER = "https://sph.litao.workers.dev/api/fetch_video_profile"
+WECHAT_RESOLVERS = {"sph": WECHAT_RESOLVER, "qiaomu": "https://wx-dl.qiaomu.ai/api/fetch_video_profile"}
 KS_HOSTS = ("kwaicdn.com", "yximgs.com", "kwimgs.com", "ksapisrv.com", "kuaishou.com", "gifshow.com")
 WX_HOSTS = ("qq.com", "gtimg.com", "qpic.cn")
 
@@ -151,11 +152,13 @@ def extract_kuaishou(page: str, source: str) -> dict:
             "extractor_key": "KuaishouNative", "formats": formats, "subtitles": {}, "automatic_captions": {}}
 
 
-def probe_wechat(source, timeout):
+def probe_wechat(source, timeout, provider="sph"):
     parsed = urlsplit(source)
     if parsed.hostname != "weixin.qq.com" or not parsed.path.startswith("/sph/"):
         raise NativeError("invalid_url", "Expected a weixin.qq.com/sph/<id> public share URL")
-    request = urllib.request.Request(WECHAT_RESOLVER, data=json.dumps({"url": source}).encode(),
+    if provider not in WECHAT_RESOLVERS:
+        raise NativeError("resolver_not_allowed", "Select one reviewed fixed resolver; arbitrary endpoints and automatic fallbacks are not accepted")
+    request = urllib.request.Request(WECHAT_RESOLVERS[provider], data=json.dumps({"url": source}).encode(),
                                     headers={"Content-Type": "application/json", "User-Agent": "video-guide/1.0"}, method="POST")
     try:
         # No redirects: consent names this service only, not a chain of services.
