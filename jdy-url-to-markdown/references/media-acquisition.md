@@ -81,6 +81,12 @@ and its playing browser stream had zero audio tracks. Reddit `90bu6w` was marked
 `is_gif: true` and its DASH manifest had zero audio representations. Both current
 published samples are genuinely without an offered audio track; this does not
 establish what was in the creator's original pre-upload file.
+On 2026-10-29, a separate public Instagram sample,
+[`nasajohnson/DcMXl1IPNtB`](https://www.instagram.com/reel/DcMXl1IPNtB/),
+downloaded on the Mini without cookies or a browser session: 50.315 seconds,
+536×952 VP9 video and stereo AAC audio. Full video/audio decoding, SHA-256
+comparison and a non-silence check passed (peak −2.1 dB). This verifies the
+audio-preserving route separately from the earlier silent sample.
 
 Captions retain original formats and timing. `--caption-kind` accepts `manual`,
 `auto`, `both` (default). Some extractors place AI tracks in `subtitles`; inspect
@@ -196,12 +202,11 @@ the separately authorized tests returned **401 unauthorized** from `sph` and
 **HTTP 500** from `qiaomu`; online downloading remains **not verified**. Do not
 ask the user to log in to WeChat to repair these service responses. Local import
 is a separate fallback, not proof of online video download support.
-No local capture backend was installed in this audit. The reviewed
-[`wx_channels_download` v260714 root command](https://github.com/ltaoo/wx_channels_download/blob/v260714/cmd/root.go#L157-L175)
-contains an unrelated Yuanbao Cookie capture/output hook. That candidate needs
-correction or replacement before use; its proxy and CA behavior also needs
-separate review and authorization. This finding is specific to the reviewed
-version, not a claim about every version or alternative backend.
+The user skipped further WeChat Channels download work on 2026-10-29. No local
+capture backend is bundled with this skill; the separate investigation was
+canceled without installing system trust or changing the system proxy. Keep
+online support marked unverified; do not resume that investigation without a
+new request.
 
 ## Credentials, errors and results
 
@@ -216,6 +221,8 @@ use the explicit browser reader instead.
 That invocation reads the local browser session; never export cookie contents
 into chat/logs, and never treat a login prompt as permission to read a browser.
 Network/fragment retries are disabled so denial/rate limits stop promptly.
+Unavailable stream fragments abort the download instead of producing a
+successful manifest for a partial video.
 `--timeout` is seconds per command, default 600, range 1–7200.
 `--max-size-mib` defaults to 256 per file/stream, range 1–4096. A size limit is not
 a transcode request; a rejected file must not silently fall back to a silent

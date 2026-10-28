@@ -149,7 +149,7 @@ def base_command(executable: str, browser: str | None = None) -> list[str]:
     # netrc is opt-in in yt-dlp; --ignore-config prevents a user's config enabling it.
     args = [executable, "--ignore-config", "--no-cache-dir", "--no-plugin-dirs", "--no-remote-components", "--no-cookies", "--no-cookies-from-browser",
             "--no-playlist", "--playlist-items", "1", "--socket-timeout", "20", "--retries", "0",
-            "--fragment-retries", "0", "--no-progress", "--no-colors"]
+            "--fragment-retries", "0", "--abort-on-unavailable-fragments", "--no-progress", "--no-colors"]
     if browser:
         args += ["--cookies-from-browser", browser]
     runtime = find_tool("deno")

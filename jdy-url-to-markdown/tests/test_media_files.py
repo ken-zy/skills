@@ -4,11 +4,14 @@ Run on the selected execution host:
 python3 -m unittest discover -s tests -p 'test_media_files.py' -v
 """
 import json
+import functools
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 import wave
 from unittest.mock import patch
@@ -19,6 +22,43 @@ import download_media as media
 
 @unittest.skipUnless(media.find_tool("ffmpeg") and media.find_tool("ffprobe"), "Existing FFmpeg tools required")
 class RealFileTests(unittest.TestCase):
+    @unittest.skipUnless(media.find_tool("yt-dlp"), "Existing yt-dlp required")
+    def test_missing_hls_fragment_fails_instead_of_accepting_partial_media(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media.run([media.find_tool("ffmpeg"), "-nostdin", "-v", "error", "-f", "lavfi", "-i",
+                       "sine=frequency=440:duration=1", "-c:a", "aac", "-f", "mpegts", str(root / "segment.ts")], 30, "fixture")
+            (root / "fixture.m3u8").write_text(
+                "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n"
+                "#EXTINF:1.0,\nsegment.ts\n#EXTINF:1.0,\nmissing.ts\n#EXT-X-ENDLIST\n")
+            requests = []
+
+            class Handler(SimpleHTTPRequestHandler):
+                def do_GET(self):
+                    requests.append(self.path)
+                    super().do_GET()
+
+                def log_message(self, *args):
+                    pass
+
+            server = ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Handler, directory=str(root)))
+            worker = threading.Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+            try:
+                url = f"http://127.0.0.1:{server.server_port}/fixture.m3u8"
+                command = media.base_command(media.find_tool("yt-dlp")) + [
+                    "--downloader", "m3u8:native", "--output", str(root / "partial.ts"), "--", url]
+                with self.assertRaises(media.MediaError) as error:
+                    media.run(command, 30, "download")
+                self.assertEqual(error.exception.stage, "download")
+                self.assertIn("/segment.ts", requests)
+                self.assertIn("/missing.ts", requests)
+                self.assertFalse((root / "partial.ts").is_file())
+            finally:
+                server.shutdown()
+                server.server_close()
+                worker.join(timeout=5)
+
     def test_local_import_preserves_source_and_extracts_audio_without_network(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
