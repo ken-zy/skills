@@ -6,6 +6,7 @@ metadata:
     requires:
       anyBins:
         - bun
+        - python3
 ---
 
 # URL to Markdown
@@ -27,9 +28,12 @@ Fetches any URL and converts it to clean Markdown with YAML front matter.
 Platform media adapters cover Bilibili, YouTube, X/Twitter, Douyin, TikTok,
 Xiaohongshu, Instagram, Facebook, Vimeo, Twitch, Reddit, Weibo and AcFun via
 yt-dlp. These are integration routes, not a guarantee that every URL works.
-WeChat Channels and Kuaishou are recognized but report an unavailable backend;
-do not describe them as download-capable. Missing tools are reported, never
-automatically installed or upgraded. Browser cookies require explicit scope.
+Kuaishou has a native share-state adapter. WeChat Channels has an optional fixed
+resolver requiring explicit consent to send the public share URL; provider
+authentication failure is not a request for WeChat login. Reddit, Douyin and
+Xiaohongshu can also use a selected local browser endpoint when authorized,
+without exporting cookies. Missing tools are reported, never automatically
+installed or upgraded. Browser sessions require explicit scope.
 
 ## CLI Setup
 

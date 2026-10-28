@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 import wave
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import download_media as media
@@ -18,6 +19,27 @@ import download_media as media
 
 @unittest.skipUnless(media.find_tool("ffmpeg") and media.find_tool("ffprobe"), "Existing FFmpeg tools required")
 class RealFileTests(unittest.TestCase):
+    def test_local_import_preserves_source_and_extracts_audio_without_network(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "fixture.wav"
+            with wave.open(str(source), "wb") as handle:
+                handle.setparams((1, 2, 16000, 16000, "NONE", "not compressed"))
+                handle.writeframes(b"\0\0" * 16000)
+            original = source.read_bytes()
+            # An unrelated sibling must not be probed or imported.
+            (root / "unrelated.mp4").write_text("not media")
+            import argparse
+            args = argparse.Namespace(action="audio", url="https://weixin.qq.com/sph/fixture", local_file=str(source),
+                                      dir=str(root / "output"), quality="best", timeout=30, max_size_mib=1)
+            with patch.object(media, "probe", side_effect=AssertionError("network path used")), patch.object(media, "acquire_native", side_effect=AssertionError("resolver used")):
+                result = media.acquire(args)
+            self.assertEqual(source.read_bytes(), original)
+            self.assertEqual(result["backend"], "local-file")
+            self.assertFalse(result["share_url_sent_to_resolver"])
+            self.assertEqual(result["files"][0]["streams"][0]["codec_name"], "pcm_s16le")
+            self.assertTrue(Path(result["directory"], "manifest.json").is_file())
+
     def test_real_audio_and_video_tracks_and_invalid_media(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

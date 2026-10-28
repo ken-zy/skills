@@ -40,10 +40,10 @@ ADAPTERS = (
     PlatformAdapter("reddit", ("reddit.com", "redd.it")),
     PlatformAdapter("weibo", ("weibo.com", "weibo.cn")),
     PlatformAdapter("acfun", ("acfun.cn",)),
-    PlatformAdapter("wechat-channels", ("weixin.qq.com", "channels.weixin.qq.com"), "unavailable",
-                    "WeChat Channels needs a separately reviewed backend; this CLI does not install a CA, change proxies or send URLs to a resolver."),
-    PlatformAdapter("kuaishou", ("kuaishou.com", "gifshow.com"), "unavailable",
-                    "No bundled Kuaishou share-page backend; provide an authorized local media file or add a reviewed backend."),
+    PlatformAdapter("wechat-channels", ("weixin.qq.com", "channels.weixin.qq.com"), "wechat-online",
+                    "Fixed online resolver requires explicit per-scope consent; no CA, proxy or client changes."),
+    PlatformAdapter("kuaishou", ("kuaishou.com", "gifshow.com"), "native-share",
+                    "Parse only the requested video's Apollo share state; generic page MP4s are rejected."),
 )
 
 

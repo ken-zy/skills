@@ -49,11 +49,26 @@ class MediaTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_platform("https://bilibili.com/video/BVfixture/?p=invalid")
 
-    def test_unavailable_backends_do_not_execute_downloader(self):
-        for url in ("https://weixin.qq.com/sph/id", "https://v.kuaishou.com/id"):
-            with patch.object(media, "run") as runner, self.assertRaises(media.MediaError) as error:
-                media.acquire(options(url=url))
-            self.assertEqual(error.exception.stage, "adapter")
+    def test_wechat_requires_consent_before_network(self):
+        from adapters import native_media
+        with patch.object(native_media, "probe_wechat") as fetcher, self.assertRaises(media.MediaError) as error:
+            media.acquire(options(url="https://weixin.qq.com/sph/id"))
+        self.assertEqual(error.exception.code, "resolver_consent_required")
+        fetcher.assert_not_called()
+
+    def test_error_categories_distinguish_backend_auth_from_user_login(self):
+        self.assertEqual(media.error_details('WARNING: cookies missing\nERROR: macos OAuth HTTP 401')[0], 'backend_auth_failed')
+        self.assertEqual(media.error_details('ERROR: Fresh cookies (not necessarily logged in) are needed')[0], 'session_required')
+        self.assertEqual(media.error_details('ERROR: Account authentication is required')[0], 'login_required')
+        self.assertEqual(media.error_details('WARNING: cannot decrypt v10 cookies: no key found\nERROR: Account authentication is required')[0], 'session_unreadable')
+        diagnostic = media.safe_diagnostic('ERROR: GET https://cdn.test/v?token=PRIVATE cookie=PRIVATE2 token=PRIVATE3')
+        self.assertNotIn('PRIVATE', diagnostic)
+        self.assertNotIn('SIGNED', media.safe_diagnostic('ERROR: [generic] ?sig=SIGNED&expires=123: HTTP Error 403'))
+
+    def test_invalid_browser_scope_fails_before_browser_read(self):
+        with patch.object(media, "require_tool", return_value="yt-dlp"), patch.object(media, "run") as runner:
+            with self.assertRaisesRegex(media.MediaError, "only for"):
+                media.acquire(options(browser_cdp="http://127.0.0.1:9224"))
             runner.assert_not_called()
 
     def test_probe_redacts_media_urls_and_does_not_write(self):
@@ -156,6 +171,28 @@ class MediaTests(unittest.TestCase):
             with patch.object(media, "run", return_value=json.dumps({"format": {"duration": "10"}, "streams": [{"codec_type": "audio"}]})):
                 with self.assertRaisesRegex(media.MediaError, "required media tracks"):
                     media.verified_files(Path(directory), "video", "ffprobe", 10)
+
+    def test_browser_video_cannot_drop_known_source_audio(self):
+        context = {"ok": True, "id": "fixture", "title": "Fixture", "duration": 1, "height": 480, "width": 320,
+                   "media_url": "https://sns-video.xhscdn.com/fixture.mp4", "expects_audio": True}
+        def fake_run(argv, timeout, stage):
+            if stage == "browser_read":
+                return json.dumps(context)
+            if stage == "dependency":
+                return "offline-fixture"
+            if stage == "download":
+                self.assertEqual(argv[argv.index("--output") + 1], "media.%(ext)s")
+                (Path(argv[argv.index("--paths") + 1]) / "silent.mp4").write_bytes(b"fixture")
+                return ""
+            if stage == "verify":
+                return json.dumps({"format": {"duration": "1"}, "streams": [{"codec_type": "video", "height": 480}]})
+            raise AssertionError(stage)
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(media, "require_tool", side_effect=lambda name: name), patch.object(media, "probe", return_value={"id": "fixture"}), patch.object(media, "run", side_effect=fake_run):
+                with self.assertRaises(media.MediaError) as error:
+                    media.acquire(options("video", url="https://www.xiaohongshu.com/explore/fixture", dir=directory,
+                                          browser_cdp="http://127.0.0.1:9226"))
+                self.assertEqual(error.exception.code, "source_audio_missing")
 
     def test_multi_video_and_live_guard(self):
         with self.assertRaises(media.MediaError):
