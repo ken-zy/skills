@@ -1,16 +1,41 @@
 ---
 name: jdy-url-to-markdown
-description: "读取或保存网页原文为 Markdown，支持微信公众号及图片、视频持久化。"
+description: "读取或保存网页原文为 Markdown；下载 B站、YouTube、X、小红书等平台的视频、音频和字幕，支持媒体信息探测及文章图片、内嵌视频持久化。"
 metadata:
   openclaw:
     requires:
       anyBins:
         - bun
+        - python3
 ---
 
 # URL to Markdown
 
 Fetches any URL and converts it to clean Markdown with YAML front matter.
+
+## Choose the mode
+
+- **Read/archive an article:** use the existing Bun CLI below. Existing YouTube
+  transcript extraction and X thread extraction remain article operations.
+- **Download platform video/audio/subtitles or inspect formats:** read
+  [Media acquisition](references/media-acquisition.md), then use
+  `python3 {baseDir}/scripts/download_media.py`. This is an independent entrypoint
+  using Python's standard library plus existing yt-dlp/FFmpeg tools; it needs no
+  Bun or npm packages. It writes local media and JSON, never Markdown or R2.
+- A pasted URL or request to summarize is not by itself a request to download
+  media. Follow the user's selected steps; inspect subtitles before choosing ASR.
+
+Platform media adapters cover Bilibili, YouTube, X/Twitter, Douyin, TikTok,
+Xiaohongshu, Instagram, Facebook, Vimeo, Twitch, Reddit, Weibo and AcFun via
+yt-dlp. These are integration routes, not a guarantee that every URL works.
+Kuaishou has a native share-state adapter. WeChat Channels has an optional fixed
+resolver requiring explicit consent to send the public share URL; provider
+authentication failure is not a request for WeChat login. Reddit, Douyin,
+Xiaohongshu and Vimeo can also use a selected local browser endpoint when authorized,
+without exporting cookies. Missing tools are reported, never automatically
+installed or upgraded. Browser sessions require explicit scope.
+Vimeo's browser route uses only the owner's official download dialog, where
+downloads are enabled; it does not decrypt protected player streams.
 
 ## CLI Setup
 

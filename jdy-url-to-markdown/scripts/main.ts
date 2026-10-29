@@ -28,6 +28,8 @@ function printUsage(): void {
 Options:
   --cdp           Force CDP (skip Level 1)
   --wait          Wait for valid content in CDP
+  --media <action> Run media acquisition: probe, subtitles, audio, video, bundle, doctor
+                   See python3 scripts/download_media.py --help for media options
   --timeout <ms>  Page load timeout (default: 30000)
   --images <mode> Image handling: remote, piclist, r2, or none (default: EXTEND.md; fallback: remote)
   --videos <mode> Video handling: remote, r2, or none (default: follows image mode; configurable in EXTEND.md)
@@ -187,6 +189,15 @@ async function cdpFetch(
 }
 
 async function main(): Promise<void> {
+  // Explicit media mode bypasses article parsing, Markdown writing and R2 uploads.
+  // Keep the Python entrypoint independently usable on hosts without Bun.
+  const cliArgs = process.argv.slice(2);
+  if (cliArgs[0] === "--media") {
+    const child = Bun.spawn(["python3", `${import.meta.dir}/download_media.py`, ...cliArgs.slice(1)], {
+      stdin: "inherit", stdout: "inherit", stderr: "inherit",
+    });
+    process.exit(await child.exited);
+  }
   const preferences = loadPreferences();
   const args = parseArgs(process.argv.slice(2), {
     timeout: preferences.defaultTimeout,
