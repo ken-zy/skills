@@ -30,8 +30,8 @@ function imageTag(tag: string): string {
   const src = sources[0]!;
   if (!src.value || src.valueStart === undefined || src.valueEnd === undefined) return tag;
   // Only WeChat's exact public image host and known image paths, same asset/query.
-  const value = src.value.replace(/^(https:\/\/mmbiz\.qpic\.cn\/mmbiz_(?:jpg|png|gif|webp)\/[A-Za-z0-9]+\/)640(?=\?|$)/, (_match, prefix) => prefix + '0');
-  if (!/^https:\/\/mmbiz\.qpic\.cn\/mmbiz_(?:jpg|png|gif|webp)\/[A-Za-z0-9]+\/0(?:\?|$)/.test(value)) return tag;
+  const value = src.value.replace(/^(https:\/\/mmbiz\.qpic\.cn\/(?:sz_)?mmbiz_(?:jpg|png|gif|webp)\/[A-Za-z0-9]+\/)640(?=\?|$)/, (_match, prefix) => prefix + '0');
+  if (!/^https:\/\/mmbiz\.qpic\.cn\/(?:sz_)?mmbiz_(?:jpg|png|gif|webp)\/[A-Za-z0-9]+\/0(?:\?|$)/.test(value)) return tag;
   return tag.slice(0, src.start) + 'src' + tag.slice(src.end, src.valueStart) + value + tag.slice(src.valueEnd);
 }
 export function normalizeWechatHtml(html: string): string {
