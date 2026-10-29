@@ -37,6 +37,23 @@ logged-in users cannot access captions. Nothing invokes ASR or an LLM API.
 The optional Bun alias is `bun run {baseDir}/scripts/main.ts --media <action> ...`.
 It takes the same arguments. Use the Python entrypoint on a host without Bun.
 
+## 字幕来源优先级
+
+处理视频字幕时，按以下顺序选择主稿：
+
+1. 作者提供的原始字幕或独立字幕轨。
+2. 如果有视频画面字幕，通过 OCR 提取。
+3. 平台 AI 字幕辅助定位和查漏。
+4. 仍无法确认的句子再补转录。
+
+保留各来源原件，并标明作者字幕、画面 OCR、平台 AI 或补转录来源。
+下载文件没有字幕轨，不等于平台或作者未提供可单独获取的字幕；
+未找到时说明已检查的范围，不断言作者没有未公开的原始文件。
+
+OCR 提取画面中已有的文字，补转录根据音频识别文字，两者不能混称。
+当前媒体 CLI 不内置 OCR 或 ASR；本节规定来源选择顺序，
+不表示这些后续步骤已经实现或自动执行。
+
 ## Select outputs
 
 Inspect the probe before deciding what to save. Honor explicit choices and
