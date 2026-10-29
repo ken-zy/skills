@@ -25,3 +25,19 @@ test('unknown image forms and duplicate attributes stay strict', () => {
   }
   expect(sameWechatHtml(`<img src="${image}" src="${image}">`, `<img data-src="${image}" src="${image}">`)).toBe(false);
 });
+
+// Observed on a real draft readback: WeChat also issues sz_mmbiz image paths.
+test('sz_mmbiz platform formatting preserves the exact image identity', () => {
+  const source = original.replace('/mmbiz_jpg/', '/sz_mmbiz_jpg/');
+  const live = platform.replace('/mmbiz_jpg/', '/sz_mmbiz_jpg/');
+  expect(sameWechatHtml(source, live)).toBe(true);
+  for (const altered of [
+    live.replace('AbC123', 'Another'),
+    live.replace('from=appmsg', 'from=other'),
+    live.replace('/sz_mmbiz_jpg/', '/mmbiz_jpg/'),
+    live.replace('/sz_mmbiz_jpg/', '/other_mmbiz_jpg/'),
+    live.replace('35%', '100%'),
+    live.replace('text-align:left', 'text-align:right'),
+    live.replace('mmbiz.qpic.cn', 'mmbiz.qpic.cn.evil.test'),
+  ]) expect(sameWechatHtml(source, altered)).toBe(false);
+});
