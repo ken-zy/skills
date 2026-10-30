@@ -8,7 +8,7 @@ import {
 } from './x-utils.js';
 import {
   CN_ACCOUNT, assertComposerReady, backfillVerified, bindReceipt, buildManifest, canonicalPostUrl,
-  loadReceipt, sha256, withReceiptLock, writeReceipt, type PostReceipt, type PublishedSnapshot,
+  loadReceipt, assertCanSubmit, planPostPage, verificationUrl, sha256, withReceiptLock, writeReceipt, type PostReceipt, type PublishedSnapshot,
 } from './x-post-state.ts';
 import { runPostFlow, type PostDriver } from './x-post-flow.ts';
 
@@ -49,12 +49,14 @@ export async function postToX(options: XBrowserOptions): Promise<{ stateFile: st
   return withReceiptLock(stateFile, async () => {
     const r = verifyOnly ? loadReceipt(stateFile) : bindReceipt(stateFile, manifest!);
     if (options.profileDir && path.resolve(options.profileDir) !== r.manifest.profile) throw Error('Profile differs from receipt.');
-    if (options.submit && r.stage === 'waiting_login') throw Error('Compose without --submit first, inspect the private preview screenshots, then reuse this receipt with --submit.');
+    if (options.submit) assertCanSubmit(r);
+    const verifyUrl = verificationUrl(r, verifyOnly, options.publishedUrl);
     const save = () => writeReceipt(stateFile, r);
     save();
-    const browser = await connectBrowser(r, options.chromePath);
-    const driver = makeDriver(browser.cdp, browser.sessionId, r, text, options.timeoutMs || 30_000, stateFile, save);
+    const browser = await connectBrowser(r, options.chromePath, verifyUrl);
     try {
+      save();
+      const driver = makeDriver(browser.cdp, browser.sessionId, r, text, options.timeoutMs || 30_000, stateFile, save);
       await runPostFlow(r, driver, save, { submit: !!options.submit, verifyOnly, publishedUrl: options.publishedUrl });
       if (r.stage === 'verified') {
         backfillVerified(r);
@@ -71,13 +73,13 @@ export async function postToX(options: XBrowserOptions): Promise<{ stateFile: st
   });
 }
 
-async function connectBrowser(r: PostReceipt, chromePath?: string) {
+async function connectBrowser(r: PostReceipt, chromePath?: string, verifyUrl?: string) {
   fs.mkdirSync(r.manifest.profile, { recursive: true });
   let port = await findExistingChromeDebugPort(r.manifest.profile);
   let chrome: Awaited<ReturnType<typeof launchChrome>>['chrome'] | undefined;
   if (port === null) {
-    if (r.targetId && !r.url && r.stage !== 'waiting_login') throw Error('Original composer is unavailable. Inspect the account before attempting recovery; do not recreate and repost.');
-    const launch = await launchChrome('https://x.com/home', r.manifest.profile, CHROME_CANDIDATES_FULL, chromePath);
+    if (!verifyUrl && r.targetId && r.stage !== 'waiting_login') throw Error('Original composer is unavailable. Inspect the account before attempting recovery; do not recreate and repost.');
+    const launch = await launchChrome('about:blank', r.manifest.profile, CHROME_CANDIDATES_FULL, chromePath);
     port = launch.port; chrome = launch.chrome;
     chrome.unref();
   }
@@ -86,10 +88,10 @@ async function connectBrowser(r: PostReceipt, chromePath?: string) {
     const version = await cdp.send<{ product: string; userAgent: string }>('Browser.getVersion');
     if (!version.product.startsWith('Chrome/') || /Edg\//.test(version.userAgent)) throw Error('Expected Google Chrome for the dedicated X profile.');
     const { targetInfos } = await cdp.send<{ targetInfos: { targetId: string; url: string }[] }>('Target.getTargets');
-    let targetId = r.targetId;
-    if (!targetId || !targetInfos.some(t => t.targetId === targetId && /^https:\/\/x\.com\//.test(t.url))) {
-      if (targetId && !r.url && r.stage !== 'waiting_login') throw Error('Original composer closed or navigated away. Inspect before recovering.');
-      ({ targetId } = await cdp.send<{ targetId: string }>('Target.createTarget', { url: r.url || 'https://x.com/compose/post' }));
+    const page = planPostPage(r, targetInfos, verifyUrl);
+    let targetId = page.targetId;
+    if (!targetId) {
+      ({ targetId } = await cdp.send<{ targetId: string }>('Target.createTarget', { url: page.url }));
     }
     const { sessionId } = await cdp.send<{ sessionId: string }>('Target.attachToTarget', { targetId, flatten: true });
     await cdp.send('Runtime.enable', {}, { sessionId });

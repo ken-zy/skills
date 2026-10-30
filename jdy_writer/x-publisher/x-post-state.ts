@@ -67,6 +67,29 @@ export function canonicalPostUrl(value: string): string {
   if (!match || match[1].toLowerCase() !== CN_ACCOUNT.toLowerCase()) throw Error('Post URL belongs to a different account or is not a status URL.');
   return `https://x.com/${CN_ACCOUNT}/status/${match[2]}`;
 }
+// Recovery is read-only and must not depend on the original composer surviving a crash.
+export function verificationUrl(r: PostReceipt, verifyOnly: boolean, publishedUrl?: string): string | undefined {
+  if (publishedUrl && !verifyOnly) throw Error('--published-url requires --verify-only.');
+  const url = publishedUrl ? canonicalPostUrl(publishedUrl) : r.url;
+  if (r.url && url !== r.url) throw Error('Receipt already binds another published URL.');
+  if (verifyOnly && !url) throw Error('Find the actual post and use --verify-only --published-url; no new submission is permitted.');
+  return url;
+}
+export function assertCanSubmit(r: PostReceipt): void {
+  if (r.url) return; // An already submitted receipt is only reverified, never clicked again.
+  if (r.stage !== 'ready') throw Error('Only a ready receipt may submit. Compose without --submit, inspect previews, and reuse the same receipt. For an uncertain submission, inspect the actual post and use --verify-only --published-url.');
+}
+export function planPostPage(r: PostReceipt, targets: { targetId: string; url: string }[], verifyUrl?: string): { targetId?: string; url: string } {
+  const target = targets.find(t => t.targetId === r.targetId);
+  if (verifyUrl) {
+    const url = canonicalPostUrl(verifyUrl);
+    // Even a status page can contain an unsent reply. Inspect in a fresh task tab.
+    return { targetId: undefined, url };
+  }
+  if (target && /^https:\/\/x\.com\//.test(target.url)) return { targetId: target.targetId, url: target.url };
+  if (r.targetId && r.stage !== 'waiting_login') throw Error('Original composer is unavailable. Inspect before recovering; do not recreate and repost.');
+  return { url: 'https://x.com/compose/post' };
+}
 export interface ComposerSnapshot { account?: string; editor: boolean; text: string; count: number; loaded: boolean; enabled: boolean }
 export function assertComposerReady(r: PostReceipt, s: ComposerSnapshot, text: string): void {
   if (s.account?.toLowerCase() !== `/${CN_ACCOUNT.toLowerCase()}`) throw Error(`Expected @${CN_ACCOUNT}; account mismatch stops publication.`);
@@ -77,7 +100,7 @@ export function assertPublished(r: PostReceipt, snapshot: PublishedSnapshot): vo
   if (canonicalPostUrl(snapshot.url) !== r.url || snapshot.author.toLowerCase() !== CN_ACCOUNT.toLowerCase()) throw Error('Published account or URL mismatch.');
   if (sha256(snapshot.text) !== r.manifest.textSha256) throw Error('Published text mismatch or still collapsed.');
   const stem = new URL(r.url!).pathname;
-  if (!snapshot.loaded || snapshot.photos.length !== r.manifest.images.length || snapshot.photos.some((u, i) => new URL(u, 'https://x.com').pathname !== `${stem}/photo/${i + 1}`)) throw Error('Published media missing, not loaded, or out of order.');
+  if (!snapshot.loaded || snapshot.photos.length !== r.manifest.images.length || snapshot.photos.some((u, i) => (new URL(u, 'https://x.com').origin !== 'https://x.com' || new URL(u, 'https://x.com').pathname !== `${stem}/photo/${i + 1}`))) throw Error('Published media missing, not loaded, or out of order.');
 }
 export function backfillVerified(r: PostReceipt): void {
   if (!['verified', 'complete'].includes(r.stage) || !r.url) throw Error('Only a verified post may be backfilled.');
@@ -86,9 +109,11 @@ export function backfillVerified(r: PostReceipt): void {
   const changes = r.manifest.sources.map(source => {
     const current = fs.readFileSync(source.file, 'utf8');
     const line = `> ${source.label}：${url}`;
+    const occurrences = current.split(/\r?\n/).filter(value => value === line).length;
+    if (occurrences > 1) throw Error('Duplicate publication links in backfill source; reconcile before completing.');
+    if (occurrences === 1) return { file: source.file, current, append: '' };
     const suffix = `${current.endsWith('\n') ? '\n' : '\n\n'}${line}\n`;
     if (sha256(current) === source.sha256) return { file: source.file, current, append: suffix };
-    if ([`\n${line}\n`, `\n\n${line}\n`].some(ending => current.endsWith(ending) && sha256(current.slice(0, -ending.length)) === source.sha256)) return { file: source.file, current, append: '' };
     throw Error(`Published, but backfill source changed: ${source.file}. Merge the verified URL manually; do not repost.`);
   });
   for (const change of changes) {

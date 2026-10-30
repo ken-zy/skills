@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { CN_ACCOUNT, sha256, buildManifest, bindReceipt, writeReceipt, loadReceipt, canonicalPostUrl, assertPublished, backfillVerified, withReceiptLock, type PostReceipt, type PublishedSnapshot } from './x-post-state.ts';
+import { CN_ACCOUNT, assertCanSubmit, planPostPage, verificationUrl, sha256, buildManifest, bindReceipt, writeReceipt, loadReceipt, canonicalPostUrl, assertPublished, backfillVerified, withReceiptLock, type PostReceipt, type PublishedSnapshot } from './x-post-state.ts';
 import { runPostFlow, type PostDriver } from './x-post-flow.ts';
 import { postToX } from './x-browser.ts';
 import { getDefaultProfileDir } from './x-utils.ts';
@@ -81,7 +81,7 @@ test('canonical URL rejects foreign account, host and non-status URLs',()=>{
 test('media count, loaded state and order are all required',t=>{
  const f=fixture(t);f.receipt.url=url;
  assertPublished(f.receipt,f.snapshot);
- for(const changed of [{photos:[...f.snapshot.photos].reverse()},{photos:f.snapshot.photos.slice(1)},{loaded:false},{author:'other'}])assert.throws(()=>assertPublished(f.receipt,{...f.snapshot,...changed}));
+ for(const changed of [{photos:[...f.snapshot.photos].reverse()},{photos:f.snapshot.photos.slice(1)},{loaded:false},{author:'other'},{photos:f.snapshot.photos.map(p=>'https://foreign.example'+p)}])assert.throws(()=>assertPublished(f.receipt,{...f.snapshot,...changed}));
 });
 test('changed source blocks all backfill edits; retry after partial backfill is idempotent',t=>{
  const f=fixture(t);f.receipt.url=url;f.receipt.stage='verified';
@@ -122,4 +122,34 @@ test('last pre-click validation failure leaves a retryable prepared receipt',asy
  d.submit=async()=>{throw Error('preview changed before click');};
  await assert.rejects(runPostFlow(f.receipt,d,()=>{}, {submit:true}),/preview changed/);
  assert.equal(f.receipt.stage,'ready');assert.equal(calls.submit,0);
+});
+
+test('uncertain publication can open a read-only recovery page after original tab or browser closes',t=>{
+ const f=fixture(t);f.receipt.stage='submitting';f.receipt.targetId='closed-target';
+ assert.equal(verificationUrl(f.receipt,true,url),url);
+ assert.equal(f.receipt.url,undefined); // Candidate must not be bound until the actual post matches.
+ assert.deepEqual(planPostPage(f.receipt,[],url),{targetId:undefined,url});
+ assert.throws(()=>planPostPage(f.receipt,[]),/Original composer/);
+ assert.throws(()=>verificationUrl(f.receipt,true),/actual post/);
+});
+test('read-only verification preserves a new draft in the old task tab',t=>{
+ const f=fixture(t);f.receipt.targetId='old-task';f.receipt.url=url;
+ const targets=[{targetId:'old-task',url:'https://x.com/compose/post'}];
+ assert.equal(planPostPage(f.receipt,targets,url).targetId,undefined);
+ assert.equal(planPostPage(f.receipt,[{targetId:'old-task',url}],url).targetId,undefined); // Preserve unsent replies too.
+});
+test('only a ready unpublished receipt may submit; partial composition cannot bypass preview review',t=>{
+ const f=fixture(t);
+ for(const stage of ['waiting_login','composing','submitting','submitted'] as const){f.receipt.stage=stage;assert.throws(()=>assertCanSubmit(f.receipt),/Only a ready/);}
+ f.receipt.stage='ready';assert.doesNotThrow(()=>assertCanSubmit(f.receipt));
+ f.receipt.stage='submitted';f.receipt.url=url;assert.doesNotThrow(()=>assertCanSubmit(f.receipt));
+});
+test('manual backfill reconciliation closes without changing new author edits or duplicating URLs',t=>{
+ const f=fixture(t);f.receipt.url=url;f.receipt.stage='verified';
+ const edited=fs.readFileSync(f.sources[0],'utf8')+`\n作者新增段落。\n\n> 发布链接：${url}\n\n保留末尾补充。\n`;
+ fs.writeFileSync(f.sources[0],edited);
+ backfillVerified(f.receipt);backfillVerified(f.receipt);
+ assert.equal(fs.readFileSync(f.sources[0],'utf8'),edited);
+ fs.appendFileSync(f.sources[0],`> 发布链接：${url}\n`);
+ assert.throws(()=>backfillVerified(f.receipt),/Duplicate publication links/);
 });
