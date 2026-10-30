@@ -7,7 +7,7 @@ import {
   getDefaultProfileDir, launchChrome, sleep, waitForChromeDebugPort,
 } from './x-utils.js';
 import {
-  CN_ACCOUNT, assertComposerReady, backfillVerified, bindReceipt, buildManifest, canonicalPostUrl,
+  CN_ACCOUNT, readPostText, assertComposerReady, backfillVerified, bindReceipt, buildManifest, canonicalPostUrl,
   loadReceipt, assertCanSubmit, planPostPage, verificationUrl, sha256, withReceiptLock, writeReceipt, type PostReceipt, type PublishedSnapshot,
 } from './x-post-state.ts';
 import { runPostFlow, type PostDriver } from './x-post-flow.ts';
@@ -171,7 +171,7 @@ export function makeDriver(cdp: CdpConnection, sessionId: string, receipt: PostR
       const read = () => evaluate<PublishedSnapshot>(`(()=>{
         const a=[...document.querySelectorAll('article')].find(a=>a.querySelector('a[href=${JSON.stringify(stem)}] time'));
         const photos=a?[...a.querySelectorAll('a[href^=${JSON.stringify(stem + '/photo/')} ]')]:[];
-        return {url:location.href,author:a?.querySelector('[data-testid="User-Name"] a[href="/${CN_ACCOUNT}"]')?'${CN_ACCOUNT}':'',text:a?.querySelector('[data-testid="tweetText"]')?.innerText||'',photos:photos.map(p=>p.getAttribute('href')),loaded:!!a&&photos.every(p=>p.querySelector('img')?.complete&&p.querySelector('img')?.naturalWidth>0)};
+        return {url:location.href,author:a?.querySelector('[data-testid="User-Name"] a[href="/${CN_ACCOUNT}"]')?'${CN_ACCOUNT}':'',text:(${readPostText.toString()})(a?.querySelector('[data-testid="tweetText"]'),${JSON.stringify(receipt.manifest.links||[])}),photos:photos.map(p=>p.getAttribute('href')),loaded:!!a&&photos.every(p=>p.querySelector('img')?.complete&&p.querySelector('img')?.naturalWidth>0)};
       })()`);
       const result = await poll(read, p => p.author === CN_ACCOUNT && sha256(p.text) === receipt.manifest.textSha256 && p.photos.length === receipt.manifest.images.length && p.loaded);
       await capture('published');

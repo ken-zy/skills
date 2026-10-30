@@ -3,7 +3,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { sha, savePrivate, outsideNotes, addVerifiedLink, publicBytes, args } from './files.ts';
 import { withReceiptLock } from '../x-publisher/x-post-state.ts';
-import type { MediaLedger } from './media-ledger.ts';
+import { validateMediaItem, type MediaLedger } from './media-ledger.ts';
 const norm=(s:string)=>s.replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
 export function wechatUrl(value:string) {
  const u=new URL(value);
@@ -17,7 +17,7 @@ export async function loadAdapter(directory=path.resolve(import.meta.dir,'../../
  const require=createRequire(adapter);const dom=await import(require.resolve('linkedom'));
  return {...loaded,parseHTML:dom.parseHTML};
 }
-interface Snapshot {canonicalUrl?:string;title:string;text:string;images:string[];links:string[];media:{kind:string;author:string;title:string;before:string}[];markdown:string}
+interface Snapshot {canonicalUrl?:string;title:string;text:string;images:string[];links:{href:string;label:string}[];tables:{text:string;tag:string;colspan:string;rowspan:string}[][][];media:{kind:string;author:string;title:string;before:string}[];markdown:string}
 export function snapshot(html:string,url:string,adapter:any):Snapshot {
  const {document}=adapter.parseHTML(adapter.prepareWechatHtml(html));const body=document.querySelector('#js_content, .rich_media_content');
  if(!body)throw Error('Official article body unavailable (possibly login/captcha); no verification or backfill.');
@@ -43,18 +43,20 @@ export function snapshot(html:string,url:string,adapter:any):Snapshot {
   if(u.hostname==='mmbiz.qpic.cn'&&/^\/(?:sz_)?mmbiz_(jpg|png|gif|webp)\/[A-Za-z0-9]+\/(0|640)$/.test(u.pathname))return u.origin+u.pathname.replace(/\/640$/,'/0');
   return u.href;
  });
- const links=[...body.querySelectorAll('a[href]')].map((a:any)=>a.getAttribute('href'));
+ const links=[...body.querySelectorAll('a[href]')].map((a:any)=>({href:a.getAttribute('href'),label:norm(a.textContent)}));
+ const tables=[...body.querySelectorAll('table')].map((table:any)=>[...table.querySelectorAll('tr')].filter((row:any)=>row.closest('table')===table).map((row:any)=>[...row.children].filter((cell:any)=>['td','th'].includes(cell.localName)).map((cell:any)=>({text:norm(cell.textContent),tag:cell.localName,colspan:cell.getAttribute('colspan')||'1',rowspan:cell.getAttribute('rowspan')||'1'}))));
  const parsed=adapter.parseWechatHtml(document.documentElement.outerHTML,url);
  if(!parsed.metadata.title||parsed.metadata.title==='Untitled'||!text)throw Error('Untrustworthy article title or empty body.');
  const canonicalUrl=document.querySelector('link[rel="canonical"]')?.getAttribute('href')||document.querySelector('meta[property="og:url"]')?.getAttribute('content')||undefined;
- return {canonicalUrl,title:norm(parsed.metadata.title),text,images,links,media,markdown:parsed.markdown};
+ return {canonicalUrl,title:norm(parsed.metadata.title),text,images,links,tables,media,markdown:parsed.markdown};
 }
 export function compare(expected:Snapshot,actual:Snapshot,ledger?:MediaLedger) {
  const items=ledger?Object.values(ledger.items):[];
+ for(const item of items)validateMediaItem(item);
  const mediaMatch=ledger?actual.media.length===items.length&&items.every((item,i)=>{
   const seen=actual.media[i];return seen&&seen.kind===item.kind&&norm(seen.title)===norm(item.title)&&(!item.author||norm(seen.author)===norm(item.author))&&seen.before.endsWith(norm(item.after));
  }):JSON.stringify(actual.media)===JSON.stringify(expected.media);
- const checks={title:actual.title===expected.title,text:actual.text===expected.text,images:JSON.stringify(actual.images)===JSON.stringify(expected.images),links:JSON.stringify(actual.links)===JSON.stringify(expected.links),media:mediaMatch};
+ const checks={title:actual.title===expected.title,text:actual.text===expected.text,images:JSON.stringify(actual.images)===JSON.stringify(expected.images),links:JSON.stringify(actual.links)===JSON.stringify(expected.links),tables:JSON.stringify(actual.tables)===JSON.stringify(expected.tables),media:mediaMatch};
  return {passed:Object.values(checks).every(Boolean),checks};
 }
 export function draftBaseline(file:string) {

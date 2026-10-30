@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { CN_ACCOUNT, assertCanSubmit, planPostPage, verificationUrl, sha256, buildManifest, bindReceipt, writeReceipt, loadReceipt, canonicalPostUrl, assertPublished, backfillVerified, withReceiptLock, type PostReceipt, type PublishedSnapshot } from './x-post-state.ts';
+import { CN_ACCOUNT, readPostText, assertCanSubmit, planPostPage, verificationUrl, sha256, buildManifest, bindReceipt, writeReceipt, loadReceipt, canonicalPostUrl, assertPublished, backfillVerified, withReceiptLock, type PostReceipt, type PublishedSnapshot } from './x-post-state.ts';
 import { runPostFlow, type PostDriver } from './x-post-flow.ts';
 import { postToX } from './x-browser.ts';
 import { getDefaultProfileDir } from './x-utils.ts';
@@ -152,4 +152,21 @@ test('manual backfill reconciliation closes without changing new author edits or
  assert.equal(fs.readFileSync(f.sources[0],'utf8'),edited);
  fs.appendFileSync(f.sources[0],`> 发布链接：${url}\n`);
  assert.throws(()=>backfillVerified(f.receipt),/Duplicate publication links/);
+});
+
+test('rendered URLs are recovered only from matching approved link metadata',t=>{
+ const f=fixture(t,0),url='https://example.com/full/source';
+ const m=buildManifest('来源 ('+url+')',[],f.receipt.manifest.profile,[]);assert.deepEqual(m.links,[url]);
+ const anchor={innerText:'example.com/full/…',getAttribute:(key:string)=>key==='title'?url:key==='href'?'https://t.co/short':null};
+ const node={innerText:'来源 (example.com/full/…)',querySelectorAll:()=>[anchor]};
+ assert.equal(readPostText(node,m.links),'来源 ('+url+')');
+ assert.equal(readPostText({...node,querySelectorAll:()=>[{...anchor,getAttribute:()=>null}]},m.links),node.innerText);
+});
+test('ambiguous repeated link displays and unrelated metadata never fabricate approved text',()=>{
+ const display='example.com/…';const anchor={innerText:display,getAttribute:(key:string)=>key==='title'?'https://example.com/other':null};
+ const node={innerText:display+' '+display,querySelectorAll:()=>[anchor]};
+ assert.equal(readPostText(node,['https://example.com/other']),node.innerText);
+ assert.equal(readPostText({...node,innerText:display},['https://example.com/expected']),display);
+ const mention={innerText:'@example.com',getAttribute:()=> 'https://example.com/other'};
+ assert.equal(readPostText({innerText:'@example.com',querySelectorAll:()=>[mention]},['https://example.com/other']),'@example.com');
 });

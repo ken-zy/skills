@@ -47,7 +47,7 @@ test('public article parser preserves lazy images and detects changed text, imag
 test('declared video identity and insertion anchor are independently compared; signed player URL is excluded from report',async()=>{
  const adapter=await loadAdapter();const native='<mp-common-videosnap data-nickname="作者" data-desc="视频标题" data-url="https://signed.example/video?token=SECRET"></mp-common-videosnap>';
  const actual=snapshot(html(body.replace('</p>',`</p>${native}`)),url,adapter),expected=snapshot(html(),url,adapter);
- const ledger:any={items:{clip:{kind:'channels',author:'作者',title:'视频标题',after:paragraph,events:[]}}};
+ const ledger:any={items:{clip:{kind:'channels',source:'https://weixin.qq.com/sph/public',author:'作者',title:'视频标题',after:paragraph,events:[]}}};
  assert.ok(compare(expected,actual,ledger).passed);assert.ok(!compare(expected,actual).passed);
  ledger.items.clip.after='另一个段落';assert.ok(!compare(expected,actual,ledger).passed);
  assert.ok(!JSON.stringify(actual).includes('SECRET'));
@@ -116,4 +116,26 @@ test('public source redirects stop without following captcha or fetching a secon
  try{globalThis.fetch=(async()=>{requests++;return new Response(null,{status:302,headers:{location:'https://mp.weixin.qq.com/mp/captcha?token=private'}});}) as typeof fetch;
  await assert.rejects(publicBytes(url,['mp.weixin.qq.com'],1024),/redirected/);assert.equal(requests,1);
  }finally{globalThis.fetch=previous;}
+});
+
+test('changed table rows, cell associations, span or header semantics cannot pass as identical article text',async()=>{
+ const adapter=await loadAdapter();
+ const expected=snapshot(html(body+'<table><tr><th>A</th><th>B</th></tr><tr><td>C</td><td>D</td></tr></table>'),url,adapter);
+ for(const table of ['<table><tr><th>A</th><th>B</th><td>C</td><td>D</td></tr></table>','<table><tr><th colspan="2">AB</th></tr><tr><td>C</td><td>D</td></tr></table>','<table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr></table>']){
+  const result=compare(expected,snapshot(html(body+table),url,adapter));assert.equal(result.checks.tables,false);assert.equal(result.passed,false);
+ }
+});
+test('link labels remain bound to their targets even if global article text and href order match',async()=>{
+ const adapter=await loadAdapter();
+ const expected=snapshot(html(body+'<p><a href="https://example.com/a">ETH</a><a href="https://example.com/b">BTC</a></p>'),url,adapter);
+ const actual=snapshot(html(body+'<p><a href="https://example.com/a">ETHBTC</a><a href="https://example.com/b"></a></p>'),url,adapter);
+ assert.equal(expected.text,actual.text);assert.equal(compare(expected,actual).checks.links,false);
+});
+test('blank media anchors and missing Channels authors fail before evidence is saved',async t=>{
+ const f=fixture(t),file=path.join(f.dir,'media.json');
+ const base={'--action':'add','--key':'clip','--draft-id':'draft-1','--article-title':'220. 原文章','--type':'channels','--source':'https://weixin.qq.com/sph/public','--author':'作者','--media-title':'视频标题','--after':paragraph};
+ for(const changed of [{'--after':'   '},{'--author':''},{'--media-title':'\n '}])await assert.rejects(updateMedia(file,{...base,...changed}),/required/);
+ assert.ok(!fs.existsSync(file));
+ const adapter=await loadAdapter(),expected=snapshot(html(),url,adapter);
+ assert.throws(()=>compare(expected,expected,{items:{clip:{kind:'channels',source:'https://weixin.qq.com/sph/public',author:'作者',title:'视频标题',after:' ',events:[]}}} as any),/required/);
 });
