@@ -267,3 +267,156 @@ test('verify-only API refusal leaves the original pending receipt untouched', as
     expect(requests).toBe(1); expect(fs.readFileSync(f.file, 'utf8')).toBe(before);
   } finally { s.close(); f.cleanup(); }
 });
+
+test('inspect and hash-bound reconcile adopt a reviewed snapshot locally without remote writes', async () => {
+  const f = fixture(); let s = f.open();
+  try {
+    f.format(html => html.replace('<p>', '<p style="color:red">'));
+    await expect(s.save(article, 'fake-token', f.client)).rejects.toThrow('readback differs');
+    s.close(); s = f.open();
+    const originalReceipt = fs.readFileSync(f.file, 'utf8'), before = f.calls.length;
+    const report = await s.inspectOnly('fake-token', f.client);
+    expect(report.differingFields).toEqual(['content']);
+    expect(report.content.textEqual).toBe(true);
+    expect(report.content.stylesEqual).toBe(false);
+    expect(fs.readFileSync(f.file, 'utf8')).toBe(originalReceipt);
+    expect(fs.statSync(report.inspectionFile).mode & 0o777).toBe(0o600);
+    const inspection = JSON.parse(fs.readFileSync(report.inspectionFile, 'utf8'));
+    expect(inspection.expected.content).toBe(article.content);
+    expect(inspection.live.content).toContain('color:red');
+    expect(await s.reconcileOnly('fake-token', f.client, report.readbackSha256, 'Reviewed the style change against the private inspection')).toMatchObject({operation:'reconciled',status:'draft_reconciled',remoteWrites:false,published:false});
+    const saved = JSON.parse(fs.readFileSync(f.file, 'utf8'));
+    expect(saved.pending).toBeUndefined();
+    expect(saved.article.content).toContain('color:red');
+    const backup = JSON.parse(fs.readFileSync(path.join(path.dirname(f.file),saved.reconciliation.backup),'utf8'));
+    expect(backup.pending.article.content).toBe(article.content);
+    expect(f.calls.slice(before).every(c => c.endpoint.endsWith('/get'))).toBe(true);
+    expect(fs.readFileSync(f.file,'utf8')).not.toContain('fake-token');
+  } finally { s.close(); f.cleanup(); }
+});
+
+test('reconciliation refuses stale hashes, missing notes, title changes and unknown IDs without altering the receipt', async () => {
+  const f = fixture(); let s = f.open();
+  try {
+    await s.save(article,'fake-token',f.client); const report = await s.inspectOnly('fake-token',f.client);
+    const before = fs.readFileSync(f.file,'utf8');
+    await expect(s.reconcileOnly('fake-token',f.client,report.readbackSha256,'')).rejects.toThrow('review note');
+    f.mutate({content:'<p>changed after inspection</p>'});
+    await expect(s.reconcileOnly('fake-token',f.client,report.readbackSha256,'Reviewed')).rejects.toThrow('changed since inspection');
+    f.mutate({title:'216. Other article'});
+    const changed = await s.inspectOnly('fake-token',f.client);
+    await expect(s.reconcileOnly('fake-token',f.client,changed.readbackSha256,'Reviewed')).rejects.toThrow('title differs');
+    expect(fs.readFileSync(f.file,'utf8')).toBe(before);
+  } finally {s.close(); f.cleanup();}
+  const empty=fixture(), t=empty.open();
+  try {await expect(t.reconcileOnly('fake-token',empty.client,'a'.repeat(64),'Reviewed')).rejects.toThrow('known draft ID');expect(empty.calls).toHaveLength(0);}finally{t.close();empty.cleanup();}
+});
+
+test('published confirmation is local, backed up, idempotent, accurately labeled and blocks later draft operations', async () => {
+  const f=fixture(); let s=f.open();
+  try {
+    f.format(html=>html+'<mp-common-videosnap data-id="official-card"></mp-common-videosnap>');
+    await expect(s.save(article,'fake-token',f.client)).rejects.toThrow('readback differs');s.close();
+    const before=fs.readFileSync(f.file,'utf8'), calls=f.calls.length;
+    const result=DraftSession.recordPublished(f.file,source,'draft-1',article.title,'User confirmed inserting the video card and publishing');
+    expect(result).toMatchObject({status:'publication_user_confirmed',evidence:'user-confirmed',remoteWrites:false});
+    const saved=JSON.parse(fs.readFileSync(f.file,'utf8'));
+    expect(saved.pending).toBeUndefined();expect(saved.article).toBeUndefined();
+    expect(saved.publication.draftVerification).toBe('unverified');
+    expect(fs.readFileSync(path.join(path.dirname(f.file),saved.publication.backup),'utf8')).toBe(before);
+    expect(fs.statSync(f.file).mode&0o777).toBe(0o600);
+    const bytes=fs.readFileSync(f.file,'utf8');
+    expect(DraftSession.recordPublished(f.file,source,'draft-1',article.title,'Same confirmation').operation).toBe('unchanged');
+    expect(fs.readFileSync(f.file,'utf8')).toBe(bytes);
+    s=f.open();
+    await expect(s.prepare('fake-token',f.client)).rejects.toThrow('marked published');
+    await expect(s.save(article,'fake-token',f.client)).rejects.toThrow('marked published');
+    await expect(s.verifyOnly('fake-token',f.client)).rejects.toThrow('marked published');
+    expect(f.calls).toHaveLength(calls);
+  }finally{s.close();f.cleanup();}
+});
+
+test('publication closure rejects wrong identities and requires an existing known draft', async () => {
+  const f=fixture();const s=f.open();
+  try {
+    await s.save(article,'fake-token',f.client);s.close();const before=fs.readFileSync(f.file,'utf8');
+    for(const [id,title,note,url] of [['wrong-id',article.title,'confirmed',undefined],['draft-1','other title','confirmed',undefined],['draft-1',article.title,'',undefined],['draft-1',article.title,'confirmed','https://evil.test/article']] as const){
+      expect(()=>DraftSession.recordPublished(f.file,source,id,title,note,url)).toThrow();
+      expect(fs.readFileSync(f.file,'utf8')).toBe(before);
+    }
+    expect(()=>DraftSession.recordPublished(f.file,'/wrong-source.md','draft-1',article.title,'confirmed')).toThrow('source path');
+    expect(fs.readFileSync(f.file,'utf8')).toBe(before);
+  }finally{s.close();f.cleanup();}
+});
+
+test('editor-inserted video cards and players are protected even with accept-remote and before save', async () => {
+  for(const native of ['<mp-common-videosnap data-id="card"></mp-common-videosnap>','<iframe src="player"></iframe>']){
+    const f=fixture({...article,content:native}); const s=f.open();
+    try {
+      await expect(s.prepare('fake-token',f.client,'draft-1',true)).rejects.toThrow('Native video');
+      expect(f.calls.every(c=>c.endpoint.endsWith('/get'))).toBe(true);
+    }finally{s.close();f.cleanup();}
+  }
+  const f=fixture();const s=f.open();
+  try{
+    await s.save(article,'fake-token',f.client);
+    f.mutate({content:'<mp-common-videosnap data-id="new-card"></mp-common-videosnap>'});
+    const before=f.calls.length;
+    await expect(s.save({...article,content:'<p>local overwrite</p>'},'fake-token',f.client)).rejects.toThrow('Native video');
+    expect(f.calls.slice(before).every(c=>c.endpoint.endsWith('/get'))).toBe(true);
+  }finally{s.close();f.cleanup();}
+});
+
+test('publication closure respects an active publisher lock and refuses conflicting URLs on repeat',async()=>{
+ const f=fixture();let s=f.open();
+ try{
+  await s.save(article,'fake-token',f.client);const before=fs.readFileSync(f.file,'utf8');
+  expect(()=>DraftSession.recordPublished(f.file,source,'draft-1',article.title,'User confirmed')).toThrow();
+  expect(fs.readFileSync(f.file,'utf8')).toBe(before);s.close();
+  DraftSession.recordPublished(f.file,source,'draft-1',article.title,'User confirmed','https://mp.weixin.qq.com/s/verified-by-user');
+  const saved=fs.readFileSync(f.file,'utf8');
+  expect(()=>DraftSession.recordPublished(f.file,source,'draft-1',article.title,'User confirmed','https://mp.weixin.qq.com/s/different')).toThrow('URL differs');
+  expect(fs.readFileSync(f.file,'utf8')).toBe(saved);
+ }finally{s.close();f.cleanup();}
+});
+
+test('lost create response can recover an explicitly verified ID despite platform rewriting, without a second write',async()=>{
+ const f=fixture(article);let s=f.open();
+ try{
+  f.failWrites();await expect(s.save(article,'fake-token',f.client)).rejects.toThrow('network or response failure');
+  f.mutate({content:'<p>Platform-normalized body</p>'});
+  const before=fs.readFileSync(f.file,'utf8'), callCount=f.calls.length;
+  const report=await s.inspectOnly('fake-token',f.client,'found-draft');
+  const other=await s.inspectOnly('fake-token',f.client,'different-draft');
+  expect(report.readbackSha256).not.toBe(other.readbackSha256);
+  expect(JSON.parse(fs.readFileSync(report.inspectionFile,'utf8')).mediaId).toBe('found-draft');
+  expect(fs.readFileSync(f.file,'utf8')).toBe(before);
+  await expect(s.reconcileOnly('fake-token',f.client,report.readbackSha256,'Reviewed both snapshots','different-draft')).rejects.toThrow('draft ID differs');
+  expect(fs.readFileSync(f.file,'utf8')).toBe(before);
+  expect(await s.reconcileOnly('fake-token',f.client,report.readbackSha256,'Confirmed the draft ID in the official editor and reviewed the platform changes','found-draft')).toMatchObject({operation:'reconciled',remoteWrites:false});
+  const saved=JSON.parse(fs.readFileSync(f.file,'utf8'));
+  expect(saved.mediaId).toBe('found-draft');expect(saved.pending).toBeUndefined();
+  expect(JSON.parse(fs.readFileSync(path.join(path.dirname(f.file),saved.reconciliation.backup),'utf8')).mediaId).toBeUndefined();
+  expect(f.calls.slice(callCount).every(c=>c.endpoint.endsWith('/get'))).toBe(true);
+  s.close();s=f.open();const live=await s.prepare('fake-token',f.client);
+  expect((await s.save(live!,'fake-token',f.client)).operation).toBe('unchanged');
+  expect(f.calls.filter(c=>c.endpoint.endsWith('/add'))).toHaveLength(1);
+  expect(f.calls.filter(c=>c.endpoint.endsWith('/update'))).toHaveLength(0);
+ }finally{s.close();f.cleanup();}
+});
+
+test('publication reports the current snapshot verification while retaining earlier reconciliation history',async()=>{
+ for(const verifiedWrite of [false,true]){
+  const f=fixture();let s=f.open();
+  try{
+   await s.save(article,'fake-token',f.client);f.mutate({content:'<p>Reviewed remote edit</p>'});
+   const inspection=await s.inspectOnly('fake-token',f.client);
+   await s.reconcileOnly('fake-token',f.client,inspection.readbackSha256,'Reviewed edit');
+   if(verifiedWrite){const live=await s.prepare('fake-token',f.client);await s.save({...live!,content:'<p>New independently verified write</p>'},'fake-token',f.client);}
+   s.close();DraftSession.recordPublished(f.file,source,'draft-1',article.title,'User confirmed publication');
+   const saved=JSON.parse(fs.readFileSync(f.file,'utf8'));
+   expect(saved.publication.draftVerification).toBe(verifiedWrite?'verified':'reviewed');
+   expect(saved.reconciliation.note).toBe('Reviewed edit');
+  }finally{s.close();f.cleanup();}
+ }
+});

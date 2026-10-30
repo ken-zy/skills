@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { validPublication } from './wechat-draft.ts';
 
 type Evidence = { source: string; number: number };
 export function counterNumber(raw: string): number {
@@ -20,15 +21,22 @@ export function receiptNumbers(directory: string): Evidence[] {
     let receipt: any;
     try { receipt = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new Error('Unreadable active receipt; numbering stopped'); }
     if (receipt.version !== 1 || typeof receipt.identity !== 'string' || !receipt.uploads || typeof receipt.uploads !== 'object' || Array.isArray(receipt.uploads)) throw new Error('Invalid active receipt; numbering stopped');
-    if (receipt.pending) throw new Error('Unresolved draft write; verify existing receipt before assigning a new number');
-    if (!receipt.mediaId && !receipt.article) continue; // Image-cache-only receipt.
-    if (typeof receipt.mediaId !== 'string' || typeof receipt.article?.title !== 'string') throw new Error('Incomplete draft receipt; numbering stopped');
-    const match = /^(\d+)\.\s+/.exec(receipt.article.title);
-    if (!match) throw new Error('Confirmed draft has no article number; reconcile numbering first');
-    const number = counterNumber(match[1]!);
-    if (assigned.has(number) && assigned.get(number) !== receipt.mediaId) throw new Error('Duplicate article number in different drafts; reconcile first');
-    assigned.set(number, receipt.mediaId);
-    evidence.push({ source: `receipt:${name}`, number });
+    if (receipt.publication && !validPublication(receipt)) throw new Error('Invalid publication confirmation; numbering stopped');
+    if (receipt.publication && receipt.pending) throw new Error('Published receipt still has an unresolved write; reconcile first');
+    if (receipt.pending && !receipt.mediaId) throw new Error('Unresolved draft creation; inspect the draft box before assigning a new number');
+    if (!receipt.mediaId && !receipt.article && !receipt.publication) continue; // Image-cache-only receipt.
+    if (typeof receipt.mediaId !== 'string' || !receipt.mediaId.trim()) throw new Error('Incomplete draft receipt; numbering stopped');
+    if (receipt.pending && (!['create', 'update'].includes(receipt.pending.operation) || typeof receipt.pending.article?.title !== 'string')) throw new Error('Malformed pending write; numbering stopped');
+    const titles = [receipt.article?.title, receipt.pending?.article.title, receipt.publication?.title].filter(t => t !== undefined);
+    if (!titles.length || titles.some(t => typeof t !== 'string')) throw new Error('Incomplete draft receipt; numbering stopped');
+    for (const title of new Set<string>(titles)) {
+      const match = /^(\d+)\.\s+/.exec(title);
+      if (!match) throw new Error('Known draft has no article number; reconcile numbering first');
+      const number = counterNumber(match[1]!);
+      if (assigned.has(number) && assigned.get(number) !== receipt.mediaId) throw new Error('Duplicate article number in different drafts; reconcile first');
+      assigned.set(number, receipt.mediaId);
+      evidence.push({ source: `${receipt.pending ? 'receipt-known-draft' : 'receipt'}:${name}`, number });
+    }
   }
   return evidence;
 }

@@ -25,3 +25,20 @@ test('unknown image forms and duplicate attributes stay strict', () => {
   }
   expect(sameWechatHtml(`<img src="${image}" src="${image}">`, `<img data-src="${image}" src="${image}">`)).toBe(false);
 });
+
+test('sz_mmbiz image variants are the same asset; other hosts, assets and query changes remain different',()=>{
+ const a='<img src="https://mmbiz.qpic.cn/sz_mmbiz_jpg/abc123/0?from=appmsg">';
+ const b='<img data-src="https://mmbiz.qpic.cn/sz_mmbiz_jpg/abc123/640?from=appmsg">';
+ expect(sameWechatHtml(a,b)).toBe(true);
+ for(const other of [b.replace('abc123','other'),b.replace('from=appmsg','from=changed'),b.replace('mmbiz.qpic.cn','evil.test')])expect(sameWechatHtml(a,other)).toBe(false);
+});
+
+test('diagnostics distinguish clickable links, text, image identity, style and native media without accepting lost functionality',async()=>{
+ const {describeWechatHtmlDifference}=await import('./wechat-html.ts');
+ const a='<p style="color:blue"><a href="https://example.test">Reference</a><img src="https://mmbiz.qpic.cn/sz_mmbiz_jpg/abc/0"></p>';
+ const b='<p style="color:red">Reference<img data-src="https://mmbiz.qpic.cn/sz_mmbiz_jpg/abc/640"></p>';
+ const d=describeWechatHtmlDifference(a,b);
+ expect(d).toMatchObject({htmlEqual:false,textEqual:true,imagesEqual:true,linksEqual:false,stylesEqual:false,nativeMediaEqual:true});
+ expect(describeWechatHtmlDifference(a,b+'<mp-common-videosnap data-id="card"></mp-common-videosnap>').nativeMediaEqual).toBe(false);
+ expect(describeWechatHtmlDifference(a,b.replace('Reference','Changed')).textEqual).toBe(false);
+});

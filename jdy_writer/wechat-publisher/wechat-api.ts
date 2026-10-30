@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { createHash } from "node:crypto";
-import { DraftSession, defaultReceiptPath, readOriginalMetadata, validateSourceUrl, assertSupportedMedia, type DraftArticle } from "./wechat-draft.ts";
+import { DraftSession, DraftReadbackError, defaultReceiptPath, readOriginalMetadata, validateSourceUrl, assertSupportedMedia, type DraftArticle } from "./wechat-draft.ts";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -517,6 +517,15 @@ Options:
   --state-file <path> Stable private receipt; repeat runs update the same draft
   --cover-media-id <id> Verified original permanent cover ID (preserves crop)
   --verify-only       Read existing draft and verify receipt; no rendering/uploads/remote writes
+  --inspect-only      Read draft differences and save a private inspection; receipt unchanged
+  --reconcile-receipt Accept an explicitly reviewed readback snapshot, no remote writes
+  --readback-sha256 <hash> Exact snapshot from --inspect-only
+  --review-note <text> Review explanation required for --reconcile-receipt
+  --record-published  Record the user's publication confirmation locally; no credentials/network
+  --expected-media-id <id> Exact receipt ID required for --record-published
+  --expected-title <title> Exact receipt title required for --record-published
+  --confirmation-note <text> User's confirmation, required for --record-published
+  --publication-url <url> Optional official published article URL
   --dry-run           Parse and render only, don't publish
   --help              Show this help
 
@@ -564,6 +573,15 @@ interface CliArgs {
   citeStatus: boolean;
   dryRun: boolean;
   verifyOnly?: boolean;
+  inspectOnly?: boolean;
+  reconcileReceipt?: boolean;
+  recordPublished?: boolean;
+  readbackSha256?: string;
+  reviewNote?: string;
+  expectedMediaId?: string;
+  expectedTitle?: string;
+  confirmationNote?: string;
+  publicationUrl?: string;
   sourceUrl?: string;
   updateMediaId?: string;
   stateFile?: string;
@@ -587,45 +605,43 @@ function parseArgs(argv: string[]): CliArgs {
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
-    if (arg === "--type" && argv[i + 1]) {
-      const t = argv[++i]!.toLowerCase();
-      if (t === "news" || t === "newspic") {
-        args.articleType = t;
-      }
-    } else if (arg === "--title" && argv[i + 1]) {
-      args.title = argv[++i];
-    } else if (arg === "--author" && argv[i + 1]) {
-      args.author = argv[++i];
-    } else if (arg === "--summary" && argv[i + 1]) {
-      args.summary = argv[++i];
-    } else if (arg === "--theme" && argv[i + 1]) {
-      args.theme = argv[++i]!;
-    } else if (arg === "--color" && argv[i + 1]) {
-      args.color = argv[++i];
-    } else if (arg === "--cover" && argv[i + 1]) {
-      args.cover = argv[++i];
-    } else if (arg === "--account" && argv[i + 1]) {
-      args.account = argv[++i];
+    const valueKeys = {
+      "--title": "title", "--author": "author", "--summary": "summary", "--theme": "theme", "--color": "color",
+      "--cover": "cover", "--account": "account", "--source-url": "sourceUrl", "--update-media-id": "updateMediaId",
+      "--state-file": "stateFile", "--cover-media-id": "coverMediaId", "--readback-sha256": "readbackSha256",
+      "--review-note": "reviewNote", "--expected-media-id": "expectedMediaId", "--expected-title": "expectedTitle",
+      "--confirmation-note": "confirmationNote", "--publication-url": "publicationUrl",
+    } as const;
+    if (arg === "--type" || Object.hasOwn(valueKeys, arg)) {
+      const value = argv[++i];
+      if (!value || value.startsWith("--")) throw new Error(`Missing value for ${arg}`);
+      if (arg === "--type") {
+        const type = value.toLowerCase();
+        if (type !== "news" && type !== "newspic") throw new Error("Article type must be news or newspic");
+        args.articleType = type;
+      } else args[valueKeys[arg as keyof typeof valueKeys]] = value;
     } else if (arg === "--cite") {
       args.citeStatus = true;
     } else if (arg === "--no-cite") {
       args.citeStatus = false;
-    } else if (["--source-url", "--update-media-id", "--state-file", "--cover-media-id"].includes(arg)) {
-      const value = argv[++i];
-      if (!value || value.startsWith("--")) throw new Error(`Missing value for ${arg}`);
-      const key = { "--source-url": "sourceUrl", "--update-media-id": "updateMediaId", "--state-file": "stateFile", "--cover-media-id": "coverMediaId" }[arg] as "sourceUrl" | "updateMediaId" | "stateFile" | "coverMediaId";
-      args[key] = value;
     } else if (arg === "--accept-remote") {
       args.acceptRemote = true;
     } else if (arg === "--clear-source-url") {
       args.sourceUrl = "";
     } else if (arg === "--verify-only") {
       args.verifyOnly = true;
+    } else if (arg === "--inspect-only") {
+      args.inspectOnly = true;
+    } else if (arg === "--reconcile-receipt") {
+      args.reconcileReceipt = true;
+    } else if (arg === "--record-published") {
+      args.recordPublished = true;
     } else if (arg === "--dry-run") {
       args.dryRun = true;
-    } else if (arg.startsWith("--") && argv[i + 1] && !argv[i + 1]!.startsWith("-")) {
-      i++;
-    } else if (!arg.startsWith("-")) {
+    } else if (arg.startsWith("-")) {
+      throw new Error("Unknown option; use --help to check supported arguments");
+    } else {
+      if (args.filePath) throw new Error("Only one source file may be specified");
       args.filePath = arg;
     }
   }
@@ -652,13 +668,25 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   const filePath = path.resolve(args.filePath);
-  if (!args.verifyOnly && !fs.existsSync(filePath)) {
+  const recoveryModes = [args.verifyOnly, args.inspectOnly, args.reconcileReceipt, args.recordPublished].filter(Boolean).length;
+  if (recoveryModes > 1) throw new Error("Choose only one receipt recovery mode");
+  if (recoveryModes) {
+    const allowed = new Set(["--state-file", ...(args.recordPublished ? ["--record-published", "--expected-media-id", "--expected-title", "--confirmation-note", "--publication-url"] : ["--account", "--update-media-id", "--verify-only", "--inspect-only", ...(args.reconcileReceipt ? ["--reconcile-receipt", "--readback-sha256", "--review-note"] : [])])]);
+    for (const flag of process.argv.slice(2).filter(v => v.startsWith("--"))) if (!allowed.has(flag)) throw new Error("Receipt recovery cannot be combined with draft edits or unrelated options");
+    if (args.reconcileReceipt && (!/^[a-f0-9]{64}$/.test(args.readbackSha256 || "") || !args.reviewNote?.trim())) throw new Error("Reconciliation requires --readback-sha256 and --review-note");
+  } else if ([args.readbackSha256, args.reviewNote, args.expectedMediaId, args.expectedTitle, args.confirmationNote, args.publicationUrl].some(v => v !== undefined)) throw new Error("Receipt recovery options require a recovery mode");
+  if (args.recordPublished) {
+    if (!args.stateFile || !args.expectedMediaId || !args.expectedTitle || !args.confirmationNote) throw new Error("--record-published requires --state-file, --expected-media-id, --expected-title and --confirmation-note");
+    const result = DraftSession.recordPublished(path.resolve(args.stateFile), filePath, args.expectedMediaId, args.expectedTitle, args.confirmationNote, args.publicationUrl);
+    console.log(JSON.stringify({ success: true, ...result }, null, 2));
+    return;
+  }
+  if (!recoveryModes && !fs.existsSync(filePath)) {
     console.error(`Error: File not found: ${filePath}`);
     process.exit(1);
   }
 
-  if (args.verifyOnly) {
-    if (args.dryRun || args.acceptRemote || args.cover !== undefined || args.coverMediaId !== undefined || args.title !== undefined || args.author !== undefined || args.summary !== undefined || args.sourceUrl !== undefined) throw new Error("--verify-only cannot be combined with draft edits or --dry-run");
+  if (recoveryModes) {
     const resolved = resolveAccount(loadWechatExtendConfig(), args.account);
     const network = loadWechatNetworkConfig();
     if (network) await verifyWechatEgress(network);
@@ -666,11 +694,12 @@ async function main(): Promise<void> {
     const creds = loadCredentials(resolved);
     const key = createHash("sha256").update(creds.appId).digest("hex");
     const stateFile = args.stateFile ? path.resolve(args.stateFile) : defaultReceiptPath(filePath, key);
-    if (!fs.existsSync(stateFile)) throw new Error("--verify-only requires an existing receipt");
+    if (!fs.existsSync(stateFile)) throw new Error("Receipt recovery requires an existing receipt");
     const session = DraftSession.open(stateFile, filePath, key);
     try {
       const token = await fetchAccessToken(creds.appId, creds.appSecret, client);
-      console.log(JSON.stringify({ success: true, ...await session.verifyOnly(token, client, args.updateMediaId), stateFile }, null, 2));
+      const result = args.inspectOnly ? await session.inspectOnly(token, client, args.updateMediaId) : args.reconcileReceipt ? await session.reconcileOnly(token, client, args.readbackSha256!, args.reviewNote!, args.updateMediaId) : await session.verifyOnly(token, client, args.updateMediaId);
+      console.log(JSON.stringify({ success: true, ...result, stateFile }, null, 2));
     } finally { session.close(); }
     return;
   }
@@ -871,6 +900,7 @@ const isDirectRun =
 if (isDirectRun) {
   await main().catch((err) => {
     console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    if (err instanceof DraftReadbackError) console.error(JSON.stringify({ readbackDifference: err.report, next: "Use --inspect-only; no automatic retry or snapshot adoption" }, null, 2));
     process.exit(1);
   });
 }
