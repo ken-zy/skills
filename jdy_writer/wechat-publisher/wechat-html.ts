@@ -30,8 +30,8 @@ function imageTag(tag: string): string {
   const src = sources[0]!;
   if (!src.value || src.valueStart === undefined || src.valueEnd === undefined) return tag;
   // Only WeChat's exact public image host and known image paths, same asset/query.
-  const value = src.value.replace(/^(https:\/\/mmbiz\.qpic\.cn\/mmbiz_(?:jpg|png|gif|webp)\/[A-Za-z0-9]+\/)640(?=\?|$)/, (_match, prefix) => prefix + '0');
-  if (!/^https:\/\/mmbiz\.qpic\.cn\/mmbiz_(?:jpg|png|gif|webp)\/[A-Za-z0-9]+\/0(?:\?|$)/.test(value)) return tag;
+  const value = src.value.replace(/^(https:\/\/mmbiz\.qpic\.cn\/(?:sz_)?mmbiz_(?:jpg|png|gif|webp)\/[A-Za-z0-9]+\/)640(?=\?|$)/, (_match, prefix) => prefix + '0');
+  if (!/^https:\/\/mmbiz\.qpic\.cn\/(?:sz_)?mmbiz_(?:jpg|png|gif|webp)\/[A-Za-z0-9]+\/0(?:\?|$)/.test(value)) return tag;
   return tag.slice(0, src.start) + 'src' + tag.slice(src.end, src.valueStart) + value + tag.slice(src.valueEnd);
 }
 export function normalizeWechatHtml(html: string): string {
@@ -50,4 +50,27 @@ export function normalizeWechatHtml(html: string): string {
 }
 export function sameWechatHtml(a: string, b: string) {
   return a === b || normalizeWechatHtml(a) === normalizeWechatHtml(b);
+}
+
+/** Diagnostics only. These comparisons never authorize an update or clear pending. */
+export function describeWechatHtmlDifference(expected: string, actual: string) {
+  const tags = (html: string) => html.match(/<!--[\s\S]*?(?:-->|$)|<\/?[A-Za-z](?:"[^"]*"|'[^']*'|[^'">])*?>/g) || [];
+  const attr = (tag: string, name: string) => new RegExp(`(?:^|\\s)${name}\\s*=\\s*(["'])(.*?)\\1`, 'i').exec(tag)?.[2];
+  const text = (html: string) => html.replace(/<!--[\s\S]*?(?:-->|$)|<\/?[A-Za-z](?:"[^"]*"|'[^']*'|[^'">])*?>/g, '');
+  const select = (html: string, kind: 'images' | 'links' | 'styles' | 'nativeMedia') => tags(normalizeWechatHtml(html)).flatMap(tag => {
+    if (kind === 'images' && /^<img\b/i.test(tag)) return [attr(tag, 'src') || attr(tag, 'data-src') || tag];
+    if (kind === 'links' && /^<a\b/i.test(tag)) return [attr(tag, 'href') || tag];
+    if (kind === 'styles' && attr(tag, 'style') !== undefined) return [attr(tag, 'style')!];
+    if (kind === 'nativeMedia' && (/^<\/?(?:iframe|video|mpvideo|mp-common-videosnap)\b/i.test(tag) || /\bdata-(?:mpvid|vidtype)\s*=/i.test(tag))) return [tag];
+    return [];
+  });
+  const equal = (kind: 'images' | 'links' | 'styles' | 'nativeMedia') => JSON.stringify(select(expected, kind)) === JSON.stringify(select(actual, kind));
+  return {
+    htmlEqual: sameWechatHtml(expected, actual),
+    textEqual: text(expected) === text(actual),
+    imagesEqual: equal('images'),
+    linksEqual: equal('links'),
+    stylesEqual: equal('styles'),
+    nativeMediaEqual: equal('nativeMedia'),
+  };
 }

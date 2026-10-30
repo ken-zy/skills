@@ -22,11 +22,10 @@ Fork from [baoyu-skills/baoyu-post-to-wechat](https://github.com/JimLiu/baoyu-sk
 ## 用法
 
 ```bash
-cd /Users/jdy/Code/obsidian/.claude/skills/jdy_writer/wechat-publisher
-npx -y bun install   # 首次
-npx -y bun wechat-api.ts <markdown-file> \
-  --title "191/1000 让 agent 替我决定" \
-  --author "jdy" \
+# 使用本 Skill 的已安装 Bun 和依赖，不临时安装运行时
+bun <SKILL_DIR>/wechat-publisher/wechat-api.ts <markdown-file> \
+  --title "N. 文章标题" \
+  --author "泽永" \
   --summary "..." \
   --cover /path/to/cover.png
 ```
@@ -42,7 +41,7 @@ npx -y bun wechat-api.ts <markdown-file> \
 
 ## 输出
 
-API 发布成功 = 创建公众号草稿。**用户需手动在公众号后台 review + 群发**——API 不允许直接群发。
+本发布器只创建或更新公众号草稿，不调用正式发表接口。已有视频号内容和本地视频上传分别走[官方网页流程](../references/workflow-wechat.md#65-文章内视频视频号插入与本地视频上传)；后台已有原生播放器或视频号卡片时，API Markdown 覆盖会停止。
 
 ```json
 {
@@ -51,3 +50,7 @@ API 发布成功 = 创建公众号草稿。**用户需手动在公众号后台 r
   "title": "..."
 }
 ```
+
+回读有差异时，命令输出分类诊断而不宣称成功。`--inspect-only` 保存私有原始／远端快照；实际审阅后用 `--reconcile-receipt --readback-sha256 ... --review-note ...` 仅核实本地回执，不写远端。精确校验仍用 `--verify-only`；图片展示地址的有限兼容不会放行正文、链接或样式变化。
+
+用户明确确认发表后，使用 `--record-published --state-file ... --expected-media-id ... --expected-title ... --confirmation-note ...` 做本地收尾；该模式不读取凭据或网络配置。原 pending 完整备份，结果标为 `publication_user_confirmed`，不冒充独立发表／播放验收，关闭后不能用此回执继续写草稿。命令、取号语义及边界见[公众号流程 §6.3–6.4](../references/workflow-wechat.md#633-调用内化发布器)。

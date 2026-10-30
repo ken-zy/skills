@@ -44,7 +44,7 @@ test('local counter ahead of main is preserved; no receipt is required for a new
 });
 test('pending or malformed receipt stops numbering, but known private backups do not reserve twice',()=>{
  const f=fixture();try {
-  const file=path.join(f.receipts,'a.json');const pending={...record(217),pending:{operation:'create',article:{title:'217. Article'}}};
+  const file=path.join(f.receipts,'a.json');const pending={...record(217),mediaId:undefined,pending:{operation:'create',article:{title:'217. Article'}}};
   fs.writeFileSync(file,JSON.stringify(pending));expect(()=>receiptNumbers(f.receipts)).toThrow('Unresolved');
   fs.renameSync(file,file.replace('.json','.before-verify-1.json'));expect(receiptNumbers(f.receipts)).toEqual([]);
   fs.writeFileSync(file,'{bad');expect(()=>receiptNumbers(f.receipts)).toThrow('Unreadable');
@@ -72,5 +72,32 @@ test('conflicting confirmed drafts sharing one number require reconciliation',()
   fs.writeFileSync(path.join(f.receipts,'one.json'),JSON.stringify(record(217)));
   fs.writeFileSync(path.join(f.receipts,'two.json'),JSON.stringify({...record(217),mediaId:'different-draft'}));
   expect(()=>receiptNumbers(f.receipts)).toThrow('Duplicate');
+ }finally{f.clean();}
+});
+
+test('known-ID readback differences reserve occupied numbers without blocking unrelated articles',()=>{
+ const f=fixture();try{
+  fs.writeFileSync(path.join(f.receipts,'known.json'),JSON.stringify({...record(219),pending:{operation:'create',article:{title:'219. Article'}}}));
+  expect(receiptNumbers(f.receipts)).toEqual([{source:'receipt-known-draft:known.json',number:219}]);
+  fs.writeFileSync(path.join(f.receipts,'collision.json'),JSON.stringify({...record(219),mediaId:'other-draft'}));
+  expect(()=>receiptNumbers(f.receipts)).toThrow('Duplicate');
+ }finally{f.clean();}
+});
+
+test('user-confirmed publication keeps its number without fabricating a verified draft snapshot',async()=>{
+ const {DraftSession}=await import('./wechat-draft.ts');const f=fixture();try{
+  const file=path.join(f.receipts,'published.json');
+  fs.writeFileSync(file,JSON.stringify({...record(219),article:undefined,pending:{operation:'create',article:{title:'219. Article'}}}),{mode:0o600});
+  DraftSession.recordPublished(file,'/legacy/article.md','draft-219','219. Article','User confirmed publication');
+  expect(receiptNumbers(f.receipts)).toEqual([{source:'receipt:published.json',number:219}]);
+  const saved=JSON.parse(fs.readFileSync(file,'utf8'));saved.publication.evidence='guessed';fs.writeFileSync(file,JSON.stringify(saved));
+  expect(()=>receiptNumbers(f.receipts)).toThrow('Invalid publication');
+ }finally{f.clean();}
+});
+
+test('a pending title change reserves both old and newly occupied numbers for the same known draft',()=>{
+ const f=fixture();try{
+  fs.writeFileSync(path.join(f.receipts,'renamed.json'),JSON.stringify({...record(218),pending:{operation:'update',article:{title:'219. Renamed'}}}));
+  expect(receiptNumbers(f.receipts).map(e=>e.number)).toEqual([218,219]);
  }finally{f.clean();}
 });
