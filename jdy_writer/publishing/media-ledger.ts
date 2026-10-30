@@ -38,7 +38,8 @@ export async function updateMedia(file:string, input:Record<string,string|boolea
       item.events.push({event:event as any,result:result as any,evidence:evidence as any,note,at:new Date().toISOString(),...(artifact?{artifact}:{})});
     } else throw Error('--action must be add or record.');
     savePrivate(file,state);
-    return {draftId:state.draftId,key,status:state.items[key]!.events.at(-1)?.event||'declared',playback:state.items[key]!.events.filter(e=>e.event==='playback').at(-1)?.result||'unknown'};
+    const latest=state.items[key]!.events.at(-1);
+    return {draftId:state.draftId,key,status:latest?'evidence_recorded':'declared',event:latest?.event||null,result:latest?.result||'unknown',evidence:latest?.evidence||null,playback:state.items[key]!.events.filter(e=>e.event==='playback').at(-1)?.result||'unknown'};
   });
 }
 if(import.meta.main)(async()=>{

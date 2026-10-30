@@ -87,6 +87,9 @@ test('media events do not infer playback or publication and bind draft identity'
  const evidence=path.join(f.dir,'observed.txt');fs.writeFileSync(evidence,'已观察播放器实际播放');
  await updateMedia(file,{...record,'--event':'playback','--evidence':'inspected','--evidence-file':evidence});
  const state=JSON.parse(fs.readFileSync(file,'utf8'));assert.equal(state.items.fish.events.length,2);assert.ok(!state.items.fish.events.some((e:any)=>e.event==='published'));
+ const failed=await updateMedia(file,{...record,'--event':'playback','--result':'fail','--note':'用户明确确认无法播放'});
+ assert.equal(failed.status,'evidence_recorded');assert.equal(failed.result,'fail');assert.equal(failed.event,'playback');assert.equal(failed.playback,'fail');
+ assert.equal(failed.evidence,'user-confirmed');
  assert.equal(fs.statSync(file).mode&0o777,0o600);
 });
 
