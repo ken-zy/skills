@@ -1,5 +1,6 @@
 import { execSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +14,6 @@ import {
   killChrome,
   launchChrome as launchChromeBase,
   openPageSession,
-  resolveSharedChromeProfileDir,
   sleep,
   waitForChromeDebugPort,
   type PlatformCandidates,
@@ -34,52 +34,17 @@ interface NetworkGetCookiesResult {
   cookies?: CookieLike[];
 }
 
-export const CHROME_CANDIDATES_BASIC: PlatformCandidates = {
-  darwin: [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-  ],
-  win32: [
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ],
-  default: [
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-  ],
+// Publishing uses stable Google Chrome, never a silent Edge/Canary/shared-profile fallback.
+export const STABLE_CHROME: PlatformCandidates = {
+  darwin: ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'],
+  win32: ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'],
+  default: ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable'],
 };
-
-export const CHROME_CANDIDATES_FULL: PlatformCandidates = {
-  darwin: [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-    '/Applications/Google Chrome Beta.app/Contents/MacOS/Google Chrome Beta',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-  ],
-  win32: [
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-  ],
-  default: [
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/snap/bin/chromium',
-    '/usr/bin/microsoft-edge',
-  ],
-};
-
-export function findChromeExecutable(candidates: PlatformCandidates): string | undefined {
-  return findChromeExecutableBase({
-    candidates,
-    envNames: ['X_BROWSER_CHROME_PATH'],
-  });
+// Retain imports used by Article/video/quote entrypoints, with the same fixed default.
+export const CHROME_CANDIDATES_BASIC = STABLE_CHROME;
+export const CHROME_CANDIDATES_FULL = STABLE_CHROME;
+export function findChromeExecutable(_candidates: PlatformCandidates): string | undefined {
+  return findChromeExecutableBase({ candidates: STABLE_CHROME });
 }
 
 let _wslHome: string | null | undefined;
@@ -94,10 +59,7 @@ function getWslWindowsHome(): string | null {
 }
 
 export function getDefaultProfileDir(): string {
-  return resolveSharedChromeProfileDir({
-    envNames: ['BAOYU_CHROME_PROFILE_DIR', 'X_BROWSER_PROFILE_DIR'],
-    wslWindowsHome: getWslWindowsHome(),
-  });
+  return path.join(getWslWindowsHome() || os.homedir(), '.local', 'share', 'x-browser-profile-cn');
 }
 
 export async function getFreePort(): Promise<number> {
@@ -232,7 +194,7 @@ export async function launchChrome(
   chromePathOverride?: string,
 ): Promise<{ chrome: Awaited<ReturnType<typeof launchChromeBase>>; port: number }> {
   const chromePath = chromePathOverride?.trim() || findChromeExecutable(candidates);
-  if (!chromePath) throw new Error('Chrome not found. Set X_BROWSER_CHROME_PATH env var.');
+  if (!chromePath) throw new Error('Stable Google Chrome not found. Install it or explicitly supply a browser path; no browser fallback was attempted.');
 
   try {
     return await launchChromeOnce(url, profileDir, chromePath);
