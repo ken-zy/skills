@@ -14,7 +14,7 @@ export function receiptNumbers(directory: string): Evidence[] {
   if (!fs.existsSync(directory)) return [];
   const evidence: Evidence[] = [];
   const assigned = new Map<number, string>();
-  for (const name of fs.readdirSync(directory)) {
+  for (const name of fs.readdirSync(directory).sort()) {
     if (!name.endsWith('.json') || name.includes('.before-')) continue;
     const file = path.join(directory, name);
     if (fs.lstatSync(file).isSymbolicLink()) throw new Error('Receipt symlink; numbering stopped');

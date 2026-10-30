@@ -13,9 +13,9 @@ description: "撰写或修改公众号文章、X 中文内容，或执行明确�
 - 新写作参考 `writing-style-profile.md`；简单措辞修改不重新扫描历史文章。
 - 写初稿前读齐用户提供的文字、截图和视频信息，按[素材检查](references/workflow-planning.md#21-读取素材)安排用途和位置；首次交稿前完成[作者声音检查](references/workflow-draft.md#初稿附加检查风格档案之外)，不等用户指出遗漏或 AI 味。
 - 凭据零接触：不读写 `~/.jdy_writer/.env`；凭据操作由用户在独立终端完成。
-- 公众号图文草稿和 X 发布使用本 Skill 的 `wechat-publisher/`、`x-publisher/`；文章内视频另走官方网页流程。图片按已配置的 codex companion/image_gen 流程生成。
+- 公众号图文草稿和 X 发布使用本 Skill 的 `wechat-publisher/`、`x-publisher/`；文章内视频另走官方网页流程。图片按当前宿主实际可用、已配置的生图工具生成。
 - Vault 图片仅引用分类 R2 WebP URL；上传成功后再写入，临时图片放 Vault 外。
-- 对外发布须有明确授权和已确定的内容；已有授权与选择继续有效。只完成用户要求的渠道与步骤。X 单条帖使用中文专用 Chrome 配置并校验账号；提交结果不明时先核实，正文和媒体回读通过后才回填链接，见 [X 流程](references/workflow-x.md)。
+- 对外发布须有明确授权和已确定的内容；已有授权与选择继续有效。只完成用户要求的渠道与步骤。当前 X 交付范围为单条中文图文帖；其他入口不自动启用。X 单条帖使用中文专用 Chrome 配置并校验账号；提交结果不明时先核实，正文和媒体回读通过后才回填链接，见 [X 流程](references/workflow-x.md)。
 - 公众号 API 的交付是草稿。已有视频号内容走官方编辑器插入原视频号；本地视频走网页上传、审核和素材库插入。链接保留不等于播放器插入。用户确认发表可标为“用户确认”，不冒称独立验收；具体流程见[公众号流程 §6.5](references/workflow-wechat.md#65-文章内视频视频号插入与本地视频上传)。
 
 ## 按任务读取
@@ -29,6 +29,7 @@ description: "撰写或修改公众号文章、X 中文内容，或执行明确�
 | B/C/D 模式的读者理解检查 | [读者检查](references/workflow-reader-check.md) |
 | 定稿、同步日志配图或保存 | [保存规则](references/workflow-save.md)，保留主话题去重键与内部链接 |
 | 公众号配图、封面、发布及链接回填 | [公众号流程](references/workflow-wechat.md)，只读对应小节 |
+| 公众号正式文章核对、视频交接与验收记录 | [发表核验与媒体回执](references/workflow-publication.md) |
 | 生成或发布 X 中文内容 | [X 流程](references/workflow-x.md) |
 
 解释或保存后无需固定询问下一轮服务。完成已请求产物、必要验证和结果说明后结束；缺少关键输入时再提问。

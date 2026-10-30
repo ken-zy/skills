@@ -101,3 +101,13 @@ test('a pending title change reserves both old and newly occupied numbers for th
   expect(receiptNumbers(f.receipts).map(e=>e.number)).toEqual([218,219]);
  }finally{f.clean();}
 });
+
+test('receipt evidence has deterministic file order even when the filesystem enumerates in reverse',()=>{
+ const f=fixture(),read=fs.readdirSync;
+ try {
+  fs.writeFileSync(path.join(f.receipts,'a.json'),JSON.stringify(record(216)));
+  fs.writeFileSync(path.join(f.receipts,'b.json'),JSON.stringify(record(217)));
+  fs.readdirSync=((directory:any,...rest:any[])=>directory===f.receipts?['b.json','a.json']:(read as any)(directory,...rest)) as typeof fs.readdirSync;
+  expect(receiptNumbers(f.receipts).map(item=>item.number)).toEqual([216,217]);
+ }finally{fs.readdirSync=read;f.clean();}
+});

@@ -9,7 +9,7 @@
 **文件路径约定**：Phase 5.1 保存的文件路径（如 `60_Output/公众号/202603/20260323 标题.md`）作为后续所有步骤的输入。
 
 **架构**：图文草稿使用 jdy_writer 内置 API 工具链；文章内视频使用官方公众号后台网页流程（§6.5）。不依赖 baoyu-skills 路径。
-- 图片生成：codex companion 调内置 `image_gen` 工具
+- 图片生成：使用当前宿主已配置的原生生图工具或生图技能
 - 图文草稿：`{SKILL_DIR}/wechat-publisher/wechat-api.ts`（自包含，已剥离浏览器模式）
 - 文章内视频：已有视频号内容从官方编辑器插入原视频号；本地视频经网页版上传、转码审核后从素材库插入。两条路线均保存并核对预览
 - 凭据管理：`~/.jdy_writer/.env`（用户自管，AI 永不读取也永不写入）
@@ -84,7 +84,7 @@ chmod 600 ~/.jdy_writer/.env
 
 ### 6.1 文章配图
 
-**生成器固定为 codex companion + 内置 image_gen 工具**。不调用 jdy-imagine、不调 baoyu-* fallback。
+生成器按 §6.1.4 的环境能力选择；不把某个宿主的插件路径当作通用前提。
 
 #### 6.1.1 Analyze：判断是否需要 AI 插图
 
@@ -117,23 +117,9 @@ prompt 必须包含文章里的**具体词**或**判断**（"断更十天"、"�
 
 #### 6.1.4 调用方式
 
-通过 codex companion 调内置 image_gen：
+按当前执行环境选择已配置的生图入口：Codex 中优先使用原生 `image_gen` 工具；其他宿主使用其可用的生图技能。若宿主只有已配置的 companion，才按该宿主实际文档调用，不扫描硬编码的 Claude 插件缓存路径。
 
-```bash
-COMPANION="$(ls -t ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | head -1)"
-node "$COMPANION" task --write '使用你内置的 image_gen 工具生成图片。
-
-Prompt: <完整的英文 prompt，按 6.1.3 规则>
-
-输出：cp 到 /tmp/jdy-writer-illustrations/<topic-slug>/NN-<slug>.png
-（不写入 vault，符合 D5 全面 R2 化；调用前先 mkdir -p /tmp/jdy-writer-illustrations/<topic-slug>）
-确认：ls -la 报告文件大小'
-```
-
-**禁区**：
-- 不调用 `jdy-imagine` skill（CLI 默认无凭据，会失败）
-- 不调用 `$imagegen` placeholder（不是真实可调用工具）
-- 不调用 `baoyu-image-gen` / `baoyu-article-illustrator`（已不依赖）
+只使用实际存在且已配置的工具，先读取所选生图技能的规则。缺少工具时说明具体阻塞，不自动安装依赖或索取凭据。输出保存到 Vault 外临时目录，再按下节上传 R2。
 
 #### 6.1.5 插入
 
@@ -162,20 +148,11 @@ Prompt: <完整的英文 prompt，按 6.1.3 规则>
 
 #### 6.2.2 生成
 
-通过 codex companion 调内置 image_gen，prompt 必须包含 cover-design-framework.md 「Prompt 生成规则」7 条要素。
-
-```bash
-mkdir -p /tmp/jdy-writer-cover
-node "$COMPANION" task --write '使用你内置的 image_gen 工具生成封面图。
-
-Prompt: <按 cover-design-framework.md 规则的英文 prompt，含 16:9>
-
-输出：cp 到 /tmp/jdy-writer-cover/<YYYYMMDD>-cover.png
-（不写入 vault，符合 D5 全面 R2 化；如已存在用 <YYYYMMDD>-cover-v2.png）
-确认：ls -la 报告文件大小'
-```
+沿用 §6.1.4 当前环境的生图工具，prompt 参考 cover-design-framework.md 的相关要素；用户明确的风格和文字选择优先。生成文件放到 Vault 外临时目录，使用主题名和日期避免覆盖同日其他封面；核对实际图像后再上传。
 
 #### 6.2.3 R2 上传 + 正文嵌入
+
+以下本地路径为示例；调用时传入生图工具实际返回的文件路径，不假定工具已复制到某个固定位置。
 
 ```bash
 # 使用现有 R2 认证配置；不要读取或输出秘密（参考 6.1.5）
@@ -200,7 +177,7 @@ R2 公网 URL：`$COVER_URL`（已由 r2-upload.sh stdout 捕获，格式为 `ht
 正文第一段……
 ```
 
-封面同时作为 Phase 6.3 草稿参数 `--cover` 使用。若用户另行要求 X Article，按 X 流程单独传封面并剥离正文开头封面行。
+封面同时作为 Phase 6.3 草稿参数 `--cover` 使用。X 图文帖只带用户已选择的图片，不自动混入文章封面。
 
 ---
 
@@ -346,6 +323,12 @@ bun "$SKILL_DIR/wechat-publisher/wechat-api.ts" "<原来的-publish.md路径>" \
 ```
 
 必须有明确用户确认和已知 ID／匹配标题；未确认发表时不能用此命令清除错误。命令不加载凭据或网络配置、不调用 API，先保留完整私有备份，再以 `publication_user_confirmed` / `user-confirmed` 记录收尾。原 pending 留在备份中，未精确通过的正文不会被伪造为 verified。重复运行不重建草稿；该回执后续拒绝草稿写入及核验。旧回执没有源路径字段时，以明确指定的私有文件、既有 ID 和完整标题核对；新版同时核对源路径。独立发表验收及视频播放结果不能由这条本地记录代替。
+
+#### 正式文章只读核对与链接回填
+
+使用 [发表核验与媒体回执](workflow-publication.md) 中的 `publishing/wechat-publication.ts`，复用 jdy-url-to-markdown 的微信解析器。它核对标题、正文、图片身份和顺序、链接及已声明的视频卡片位置；只追加正式链接，不覆盖后台或知识库正文。正文差异先检查私有报告，再合并必要改动或显式接受当前报告；不得为了通过检查丢弃截图和视频。
+
+`user-confirmed`、`provided-html`、`fetched-live` 是不同证据；文章比较通过不代表视频播放已验证。原草稿回执继续保留其用户确认或草稿核验状态，不伪造升级。
 
 ### 6.5 文章内视频：视频号插入与本地视频上传
 

@@ -8,6 +8,7 @@ export interface PostManifest {
   account: string;
   profile: string;
   textSha256: string;
+  links?: string[];
   images: { file: string; sha256: string }[];
   sources: { file: string; sha256: string; label: string }[];
 }
@@ -28,6 +29,7 @@ export function buildManifest(text: string, images: string[], profile: string, s
   if (images.length > 4) throw Error('A single post supports at most four images; do not silently drop extras.');
   return {
     account: CN_ACCOUNT, profile: path.resolve(profile), textSha256: sha256(text),
+    ...(text.match(/https?:\/\/[^\s<>()，。！？"'`]+/g)?.length ? {links:[...new Set(text.match(/https?:\/\/[^\s<>()，。！？"'`]+/g)!)]} : {}),
     images: images.map(file => ({ file: path.resolve(file), sha256: sha256(fs.readFileSync(file)) })),
     sources: sources.map((file, i) => {
       if (path.extname(file) !== '.md') throw Error('Backfill targets must be Markdown files.');
@@ -94,6 +96,24 @@ export interface ComposerSnapshot { account?: string; editor: boolean; text: str
 export function assertComposerReady(r: PostReceipt, s: ComposerSnapshot, text: string): void {
   if (s.account?.toLowerCase() !== `/${CN_ACCOUNT.toLowerCase()}`) throw Error(`Expected @${CN_ACCOUNT}; account mismatch stops publication.`);
   if (!s.editor || s.text !== text || s.count !== r.manifest.images.length || !s.loaded || !s.enabled) throw Error('Composer text, image count, upload readiness, or long-post capability check failed. No submission.');
+}
+// Expand only an unambiguous displayed URL whose DOM metadata matches an approved URL.
+// Mentions, hashtags, missing metadata and repeated display strings remain unchanged.
+export function readPostText(node:any, approvedLinks:string[] = []):string {
+  let text=node?.innerText||'';
+  if(!node||!approvedLinks.length)return text;
+  for(const anchor of node.querySelectorAll('a[href]')) {
+    const display=anchor.innerText;
+    if(!display||/^[@#]/.test(display)||!/^https?:\/\//.test(display)&&!/[a-z0-9-]+\.[a-z]/i.test(display))continue;
+    const metadata=['title','data-expanded-url','href'].map(key=>anchor.getAttribute(key)).filter(Boolean);
+    const expected=approvedLinks.find(url=>metadata.some(value=>{
+      try{return new URL(value).href===new URL(url).href;}catch{return false;}
+    }));
+    if(!expected||display===expected)continue;
+    const first=text.indexOf(display);
+    if(first>=0&&first===text.lastIndexOf(display))text=text.slice(0,first)+expected+text.slice(first+display.length);
+  }
+  return text;
 }
 export interface PublishedSnapshot { url: string; author: string; text: string; photos: string[]; loaded: boolean }
 export function assertPublished(r: PostReceipt, snapshot: PublishedSnapshot): void {

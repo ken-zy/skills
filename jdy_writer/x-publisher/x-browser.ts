@@ -7,10 +7,11 @@ import {
   getDefaultProfileDir, launchChrome, sleep, waitForChromeDebugPort,
 } from './x-utils.js';
 import {
-  CN_ACCOUNT, assertComposerReady, backfillVerified, bindReceipt, buildManifest, canonicalPostUrl,
+  CN_ACCOUNT, readPostText, assertComposerReady, backfillVerified, bindReceipt, buildManifest, canonicalPostUrl,
   loadReceipt, assertCanSubmit, planPostPage, verificationUrl, sha256, withReceiptLock, writeReceipt, type PostReceipt, type PublishedSnapshot,
 } from './x-post-state.ts';
 import { runPostFlow, type PostDriver } from './x-post-flow.ts';
+import { loadPrepared } from '../publishing/prepare-x.ts';
 
 interface XBrowserOptions {
   text?: string;
@@ -170,7 +171,7 @@ export function makeDriver(cdp: CdpConnection, sessionId: string, receipt: PostR
       const read = () => evaluate<PublishedSnapshot>(`(()=>{
         const a=[...document.querySelectorAll('article')].find(a=>a.querySelector('a[href=${JSON.stringify(stem)}] time'));
         const photos=a?[...a.querySelectorAll('a[href^=${JSON.stringify(stem + '/photo/')} ]')]:[];
-        return {url:location.href,author:a?.querySelector('[data-testid="User-Name"] a[href="/${CN_ACCOUNT}"]')?'${CN_ACCOUNT}':'',text:a?.querySelector('[data-testid="tweetText"]')?.innerText||'',photos:photos.map(p=>p.getAttribute('href')),loaded:!!a&&photos.every(p=>p.querySelector('img')?.complete&&p.querySelector('img')?.naturalWidth>0)};
+        return {url:location.href,author:a?.querySelector('[data-testid="User-Name"] a[href="/${CN_ACCOUNT}"]')?'${CN_ACCOUNT}':'',text:(${readPostText.toString()})(a?.querySelector('[data-testid="tweetText"]'),${JSON.stringify(receipt.manifest.links||[])}),photos:photos.map(p=>p.getAttribute('href')),loaded:!!a&&photos.every(p=>p.querySelector('img')?.complete&&p.querySelector('img')?.naturalWidth>0)};
       })()`);
       const result = await poll(read, p => p.author === CN_ACCOUNT && sha256(p.text) === receipt.manifest.textSha256 && p.photos.length === receipt.manifest.images.length && p.loaded);
       await capture('published');
@@ -189,6 +190,7 @@ function usage() {
 Default: stable Google Chrome, dedicated x-browser-profile-cn, account @${CN_ACCOUNT}.
 
 bun x-browser.ts --text-file <approved.txt> [--image <local-file> ...] [options]
+  --prepared <prepared.json>  Use the checked output from publishing/prepare-x.ts
   --state-file <private.json>  Durable receipt; reuse on login/recovery (default: input hash)
   --source <x-note.md>         Backfill verified URL into X note
   --related-source <note.md>   Also backfill an explicitly selected source note (repeatable)
@@ -205,16 +207,18 @@ async function main() {
   const options: XBrowserOptions = { images: [], sources: [] };
   const words: string[] = [];
   let textFile: string | undefined;
+  let preparedFile: string | undefined;
   const args = process.argv.slice(2);
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
     if (arg === '--help' || arg === '-h') { usage(); return; }
     if (['--submit','--verify-only'].includes(arg)) { if(arg==='--submit')options.submit=true;else options.verifyOnly=true;continue; }
-    if (['--image','--state-file','--source','--related-source','--profile','--chrome','--published-url','--text-file'].includes(arg)) {
+    if (['--image','--state-file','--source','--related-source','--profile','--chrome','--published-url','--text-file','--prepared'].includes(arg)) {
       const value = args[++i]; if (!value || value.startsWith('--')) throw Error(`Missing value for ${arg}`);
       if(arg==='--image') options.images!.push(value);
       else if(arg==='--source') { if(options.sources!.length)throw Error('--source must precede --related-source');options.sources!.push(value); }
       else if(arg==='--related-source') { if(!options.sources!.length)throw Error('--related-source requires --source');options.sources!.push(value); }
+      else if(arg==='--prepared') preparedFile=value;
       else if(arg==='--text-file') textFile=value;
       else if(arg==='--state-file') options.stateFile=value;
       else if(arg==='--profile') options.profileDir=value;
@@ -222,6 +226,10 @@ async function main() {
       else options.publishedUrl=value;
     } else if(arg.startsWith('-')) throw Error(`Unknown option: ${arg}`);
     else words.push(arg);
+  }
+  if (preparedFile) {
+    if(textFile||words.length||options.images!.length||options.sources!.length||options.verifyOnly)throw Error('--prepared cannot mix with raw content inputs or --verify-only.');
+    const prepared=loadPrepared(preparedFile);options.text=prepared.text;options.images=prepared.images;options.sources=prepared.sources;
   }
   if (textFile && words.length) throw Error('Use either positional text or --text-file.');
   if (textFile) options.text=fs.readFileSync(textFile,'utf8');

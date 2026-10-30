@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { launchChrome, getFreePort, gracefulKillChrome } from './vendor/baoyu-chrome-cdp/src/index.ts';
+import { spawn } from 'node:child_process';
+import { getFreePort, gracefulKillChrome } from './vendor/baoyu-chrome-cdp/src/index.ts';
 import { CdpConnection, findChromeExecutable, STABLE_CHROME, waitForChromeDebugPort } from './x-utils.ts';
 import { makeDriver } from './x-browser.ts';
 import { assertComposerReady, buildManifest, type PostReceipt } from './x-post-state.ts';
 
 const executable=findChromeExecutable(STABLE_CHROME);
-test('real CDP adapter composes four ordered file-input images and clicks once on an isolated local fixture', {skip:!executable,timeout:30000},async t=>{
+test('real CDP adapter composes four ordered file-input images and clicks once on an isolated local fixture', {skip:!executable,timeout:60000},async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'x-browser-fixture-'));
  const html=`<!doctype html><body><a data-testid="AppTabBar_Profile_Link" href="/_ThrowException">Profile</a>
  <div role="dialog"><div data-testid="tweetTextarea_0" contenteditable="plaintext-only" style="white-space:pre-wrap"></div>
@@ -28,10 +29,21 @@ test('real CDP adapter composes four ordered file-input images and clicks once o
  </script>`;
  const server=Bun.serve({hostname:'127.0.0.1',port:0,fetch:()=>new Response(html,{headers:{'content-type':'text/html'}})});
  const port=await getFreePort();
- const chrome=await launchChrome({chromePath:executable!,profileDir:path.join(dir,'profile'),port,url:`http://127.0.0.1:${server.port}`,headless:true,extraArgs:['--disable-background-networking']});
+ // Use the same startup flags as the launcher, but retain bounded diagnostics for CI failures.
+ const chrome=spawn(executable!,[`--remote-debugging-port=${port}`,`--user-data-dir=${path.join(dir,'profile')}`,'--no-first-run','--no-default-browser-check','--headless=new','--disable-background-networking',`http://127.0.0.1:${server.port}`],{stdio:['ignore','ignore','pipe']});
+ let diagnostics='',spawnError:Error|undefined;
+ chrome.stderr?.on('data',chunk=>{diagnostics=(diagnostics+chunk.toString()).slice(-4000);});
+ chrome.on('error',error=>{spawnError=error;});
  let cdp:CdpConnection|undefined;
  t.after(async()=>{cdp?.close();await gracefulKillChrome(chrome,port);server.stop(true);fs.rmSync(dir,{recursive:true,force:true});});
- cdp=await CdpConnection.connect(await waitForChromeDebugPort(port,10000),10000);
+ let ws:string|undefined;
+ const deadline=Date.now()+30000;
+ while(Date.now()<deadline){
+  if(spawnError||chrome.exitCode!==null||chrome.signalCode!==null)throw Error(`Fixture Chrome exited: ${spawnError?.message??chrome.exitCode??chrome.signalCode}. ${diagnostics}`);
+  try{ws=await waitForChromeDebugPort(port,500);break;}catch{}
+ }
+ if(!ws)throw Error(`Fixture Chrome startup exceeded production's 30s budget. ${diagnostics}`);
+ cdp=await CdpConnection.connect(ws,10000);
  const {targetInfos}=await cdp.send<any>('Target.getTargets');const target=targetInfos.find((v:any)=>v.url.includes('127.0.0.1'));
  const {sessionId}=await cdp.send<any>('Target.attachToTarget',{targetId:target.targetId,flatten:true});
  await cdp.send('DOM.enable',{}, {sessionId});

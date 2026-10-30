@@ -1,0 +1,33 @@
+name: jdy_writer
+on:
+  pull_request:
+    paths: ['jdy_writer/**', 'jdy-url-to-markdown/**', '.github/workflows/jdy-writer.yml']
+  push:
+    branches: [main]
+    paths: ['jdy_writer/**', 'jdy-url-to-markdown/**', '.github/workflows/jdy-writer.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.11
+      - name: Install existing locked dependencies without lifecycle scripts
+        run: |
+          for package in jdy_writer/x-publisher jdy_writer/wechat-publisher jdy-url-to-markdown; do
+            (cd "$package" && bun install --frozen-lockfile --ignore-scripts)
+          done
+      - name: Require the browser fixture and run offline checks
+        run: |
+          bun -e 'import {findChromeExecutable,STABLE_CHROME} from "./jdy_writer/x-publisher/x-utils.ts"; if(!findChromeExecutable(STABLE_CHROME))throw Error("Stable Chrome required: browser fixture must not skip in CI");'
+          bun test --timeout 30000 jdy_writer/x-publisher/ jdy_writer/wechat-publisher/ jdy_writer/publishing/
+          bun jdy_writer/publishing/prepare-x.ts --help
+          bun jdy_writer/publishing/wechat-publication.ts --help
+          bun jdy_writer/publishing/media-ledger.ts --help
+          git diff --exit-code
