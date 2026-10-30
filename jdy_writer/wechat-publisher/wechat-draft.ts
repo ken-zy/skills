@@ -59,7 +59,7 @@ function select(article: DraftArticle): DraftArticle {
   return Object.fromEntries(writable.filter(k => article[k] !== undefined).map(k => [k, article[k]])) as DraftArticle;
 }
 
-export const draftSnapshotHash = (article: DraftArticle) => hash(JSON.stringify(canonical(article)));
+export const draftSnapshotHash = (article: DraftArticle, mediaId: string) => hash(JSON.stringify(canonical({ mediaId, article })));
 export function validPublication(receipt: Receipt): boolean {
   const p = receipt.publication;
   return !!p && p.status === "published" && p.evidence === "user-confirmed" && typeof p.mediaId === "string" && !!p.mediaId.trim() && p.mediaId === receipt.mediaId &&
@@ -71,11 +71,11 @@ export function validPublication(receipt: Receipt): boolean {
 function isPublicationUrl(value: string) {
   try { const u = new URL(value); return u.protocol === "https:" && u.hostname === "mp.weixin.qq.com" && !u.username && !u.password && (u.pathname === "/s" || u.pathname.startsWith("/s/")); } catch { return false; }
 }
-export function describeDraftDifference(expected: DraftArticle, live: DraftArticle, keys = Object.keys(expected), platformFormatting = true) {
+export function describeDraftDifference(expected: DraftArticle, live: DraftArticle, keys = Object.keys(expected), platformFormatting = true, mediaId = "") {
   return {
     differingFields: keys.filter(key => !same(live, expected, [key], platformFormatting)),
     content: describeWechatHtmlDifference(expected.content, live.content),
-    readbackSha256: draftSnapshotHash(live),
+    readbackSha256: draftSnapshotHash(live, mediaId),
   };
 }
 export class DraftReadbackError extends Error {
@@ -122,7 +122,7 @@ export class DraftSession {
         return { operation: "unchanged", status: "publication_user_confirmed", evidence: "user-confirmed", remoteWrites: false };
       }
       const backup = session.backup("published");
-      state.publication = { status: "published", evidence: "user-confirmed", mediaId: expectedId, title: expectedTitle, confirmedAt: new Date().toISOString(), note, ...(url ? { url } : {}), draftVerification: state.pending ? "unverified" : state.reconciliation ? "reviewed" : state.article ? "verified" : "unverified", backup };
+      state.publication = { status: "published", evidence: "user-confirmed", mediaId: expectedId, title: expectedTitle, confirmedAt: new Date().toISOString(), note, ...(url ? { url } : {}), draftVerification: state.pending ? "unverified" : !state.article ? "unverified" : state.reconciliation?.snapshotHash === draftSnapshotHash(state.article, expectedId) ? "reviewed" : "verified", backup };
       state.sourcePath = path.resolve(source);
       delete state.pending; // Original write and expected HTML remain in the private backup.
       session.persist();
@@ -177,7 +177,7 @@ export class DraftSession {
     if (!live.thumb_media_id && previous?.url && previous.url === live.thumb_url) this.originalCover = previous.mediaId;
     if (live.thumb_media_id && live.thumb_url) this.state.cover = { mediaId: String(live.thumb_media_id), url: String(live.thumb_url) };
     if (this.state.pending) {
-      if (!same(select(live), this.state.pending.article, Object.keys(this.state.pending.article), true)) throw new DraftReadbackError("Previous draft write outcome unresolved; inspect remotely before editing or retrying", describeDraftDifference(this.state.pending.article, live));
+      if (!same(select(live), this.state.pending.article, Object.keys(this.state.pending.article), true)) throw new DraftReadbackError("Previous draft write outcome unresolved; inspect remotely before editing or retrying", describeDraftDifference(this.state.pending.article, live, Object.keys(this.state.pending.article), true, mediaId));
       delete this.state.pending;
     } else if (this.state.article && !same(live, this.state.article)) {
       if (acceptRemote) {
@@ -201,7 +201,7 @@ export class DraftSession {
     const matches = this.state.pending
       ? same(live, expected, Object.keys(expected), true)
       : same(live, expected); // Editor changes remain strict after confirmation.
-    if (!matches) throw new DraftReadbackError("Draft verification differs; receipt and pending preserved, no remote writes sent", describeDraftDifference(expected, live, this.state.pending ? Object.keys(expected) : observed, !!this.state.pending));
+    if (!matches) throw new DraftReadbackError("Draft verification differs; receipt and pending preserved, no remote writes sent", describeDraftDifference(expected, live, this.state.pending ? Object.keys(expected) : observed, !!this.state.pending, mediaId));
     fs.writeFileSync(this.file + `.before-verify-${Date.now()}.json`, JSON.stringify(this.state, null, 2), { flag: "wx", mode: 0o600 });
     this.state.mediaId = mediaId;
     this.state.article = live;
@@ -217,23 +217,25 @@ export class DraftSession {
     const expected = this.state.pending?.article || this.state.article;
     if (!mediaId || !expected) throw new Error("Inspection requires an existing receipt and a known draft ID");
     const live = await this.get(mediaId, token, client);
-    const report = describeDraftDifference(expected, live, this.state.pending ? Object.keys(expected) : observed, !!this.state.pending);
+    const report = describeDraftDifference(expected, live, this.state.pending ? Object.keys(expected) : observed, !!this.state.pending, mediaId);
     const directory = path.join(path.dirname(this.file), ".inspections");
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
     const inspectionFile = path.join(directory, `${path.basename(this.file)}-${randomUUID()}.json`);
-    fs.writeFileSync(inspectionFile, JSON.stringify({ expected, live, report }, null, 2), { flag: "wx", mode: 0o600 });
-    return { operation: "inspected", status: "draft_found", published: false, remoteWrites: false, inspectionFile, ...report };
+    fs.writeFileSync(inspectionFile, JSON.stringify({ mediaId, expected, live, report }, null, 2), { flag: "wx", mode: 0o600 });
+    return { operation: "inspected", status: "draft_found", published: false, remoteWrites: false, media_id: mediaId, inspectionFile, ...report };
   }
-  async reconcileOnly(token: string, client: WechatApiClient, expectedHash: string, note: string) {
+  async reconcileOnly(token: string, client: WechatApiClient, expectedHash: string, note: string, explicitId?: string) {
     this.assertActive();
     if (!/^[a-f0-9]{64}$/.test(expectedHash) || !note.trim() || note.length > 2000) throw new Error("Reconciliation requires the inspected snapshot hash and a review note");
-    const mediaId = this.state.mediaId;
+    if (explicitId && this.state.mediaId && explicitId !== this.state.mediaId) throw new Error("Draft ID conflicts with receipt");
+    const mediaId = this.state.mediaId || explicitId;
     const expected = this.state.pending?.article || this.state.article;
     if (!mediaId || !expected) throw new Error("Reconciliation requires a known draft ID and expected article");
     const live = await this.get(mediaId, token, client);
-    if (draftSnapshotHash(live) !== expectedHash) throw new Error("Draft changed since inspection; inspect and review again");
+    if (draftSnapshotHash(live, mediaId) !== expectedHash) throw new Error("Draft changed since inspection or draft ID differs; inspect and review again");
     if (live.title !== expected.title) throw new Error("Draft title differs; reconcile article identity before accepting a snapshot");
     const backup = this.backup("reconcile");
+    this.state.mediaId = mediaId;
     this.state.article = live;
     delete this.state.pending;
     this.state.reconciliation = { snapshotHash: expectedHash, reviewedAt: new Date().toISOString(), note, backup };
@@ -282,7 +284,7 @@ export class DraftSession {
     this.state.mediaId = savedId;
     this.persist();
     const verified = await this.get(savedId, token, client);
-    if (!same(verified, candidate, Object.keys(candidate), true)) throw new DraftReadbackError("Draft readback differs; inspect remotely before retrying", describeDraftDifference(candidate, verified));
+    if (!same(verified, candidate, Object.keys(candidate), true)) throw new DraftReadbackError("Draft readback differs; inspect remotely before retrying", describeDraftDifference(candidate, verified, Object.keys(candidate), true, savedId));
     this.state.article = verified;
     if (verified.thumb_media_id && verified.thumb_url) this.state.cover = { mediaId: String(verified.thumb_media_id), url: String(verified.thumb_url) };
     delete this.state.pending;

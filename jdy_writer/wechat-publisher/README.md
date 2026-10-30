@@ -51,6 +51,6 @@ bun <SKILL_DIR>/wechat-publisher/wechat-api.ts <markdown-file> \
 }
 ```
 
-回读有差异时，命令输出分类诊断而不宣称成功。`--inspect-only` 保存私有原始／远端快照；实际审阅后用 `--reconcile-receipt --readback-sha256 ... --review-note ...` 仅核实本地回执，不写远端。精确校验仍用 `--verify-only`；图片展示地址的有限兼容不会放行正文、链接或样式变化。
+回读有差异时，命令输出分类诊断而不宣称成功。`--inspect-only` 保存私有原始／远端快照；实际审阅后用 `--reconcile-receipt --readback-sha256 ... --review-note ...` 仅核实本地回执，不写远端。哈希绑定草稿 ID 与完整内容；创建响应丢失时，在检查和核实两步都附加官方后台已确认的同一 `--update-media-id`。精确校验仍用 `--verify-only`；图片展示地址的有限兼容不会放行正文、链接或样式变化。未知参数、缺值和多个源文件都会在读取凭据前停止，防止拼错只读参数后误入上传。
 
 用户明确确认发表后，使用 `--record-published --state-file ... --expected-media-id ... --expected-title ... --confirmation-note ...` 做本地收尾；该模式不读取凭据或网络配置。原 pending 完整备份，结果标为 `publication_user_confirmed`，不冒充独立发表／播放验收，关闭后不能用此回执继续写草稿。命令、取号语义及边界见[公众号流程 §6.3–6.4](../references/workflow-wechat.md#633-调用内化发布器)。

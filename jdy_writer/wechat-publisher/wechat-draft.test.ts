@@ -379,3 +379,44 @@ test('publication closure respects an active publisher lock and refuses conflict
   expect(fs.readFileSync(f.file,'utf8')).toBe(saved);
  }finally{s.close();f.cleanup();}
 });
+
+test('lost create response can recover an explicitly verified ID despite platform rewriting, without a second write',async()=>{
+ const f=fixture(article);let s=f.open();
+ try{
+  f.failWrites();await expect(s.save(article,'fake-token',f.client)).rejects.toThrow('network or response failure');
+  f.mutate({content:'<p>Platform-normalized body</p>'});
+  const before=fs.readFileSync(f.file,'utf8'), callCount=f.calls.length;
+  const report=await s.inspectOnly('fake-token',f.client,'found-draft');
+  const other=await s.inspectOnly('fake-token',f.client,'different-draft');
+  expect(report.readbackSha256).not.toBe(other.readbackSha256);
+  expect(JSON.parse(fs.readFileSync(report.inspectionFile,'utf8')).mediaId).toBe('found-draft');
+  expect(fs.readFileSync(f.file,'utf8')).toBe(before);
+  await expect(s.reconcileOnly('fake-token',f.client,report.readbackSha256,'Reviewed both snapshots','different-draft')).rejects.toThrow('draft ID differs');
+  expect(fs.readFileSync(f.file,'utf8')).toBe(before);
+  expect(await s.reconcileOnly('fake-token',f.client,report.readbackSha256,'Confirmed the draft ID in the official editor and reviewed the platform changes','found-draft')).toMatchObject({operation:'reconciled',remoteWrites:false});
+  const saved=JSON.parse(fs.readFileSync(f.file,'utf8'));
+  expect(saved.mediaId).toBe('found-draft');expect(saved.pending).toBeUndefined();
+  expect(JSON.parse(fs.readFileSync(path.join(path.dirname(f.file),saved.reconciliation.backup),'utf8')).mediaId).toBeUndefined();
+  expect(f.calls.slice(callCount).every(c=>c.endpoint.endsWith('/get'))).toBe(true);
+  s.close();s=f.open();const live=await s.prepare('fake-token',f.client);
+  expect((await s.save(live!,'fake-token',f.client)).operation).toBe('unchanged');
+  expect(f.calls.filter(c=>c.endpoint.endsWith('/add'))).toHaveLength(1);
+  expect(f.calls.filter(c=>c.endpoint.endsWith('/update'))).toHaveLength(0);
+ }finally{s.close();f.cleanup();}
+});
+
+test('publication reports the current snapshot verification while retaining earlier reconciliation history',async()=>{
+ for(const verifiedWrite of [false,true]){
+  const f=fixture();let s=f.open();
+  try{
+   await s.save(article,'fake-token',f.client);f.mutate({content:'<p>Reviewed remote edit</p>'});
+   const inspection=await s.inspectOnly('fake-token',f.client);
+   await s.reconcileOnly('fake-token',f.client,inspection.readbackSha256,'Reviewed edit');
+   if(verifiedWrite){const live=await s.prepare('fake-token',f.client);await s.save({...live!,content:'<p>New independently verified write</p>'},'fake-token',f.client);}
+   s.close();DraftSession.recordPublished(f.file,source,'draft-1',article.title,'User confirmed publication');
+   const saved=JSON.parse(fs.readFileSync(f.file,'utf8'));
+   expect(saved.publication.draftVerification).toBe(verifiedWrite?'verified':'reviewed');
+   expect(saved.reconciliation.note).toBe('Reviewed edit');
+  }finally{s.close();f.cleanup();}
+ }
+});

@@ -605,35 +605,25 @@ function parseArgs(argv: string[]): CliArgs {
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
-    if (arg === "--type" && argv[i + 1]) {
-      const t = argv[++i]!.toLowerCase();
-      if (t === "news" || t === "newspic") {
-        args.articleType = t;
-      }
-    } else if (arg === "--title" && argv[i + 1]) {
-      args.title = argv[++i];
-    } else if (arg === "--author" && argv[i + 1]) {
-      args.author = argv[++i];
-    } else if (arg === "--summary" && argv[i + 1]) {
-      args.summary = argv[++i];
-    } else if (arg === "--theme" && argv[i + 1]) {
-      args.theme = argv[++i]!;
-    } else if (arg === "--color" && argv[i + 1]) {
-      args.color = argv[++i];
-    } else if (arg === "--cover" && argv[i + 1]) {
-      args.cover = argv[++i];
-    } else if (arg === "--account" && argv[i + 1]) {
-      args.account = argv[++i];
+    const valueKeys = {
+      "--title": "title", "--author": "author", "--summary": "summary", "--theme": "theme", "--color": "color",
+      "--cover": "cover", "--account": "account", "--source-url": "sourceUrl", "--update-media-id": "updateMediaId",
+      "--state-file": "stateFile", "--cover-media-id": "coverMediaId", "--readback-sha256": "readbackSha256",
+      "--review-note": "reviewNote", "--expected-media-id": "expectedMediaId", "--expected-title": "expectedTitle",
+      "--confirmation-note": "confirmationNote", "--publication-url": "publicationUrl",
+    } as const;
+    if (arg === "--type" || Object.hasOwn(valueKeys, arg)) {
+      const value = argv[++i];
+      if (!value || value.startsWith("--")) throw new Error(`Missing value for ${arg}`);
+      if (arg === "--type") {
+        const type = value.toLowerCase();
+        if (type !== "news" && type !== "newspic") throw new Error("Article type must be news or newspic");
+        args.articleType = type;
+      } else args[valueKeys[arg as keyof typeof valueKeys]] = value;
     } else if (arg === "--cite") {
       args.citeStatus = true;
     } else if (arg === "--no-cite") {
       args.citeStatus = false;
-    } else if (["--source-url", "--update-media-id", "--state-file", "--cover-media-id", "--readback-sha256", "--review-note", "--expected-media-id", "--expected-title", "--confirmation-note", "--publication-url"].includes(arg)) {
-      const value = argv[++i];
-      if (!value || value.startsWith("--")) throw new Error(`Missing value for ${arg}`);
-      const keys = { "--source-url": "sourceUrl", "--update-media-id": "updateMediaId", "--state-file": "stateFile", "--cover-media-id": "coverMediaId", "--readback-sha256": "readbackSha256", "--review-note": "reviewNote", "--expected-media-id": "expectedMediaId", "--expected-title": "expectedTitle", "--confirmation-note": "confirmationNote", "--publication-url": "publicationUrl" } as const;
-      const key = keys[arg as keyof typeof keys];
-      args[key] = value;
     } else if (arg === "--accept-remote") {
       args.acceptRemote = true;
     } else if (arg === "--clear-source-url") {
@@ -648,9 +638,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.recordPublished = true;
     } else if (arg === "--dry-run") {
       args.dryRun = true;
-    } else if (arg.startsWith("--") && argv[i + 1] && !argv[i + 1]!.startsWith("-")) {
-      i++;
-    } else if (!arg.startsWith("-")) {
+    } else if (arg.startsWith("-")) {
+      throw new Error("Unknown option; use --help to check supported arguments");
+    } else {
+      if (args.filePath) throw new Error("Only one source file may be specified");
       args.filePath = arg;
     }
   }
@@ -680,7 +671,7 @@ async function main(): Promise<void> {
   const recoveryModes = [args.verifyOnly, args.inspectOnly, args.reconcileReceipt, args.recordPublished].filter(Boolean).length;
   if (recoveryModes > 1) throw new Error("Choose only one receipt recovery mode");
   if (recoveryModes) {
-    const allowed = new Set(["--state-file", ...(args.recordPublished ? ["--record-published", "--expected-media-id", "--expected-title", "--confirmation-note", "--publication-url"] : ["--account", "--verify-only", "--inspect-only", ...(args.reconcileReceipt ? ["--reconcile-receipt", "--readback-sha256", "--review-note"] : ["--update-media-id"])])]);
+    const allowed = new Set(["--state-file", ...(args.recordPublished ? ["--record-published", "--expected-media-id", "--expected-title", "--confirmation-note", "--publication-url"] : ["--account", "--update-media-id", "--verify-only", "--inspect-only", ...(args.reconcileReceipt ? ["--reconcile-receipt", "--readback-sha256", "--review-note"] : [])])]);
     for (const flag of process.argv.slice(2).filter(v => v.startsWith("--"))) if (!allowed.has(flag)) throw new Error("Receipt recovery cannot be combined with draft edits or unrelated options");
     if (args.reconcileReceipt && (!/^[a-f0-9]{64}$/.test(args.readbackSha256 || "") || !args.reviewNote?.trim())) throw new Error("Reconciliation requires --readback-sha256 and --review-note");
   } else if ([args.readbackSha256, args.reviewNote, args.expectedMediaId, args.expectedTitle, args.confirmationNote, args.publicationUrl].some(v => v !== undefined)) throw new Error("Receipt recovery options require a recovery mode");
@@ -707,7 +698,7 @@ async function main(): Promise<void> {
     const session = DraftSession.open(stateFile, filePath, key);
     try {
       const token = await fetchAccessToken(creds.appId, creds.appSecret, client);
-      const result = args.inspectOnly ? await session.inspectOnly(token, client, args.updateMediaId) : args.reconcileReceipt ? await session.reconcileOnly(token, client, args.readbackSha256!, args.reviewNote!) : await session.verifyOnly(token, client, args.updateMediaId);
+      const result = args.inspectOnly ? await session.inspectOnly(token, client, args.updateMediaId) : args.reconcileReceipt ? await session.reconcileOnly(token, client, args.readbackSha256!, args.reviewNote!, args.updateMediaId) : await session.verifyOnly(token, client, args.updateMediaId);
       console.log(JSON.stringify({ success: true, ...result, stateFile }, null, 2));
     } finally { session.close(); }
     return;

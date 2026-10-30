@@ -174,7 +174,7 @@ test('CLI inspect/reconcile keeps remote content, enforces the inspected hash an
  const api=path.join(import.meta.dir,'wechat-api.ts'), source=path.join(dir,'deleted-publish.md'),state=path.join(dir,'state.json'),remote=path.join(dir,'remote.json'),log=path.join(dir,'calls.jsonl');
  const {createHash}=require('node:crypto');const key=createHash('sha256').update('FAKE_APP').digest('hex');
  const expected={title:'219. Test',content:'<p>Original <a href="https://example.test">reference</a></p>',thumb_media_id:'cover'};
- const initial={version:1,identity:createHash('sha256').update(key+'\0'+source).digest('hex'),mediaId:'draft-219',uploads:{},pending:{operation:'create',article:expected}};
+ const initial={version:1,identity:createHash('sha256').update(key+'\0'+source).digest('hex'),uploads:{},pending:{operation:'create',article:expected}};
  const prelude=`
   import fs from 'node:fs';
   globalThis.fetch=async(input,init)=>{
@@ -188,13 +188,13 @@ test('CLI inspect/reconcile keeps remote content, enforces the inspected hash an
  const run=(extra:string[])=>Bun.spawnSync([process.execPath,'-e',prelude],{cwd:dir,env:{...process.env,HOME:dir,WECHAT_APP_ID:'FAKE_APP',WECHAT_APP_SECRET:'FAKE_SECRET',EXTRA:JSON.stringify(extra)}});
  try{
   fs.writeFileSync(state,JSON.stringify(initial));fs.writeFileSync(remote,JSON.stringify({...expected,content:'<p>Original reference</p><mp-common-videosnap data-id="inserted"></mp-common-videosnap>'}));
-  const before=fs.readFileSync(state,'utf8'),inspect=run(['--inspect-only']);if(inspect.exitCode)throw new Error(inspect.stderr.toString());
-  const report=JSON.parse(inspect.stdout.toString());expect(report.content).toMatchObject({textEqual:true,linksEqual:false,nativeMediaEqual:false});
+  const before=fs.readFileSync(state,'utf8'),inspect=run(['--inspect-only','--update-media-id','draft-219']);if(inspect.exitCode)throw new Error(inspect.stderr.toString());
+  const report=JSON.parse(inspect.stdout.toString());expect(report.media_id).toBe('draft-219');expect(report.content).toMatchObject({textEqual:true,linksEqual:false,nativeMediaEqual:false});
   expect(fs.readFileSync(state,'utf8')).toBe(before);
-  const rejected=run(['--reconcile-receipt','--readback-sha256','0'.repeat(64),'--review-note','Reviewed']);expect(rejected.exitCode).toBe(1);expect(fs.readFileSync(state,'utf8')).toBe(before);
-  const accepted=run(['--reconcile-receipt','--readback-sha256',report.readbackSha256,'--review-note','Reviewed link behavior and preserved the inserted video card']);if(accepted.exitCode)throw new Error(accepted.stderr.toString());
+  const rejected=run(['--reconcile-receipt','--update-media-id','draft-219','--readback-sha256','0'.repeat(64),'--review-note','Reviewed']);expect(rejected.exitCode).toBe(1);expect(fs.readFileSync(state,'utf8')).toBe(before);
+  const accepted=run(['--reconcile-receipt','--update-media-id','draft-219','--readback-sha256',report.readbackSha256,'--review-note','Reviewed link behavior and preserved the inserted video card']);if(accepted.exitCode)throw new Error(accepted.stderr.toString());
   expect(JSON.parse(accepted.stdout.toString())).toMatchObject({status:'draft_reconciled',remoteWrites:false,published:false});
-  const saved=JSON.parse(fs.readFileSync(state,'utf8'));expect(saved.pending).toBeUndefined();expect(saved.article.content).toContain('mp-common-videosnap');
+  const saved=JSON.parse(fs.readFileSync(state,'utf8'));expect(saved.pending).toBeUndefined();expect(saved.mediaId).toBe('draft-219');expect(saved.article.content).toContain('mp-common-videosnap');
   const calls=fs.readFileSync(log,'utf8');expect(calls.trim().split('\n').every(p=>['/cgi-bin/token','/cgi-bin/draft/get'].includes(p))).toBe(true);
   for(const extra of [['--inspect-only','--cover','overwrite'],['--reconcile-receipt','--readback-sha256',report.readbackSha256,'--review-note','Reviewed','--title','overwrite'],['--verify-only','--inspect-only']]){
    expect(run(extra).exitCode).toBe(1);expect(fs.readFileSync(log,'utf8')).toBe(calls);
@@ -220,5 +220,24 @@ test('CLI record-published is credential-free and offline, preserves unresolved 
   const saved=JSON.parse(fs.readFileSync(state,'utf8'));expect(saved.pending).toBeUndefined();expect(saved.publication.draftVerification).toBe('unverified');
   expect(JSON.parse(fs.readFileSync(path.join(dir,saved.publication.backup),'utf8'))).toEqual(initial);
   const second=run();if(second.exitCode)throw new Error(second.stderr.toString());expect(JSON.parse(second.stdout.toString()).operation).toBe('unchanged');
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('CLI typos, missing option values and extra source files stop before credentials or network',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'wechat-args-review-')),api=path.join(import.meta.dir,'wechat-api.ts'),source=path.join(dir,'article.md');
+ const prelude=`
+  import fs from 'node:fs';const read=fs.readFileSync;
+  fs.readFileSync=function(file,...args){if(String(file).endsWith('/.env')||String(file).includes('wechat-network.json'))throw new Error('CONFIG_READ_REACHED');return read.call(fs,file,...args);};
+  globalThis.fetch=async()=>{throw new Error('NETWORK_REACHED');};
+  process.argv=[process.execPath,${JSON.stringify(api)},${JSON.stringify(source)},...JSON.parse(process.env.EXTRA)];await import(${JSON.stringify(api)});
+ `;
+ try{
+  fs.writeFileSync(source,'# Test\n\nBody.');
+  for(const extra of [['--inspct-only'],['--reconcile-receipt-typo'],['--FAKE_SECRET'],['--cover'],['--type','wrong'],['another.md'],['--title','--inspect-only']]){
+   const result=Bun.spawnSync([process.execPath,'-e',prelude],{cwd:dir,env:{...process.env,HOME:dir,EXTRA:JSON.stringify(extra)}});
+   expect(result.exitCode).toBe(1);const error=result.stderr.toString();
+   expect(error).toMatch(/Unknown option|Missing value|Article type|Only one source/);
+   expect(error).not.toContain('CONFIG_READ_REACHED');expect(error).not.toContain('NETWORK_REACHED');expect(error).not.toContain('FAKE_SECRET');
+  }
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
