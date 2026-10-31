@@ -358,6 +358,33 @@ test('legacy reviewed receipts retain their evidence label after the preview has
   } finally { s.close(); f.cleanup(); }
 });
 
+test('read-only refresh preserves legacy review evidence when only the preview URL rotates', async () => {
+  for (const operation of ['verify', 'prepare']) {
+    const f=fixture(); let s=f.open();
+    try {
+      const reviewedArticle={title:article.title,content:'<p>reviewed</p>',thumb_media_id:'cover'};
+      await s.save(reviewedArticle,'fake-token',f.client);
+      f.mutate({url:'https://preview.example/one'});
+      const inspection=await s.inspectOnly('fake-token',f.client);
+      await s.reconcileOnly('fake-token',f.client,inspection.readbackSha256,'Reviewed exact snapshot');
+      s.close();
+      const saved=JSON.parse(fs.readFileSync(f.file,'utf8'));
+      const legacySnapshot='{"article":{"content":"<p>reviewed</p>","thumb_media_id":"cover","title":"215. Test","url":"https://preview.example/one"},"mediaId":"draft-1"}';
+      saved.reconciliation.snapshotHash=createHash('sha256').update(legacySnapshot).digest('hex');
+      fs.writeFileSync(f.file,JSON.stringify(saved));
+      f.mutate({url:'https://preview.example/two'});
+      const before=f.calls.length;
+      s=f.open();
+      if(operation==='verify') await s.verifyOnly('fake-token',f.client);
+      else await s.prepare('fake-token',f.client);
+      s.close();
+      DraftSession.recordPublished(f.file,source,'draft-1',article.title,'User confirmed publication');
+      expect(JSON.parse(fs.readFileSync(f.file,'utf8')).publication.draftVerification).toBe('reviewed');
+      expect(f.calls.slice(before).every(c=>c.endpoint.endsWith('/get'))).toBe(true);
+    } finally {s.close();f.cleanup();}
+  }
+});
+
 test('published confirmation is local, backed up, idempotent, accurately labeled and blocks later draft operations', async () => {
   const f=fixture(); let s=f.open();
   try {

@@ -171,6 +171,16 @@ export class DraftSession {
     if (!Array.isArray(data.news_item) || data.news_item.length !== 1 || typeof data.news_item[0]?.content !== "string" || typeof data.news_item[0]?.title !== "string") throw new Error("Expected one article in draft; multi-article drafts require the official editor");
     return data.news_item[0];
   }
+  private preserveLegacyReview(live: DraftArticle, mediaId: string) {
+    const previous = this.state.article, review = this.state.reconciliation;
+    if (!previous || !review) return;
+    const stableHash = draftSnapshotHash(previous, mediaId);
+    // Migrate evidence before replacing the stored URL. Only a previously
+    // reviewed snapshot with every non-preview field unchanged qualifies.
+    if (review.snapshotHash === rawDraftSnapshotHash(previous, mediaId) && stableHash === draftSnapshotHash(live, mediaId)) {
+      review.snapshotHash = stableHash;
+    }
+  }
   async prepare(token: string, client: WechatApiClient, explicitId?: string, acceptRemote = false): Promise<DraftArticle | undefined> {
     this.assertActive();
     if (explicitId && this.state.mediaId && explicitId !== this.state.mediaId) throw new Error("Draft ID conflicts with receipt; use a separate receipt for another draft");
@@ -195,6 +205,7 @@ export class DraftSession {
         throw new Error("Draft changed in the official editor; reconcile local content, then use --accept-remote to adopt the latest metadata");
       }
     }
+    this.preserveLegacyReview(live, mediaId);
     this.state.mediaId = mediaId;
     this.state.article = live;
     this.persist();
@@ -212,6 +223,7 @@ export class DraftSession {
       : same(live, expected); // Editor changes remain strict after confirmation.
     if (!matches) throw new DraftReadbackError("Draft verification differs; receipt and pending preserved, no remote writes sent", describeDraftDifference(expected, live, this.state.pending ? Object.keys(expected) : observed, !!this.state.pending, mediaId));
     fs.writeFileSync(this.file + `.before-verify-${Date.now()}.json`, JSON.stringify(this.state, null, 2), { flag: "wx", mode: 0o600 });
+    this.preserveLegacyReview(live, mediaId);
     this.state.mediaId = mediaId;
     this.state.article = live;
     if (live.thumb_media_id && live.thumb_url) this.state.cover = { mediaId: String(live.thumb_media_id), url: String(live.thumb_url) };
