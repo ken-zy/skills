@@ -59,7 +59,13 @@ function select(article: DraftArticle): DraftArticle {
   return Object.fromEntries(writable.filter(k => article[k] !== undefined).map(k => [k, article[k]])) as DraftArticle;
 }
 
-export const draftSnapshotHash = (article: DraftArticle, mediaId: string) => hash(JSON.stringify(canonical({ mediaId, article })));
+const rawDraftSnapshotHash = (article: DraftArticle, mediaId: string) => hash(JSON.stringify(canonical({ mediaId, article })));
+export function draftSnapshotHash(article: DraftArticle, mediaId: string) {
+  // draft/get regenerates its read-only preview URL on every request. It is
+  // not article content; retain every other field and the exact draft ID.
+  const { url: _previewUrl, ...stableArticle } = article;
+  return rawDraftSnapshotHash(stableArticle as DraftArticle, mediaId);
+}
 export function validPublication(receipt: Receipt): boolean {
   const p = receipt.publication;
   return !!p && p.status === "published" && p.evidence === "user-confirmed" && typeof p.mediaId === "string" && !!p.mediaId.trim() && p.mediaId === receipt.mediaId &&
@@ -122,7 +128,10 @@ export class DraftSession {
         return { operation: "unchanged", status: "publication_user_confirmed", evidence: "user-confirmed", remoteWrites: false };
       }
       const backup = session.backup("published");
-      state.publication = { status: "published", evidence: "user-confirmed", mediaId: expectedId, title: expectedTitle, confirmedAt: new Date().toISOString(), note, ...(url ? { url } : {}), draftVerification: state.pending ? "unverified" : !state.article ? "unverified" : state.reconciliation?.snapshotHash === draftSnapshotHash(state.article, expectedId) ? "reviewed" : "verified", backup };
+      // Old reviewed receipts hashed the preview URL too. Recognize their
+      // stored snapshot for evidence labeling, never for remote acceptance.
+      const reviewed = state.article && [draftSnapshotHash(state.article, expectedId), rawDraftSnapshotHash(state.article, expectedId)].includes(state.reconciliation?.snapshotHash ?? "");
+      state.publication = { status: "published", evidence: "user-confirmed", mediaId: expectedId, title: expectedTitle, confirmedAt: new Date().toISOString(), note, ...(url ? { url } : {}), draftVerification: state.pending ? "unverified" : !state.article ? "unverified" : reviewed ? "reviewed" : "verified", backup };
       state.sourcePath = path.resolve(source);
       delete state.pending; // Original write and expected HTML remain in the private backup.
       session.persist();
