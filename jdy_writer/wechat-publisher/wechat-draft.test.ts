@@ -2,7 +2,8 @@ import { test, expect } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { DraftSession, assertSupportedMedia, readOriginalMetadata, validateSourceUrl, type DraftArticle } from "./wechat-draft.ts";
+import { createHash } from "node:crypto";
+import { DraftSession, draftSnapshotHash, assertSupportedMedia, readOriginalMetadata, validateSourceUrl, type DraftArticle } from "./wechat-draft.ts";
 import { createWechatApiClient } from "./wechat-network.ts";
 
 const source = "/fixture/article.md";
@@ -310,6 +311,78 @@ test('reconciliation refuses stale hashes, missing notes, title changes and unkn
   } finally {s.close(); f.cleanup();}
   const empty=fixture(), t=empty.open();
   try {await expect(t.reconcileOnly('fake-token',empty.client,'a'.repeat(64),'Reviewed')).rejects.toThrow('known draft ID');expect(empty.calls).toHaveLength(0);}finally{t.close();empty.cleanup();}
+});
+
+test('a regenerated preview URL permits reviewed reconciliation without a second remote write', async () => {
+  const f = fixture(); let s = f.open();
+  try {
+    await s.save(article, 'fake-token', f.client);
+    f.mutate({ content: '<p style="color:red">body</p>', url: 'https://preview.example/first' });
+    const inspection = await s.inspectOnly('fake-token', f.client);
+    const before = f.calls.length;
+    f.mutate({ url: 'https://preview.example/second' });
+    expect(await s.reconcileOnly('fake-token', f.client, inspection.readbackSha256, 'Reviewed the exact body and style; only the generated preview URL changed')).toMatchObject({ status: 'draft_reconciled', remoteWrites: false });
+    expect(f.calls.slice(before).every(c => c.endpoint.endsWith('/get'))).toBe(true);
+    const saved = JSON.parse(fs.readFileSync(f.file, 'utf8'));
+    expect(saved.pending).toBeUndefined();
+    expect(saved.article.url).toBe('https://preview.example/second');
+    expect(saved.article.content).toBe('<p style="color:red">body</p>');
+  } finally { s.close(); f.cleanup(); }
+});
+
+test('review hashes still bind draft identity, all editable fields and non-preview metadata', () => {
+  const baseline = { ...article, url: 'https://preview.example/first' };
+  const digest = draftSnapshotHash(baseline, 'draft-1');
+  expect(draftSnapshotHash({ ...baseline, url: 'https://preview.example/second' }, 'draft-1')).toBe(digest);
+  expect(draftSnapshotHash(baseline, 'draft-2')).not.toBe(digest);
+  for (const patch of [
+    {title:'Other'}, {author:'Other'}, {digest:'Changed'}, {content:'<p>Changed</p>'},
+    {content:'<img src="https://image.example/changed.jpg">'}, {content:'<mp-common-videosnap data-id="changed"></mp-common-videosnap>'},
+    {content_source_url:'https://source.example/changed'}, {thumb_media_id:'changed'}, {thumb_url:'https://image.example/changed'},
+    {cover_info:{crop_percent_list:[]}}, {need_open_comment:0}, {only_fans_can_comment:1},
+    {article_type:'newspic'}, {image_info:{image_list:[]}}, {unknown_new_metadata:'changed'},
+  ]) expect(draftSnapshotHash({...baseline,...patch}, 'draft-1')).not.toBe(digest);
+});
+
+test('legacy reviewed receipts retain their evidence label after the preview hash fix', async () => {
+  const f=fixture(); let s=f.open();
+  try {
+    await s.save(article,'fake-token',f.client); s.close();
+    const saved=JSON.parse(fs.readFileSync(f.file,'utf8'));
+    saved.article={content:'<p>reviewed</p>',title:article.title,url:'https://preview.example/one'};
+    const legacySnapshot='{"article":{"content":"<p>reviewed</p>","title":"215. Test","url":"https://preview.example/one"},"mediaId":"draft-1"}';
+    saved.reconciliation={snapshotHash:createHash('sha256').update(legacySnapshot).digest('hex'),note:'Legacy reviewed snapshot'};
+    fs.writeFileSync(f.file,JSON.stringify(saved));
+    DraftSession.recordPublished(f.file,source,'draft-1',article.title,'User confirmed publication');
+    expect(JSON.parse(fs.readFileSync(f.file,'utf8')).publication.draftVerification).toBe('reviewed');
+  } finally { s.close(); f.cleanup(); }
+});
+
+test('read-only refresh preserves legacy review evidence when only the preview URL rotates', async () => {
+  for (const operation of ['verify', 'prepare']) {
+    const f=fixture(); let s=f.open();
+    try {
+      const reviewedArticle={title:article.title,content:'<p>reviewed</p>',thumb_media_id:'cover'};
+      await s.save(reviewedArticle,'fake-token',f.client);
+      f.mutate({url:'https://preview.example/one'});
+      const inspection=await s.inspectOnly('fake-token',f.client);
+      await s.reconcileOnly('fake-token',f.client,inspection.readbackSha256,'Reviewed exact snapshot');
+      s.close();
+      const saved=JSON.parse(fs.readFileSync(f.file,'utf8'));
+      const legacySnapshot='{"article":{"content":"<p>reviewed</p>","thumb_media_id":"cover","title":"215. Test","url":"https://preview.example/one"},"mediaId":"draft-1"}';
+      saved.reconciliation.snapshotHash=createHash('sha256').update(legacySnapshot).digest('hex');
+      fs.writeFileSync(f.file,JSON.stringify(saved));
+      f.mutate({url:'https://preview.example/two'});
+      const before=f.calls.length;
+      s=f.open();
+      if(operation==='verify') await s.verifyOnly('fake-token',f.client);
+      else await s.prepare('fake-token',f.client);
+      s.close();
+      DraftSession.recordPublished(f.file,source,'draft-1',article.title,'User confirmed publication');
+      expect(JSON.parse(fs.readFileSync(f.file,'utf8')).publication.draftVerification).toBe('reviewed');
+      expect(f.calls.slice(before).every(c=>c.endpoint.endsWith('/get'))).toBe(true);
+    } finally {s.close();f.cleanup();}
+  }
 });
 
 test('published confirmation is local, backed up, idempotent, accurately labeled and blocks later draft operations', async () => {
