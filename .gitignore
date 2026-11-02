@@ -5,3 +5,6 @@ __pycache__/
 *.log
 .env
 .env.*
+
+# Legacy runtime article counter; live state belongs outside the repository.
+/jdy_writer/article-counter.txt
