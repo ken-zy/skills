@@ -25,6 +25,17 @@ test('private baseline ahead of receipts is preserved',()=>{
  const f=fixture();
  try {fs.writeFileSync(f.counter,'219\n');fs.writeFileSync(path.join(f.receipts,'a.json'),JSON.stringify(record(217)));expect(inspectArticleNumbers(f.counter,f.receipts).next).toBe(220);}finally{f.clean();}
 });
+test('missing or redirected receipt storage cannot fall back to a stale baseline',()=>{
+ const f=fixture();try {
+  fs.writeFileSync(path.join(f.receipts,'latest.json'),JSON.stringify(record(221)));
+  const saved=path.join(f.dir,'saved-receipts');fs.renameSync(f.receipts,saved);
+  expect(()=>inspectArticleNumbers(f.counter,f.receipts)).toThrow('directory unavailable');
+  fs.symlinkSync(saved,f.receipts,'dir');
+  expect(()=>inspectArticleNumbers(f.counter,f.receipts)).toThrow('real directory');
+  fs.unlinkSync(f.receipts);fs.writeFileSync(f.receipts,'not a directory');
+  expect(()=>inspectArticleNumbers(f.counter,f.receipts)).toThrow('real directory');
+ }finally{f.clean();}
+});
 test('receipts suffice without a baseline; empty installations stop rather than reuse a number',()=>{
  const f=fixture();try {
   fs.unlinkSync(f.counter);

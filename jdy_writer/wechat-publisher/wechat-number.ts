@@ -10,7 +10,10 @@ export function counterNumber(raw: string): number {
   return Number(raw);
 }
 export function receiptNumbers(directory: string): Evidence[] {
-  if (!fs.existsSync(directory)) return [];
+  let directoryStat: fs.Stats;
+  try { directoryStat = fs.lstatSync(directory); }
+  catch { throw new Error('Active receipt directory unavailable; restore or explicitly initialize it before numbering'); }
+  if (!directoryStat.isDirectory()) throw new Error('Active receipts must use a real directory; numbering stopped');
   const evidence: Evidence[] = [];
   const assigned = new Map<number, string>();
   for (const name of fs.readdirSync(directory).sort()) {
