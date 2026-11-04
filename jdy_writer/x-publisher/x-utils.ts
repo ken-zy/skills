@@ -1,4 +1,4 @@
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync, spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,7 +12,6 @@ import {
   getFreePort as getFreePortBase,
   gracefulKillChrome,
   killChrome,
-  launchChrome as launchChromeBase,
   openPageSession,
   sleep,
   waitForChromeDebugPort,
@@ -168,15 +167,19 @@ async function launchChromeOnce(
   url: string,
   profileDir: string,
   chromePath: string,
-): Promise<{ chrome: Awaited<ReturnType<typeof launchChromeBase>>; port: number }> {
+): Promise<{ chrome: ChildProcess; port: number }> {
   const port = await getFreePort();
-  const chrome = await launchChromeBase({
-    chromePath,
-    profileDir,
-    port,
+  await fs.promises.mkdir(profileDir, { recursive: true });
+  // unref() alone does not isolate Chrome from the launching command's process
+  // group. A terminal/agent may clean that group up after the command finishes.
+  const chrome = spawn(chromePath, [
+    `--remote-debugging-port=${port}`,
+    `--user-data-dir=${profileDir}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--start-maximized',
     url,
-    extraArgs: ['--start-maximized'],
-  });
+  ], { stdio: 'ignore', detached: true });
 
   try {
     await waitForChromeDebugPort(port, 30_000, { includeLastError: true });
@@ -192,7 +195,7 @@ export async function launchChrome(
   profileDir: string,
   candidates: PlatformCandidates,
   chromePathOverride?: string,
-): Promise<{ chrome: Awaited<ReturnType<typeof launchChromeBase>>; port: number }> {
+): Promise<{ chrome: ChildProcess; port: number }> {
   const chromePath = chromePathOverride?.trim() || findChromeExecutable(candidates);
   if (!chromePath) throw new Error('Stable Google Chrome not found. Install it or explicitly supply a browser path; no browser fallback was attempted.');
 

@@ -97,7 +97,9 @@ export function assertComposerReady(r: PostReceipt, s: ComposerSnapshot, text: s
   if (s.account?.toLowerCase() !== `/${CN_ACCOUNT.toLowerCase()}`) throw Error(`Expected @${CN_ACCOUNT}; account mismatch stops publication.`);
   if (!s.editor || s.text !== text || s.count !== r.manifest.images.length || !s.loaded || !s.enabled) throw Error('Composer text, image count, upload readiness, or long-post capability check failed. No submission.');
 }
-// Expand only an unambiguous displayed URL whose DOM metadata matches an approved URL.
+// Expand only an unambiguous URL whose DOM metadata or complete DOM text
+// matches an approved URL. X may visually hide the scheme/tail in spans while
+// retaining the entire URL in textContent, followed by a decorative ellipsis.
 // Mentions, hashtags, missing metadata and repeated display strings remain unchanged.
 export function readPostText(node:any, approvedLinks:string[] = []):string {
   let text=node?.innerText||'';
@@ -106,6 +108,10 @@ export function readPostText(node:any, approvedLinks:string[] = []):string {
     const display=anchor.innerText;
     if(!display||/^[@#]/.test(display)||!/^https?:\/\//.test(display)&&!/[a-z0-9-]+\.[a-z]/i.test(display))continue;
     const metadata=['title','data-expanded-url','href'].map(key=>anchor.getAttribute(key)).filter(Boolean);
+    const domText=anchor.textContent;
+    if(typeof domText==='string'&&/^https?:\/\//.test(domText)) {
+      metadata.push(domText.endsWith('…')?domText.slice(0,-1):domText);
+    }
     const expected=approvedLinks.find(url=>metadata.some(value=>{
       try{return new URL(value).href===new URL(url).href;}catch{return false;}
     }));
