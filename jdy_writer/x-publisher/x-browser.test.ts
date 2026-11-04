@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { getFreePort, gracefulKillChrome } from './vendor/baoyu-chrome-cdp/src/index.ts';
 import { CdpConnection, findChromeExecutable, STABLE_CHROME, waitForChromeDebugPort } from './x-utils.ts';
 import { makeDriver } from './x-browser.ts';
-import { assertComposerReady, buildManifest, type PostReceipt } from './x-post-state.ts';
+import { assertComposerReady, buildManifest, readPostText, type PostReceipt } from './x-post-state.ts';
 
 const executable=findChromeExecutable(STABLE_CHROME);
 test('real CDP adapter composes four ordered file-input images and clicks once on an isolated local fixture', {skip:!executable,timeout:60000},async t=>{
@@ -58,6 +58,15 @@ test('real CDP adapter composes four ordered file-input images and clicks once o
  await driver.compose(true,()=>{throw Error('resume must not mutate');});
  assert.equal(await driver.submit(()=>{}),'https://x.com/_ThrowException/status/123456');
  const count=await cdp.send<any>('Runtime.evaluate',{expression:'window.clicks',returnByValue:true},{sessionId});assert.equal(count.result.value,1);
+ // X hides complete URL parts in block spans: browser innerText gains layout
+ // newlines, but DOM text still contains the exact approved destination.
+ const url='https://mp.weixin.qq.com/s/d1q5hicqCSMp0rBR6mcXGw';
+ const linkReadback=await cdp.send<any>('Runtime.evaluate',{expression:`(()=>{
+  const box=document.createElement('div');box.innerHTML='全文：<a href="https://t.co/short"><span style="display:block" aria-hidden="true">https://</span>mp.weixin.qq.com/s/d1q5hicqCSMp<span style="display:block" aria-hidden="true">0rBR6mcXGw</span><span style="display:block" aria-hidden="true">…</span></a>\\n\\n保留结尾。';document.body.append(box);
+  return {visible:box.innerText,readback:(${readPostText.toString()})(box,[${JSON.stringify(url)}])};
+ })()`,returnByValue:true},{sessionId});
+ assert.notEqual(linkReadback.result.value.visible,'全文：'+url+'\n\n保留结尾。');
+ assert.equal(linkReadback.result.value.readback,'全文：'+url+'\n\n保留结尾。');
 });
 test('composer guards reject wrong account, truncation, missing/unloaded media and disabled long-post button',()=>{
  const receipt:PostReceipt={version:1,stage:'ready',manifest:{account:'_ThrowException',profile:'/test',textSha256:'test',images:Array.from({length:4},()=>({file:'image',sha256:'hash'})),sources:[]}};

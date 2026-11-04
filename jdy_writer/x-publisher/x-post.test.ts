@@ -170,3 +170,20 @@ test('ambiguous repeated link displays and unrelated metadata never fabricate ap
  const mention={innerText:'@example.com',getAttribute:()=> 'https://example.com/other'};
  assert.equal(readPostText({innerText:'@example.com',querySelectorAll:()=>[mention]},['https://example.com/other']),'@example.com');
 });
+test('X line-wrapped URLs use complete DOM text, never a guessed truncated suffix',()=>{
+ const url='https://mp.weixin.qq.com/s/d1q5hicqCSMp0rBR6mcXGw';
+ const display='https://\nmp.weixin.qq.com/s/d1q5hicqCSMp\n0rBR6mcXGw\n…';
+ const anchor={innerText:display,textContent:url+'…',getAttribute:(key:string)=>key==='href'?'https://t.co/short':null};
+ const node={innerText:'全文：'+display+'\n\n保留结尾。',querySelectorAll:()=>[anchor]};
+ assert.equal(readPostText(node,[url]),'全文：'+url+'\n\n保留结尾。');
+ const truncated={...anchor,textContent:'https://mp.weixin.qq.com/s/d1q5hicqCSMp…'};
+ assert.equal(readPostText({...node,querySelectorAll:()=>[truncated]},[url]),node.innerText);
+ assert.equal(readPostText(node,['https://mp.weixin.qq.com/s/different']),node.innerText);
+ const repeated={...node,innerText:display+' '+display};
+ assert.equal(readPostText(repeated,[url]),repeated.innerText);
+ const textNode=(value:string)=>({nodeType:3,nodeValue:value});
+ const tree={...node,nodeType:1,childNodes:[textNode('全文：'),anchor,textNode('\n\n保留结尾。')]};
+ assert.equal(readPostText({...tree,innerText:'全文：\n'+display+'\n\n保留结尾。'},[url]),'全文：'+url+'\n\n保留结尾。');
+ const withBreak={...tree,childNodes:[textNode('全文：'),{nodeType:1,tagName:'BR'},anchor,textNode('\n\n保留结尾。')]};
+ assert.equal(readPostText(withBreak,[url]),'全文：\n'+url+'\n\n保留结尾。');
+});

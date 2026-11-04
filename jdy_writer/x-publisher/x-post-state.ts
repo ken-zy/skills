@@ -97,21 +97,44 @@ export function assertComposerReady(r: PostReceipt, s: ComposerSnapshot, text: s
   if (s.account?.toLowerCase() !== `/${CN_ACCOUNT.toLowerCase()}`) throw Error(`Expected @${CN_ACCOUNT}; account mismatch stops publication.`);
   if (!s.editor || s.text !== text || s.count !== r.manifest.images.length || !s.loaded || !s.enabled) throw Error('Composer text, image count, upload readiness, or long-post capability check failed. No submission.');
 }
-// Expand only an unambiguous displayed URL whose DOM metadata matches an approved URL.
+// Expand only an unambiguous URL whose DOM metadata or complete DOM text
+// matches an approved URL. X may visually hide the scheme/tail in spans while
+// retaining the entire URL in textContent, followed by a decorative ellipsis.
 // Mentions, hashtags, missing metadata and repeated display strings remain unchanged.
 export function readPostText(node:any, approvedLinks:string[] = []):string {
   let text=node?.innerText||'';
   if(!node||!approvedLinks.length)return text;
+  const recovered=new Map<any,string>();
   for(const anchor of node.querySelectorAll('a[href]')) {
     const display=anchor.innerText;
     if(!display||/^[@#]/.test(display)||!/^https?:\/\//.test(display)&&!/[a-z0-9-]+\.[a-z]/i.test(display))continue;
     const metadata=['title','data-expanded-url','href'].map(key=>anchor.getAttribute(key)).filter(Boolean);
+    const domText=anchor.textContent;
+    if(typeof domText==='string'&&/^https?:\/\//.test(domText)) {
+      metadata.push(domText.endsWith('…')?domText.slice(0,-1):domText);
+    }
     const expected=approvedLinks.find(url=>metadata.some(value=>{
       try{return new URL(value).href===new URL(url).href;}catch{return false;}
     }));
     if(!expected||display===expected)continue;
     const first=text.indexOf(display);
-    if(first>=0&&first===text.lastIndexOf(display))text=text.slice(0,first)+expected+text.slice(first+display.length);
+    if(first>=0&&first===text.lastIndexOf(display)) {
+      text=text.slice(0,first)+expected+text.slice(first+display.length);
+      recovered.set(anchor,expected);
+    }
+  }
+  // innerText inserts layout newlines around X's hidden URL spans. Read the
+  // actual text nodes after verified link replacement, retaining authored
+  // newline text and explicit <br> elements instead of flattening whitespace.
+  if(recovered.size&&node.childNodes) {
+    const walk=(part:any):string=>{
+      if(recovered.has(part))return recovered.get(part)!;
+      if(part.nodeType===3)return part.nodeValue||'';
+      if(part.nodeType===1&&part.tagName==='BR')return '\n';
+      if(part.nodeType===1&&part.tagName==='A')return part.innerText||'';
+      return [...(part.childNodes||[])].map(walk).join('');
+    };
+    return walk(node);
   }
   return text;
 }
