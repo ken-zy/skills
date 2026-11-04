@@ -45,7 +45,7 @@ description: 将文章、截图或故事制作成带手逐笔绘制的白板讲�
 
 ## 调用与检查
 
-- 需要声音时读 [Voice Studio接口](references/voice-interface.md)：仅传入文案、已选择的配置和视频事件时点，接收版本化音轨。声音问题回交该项目，不在白板侧实现克隆、训练、调速、滤波、笔声合成或混音。
+- 需要声音时读 [Voice Studio接口](references/voice-interface.md)：仅传入文案、已选择的配置和视频事件时点，接收版本化音轨。白板笔声无另选方案时复用`jdy-voiceover`已确认的柔和预设，不逐碎笔配响声。声音问题回交该项目，不在白板侧实现克隆、训练、调速、滤波、笔声合成或混音。
 - 图稿、笔顺、手部、排时、字幕与封装读 [制作方法](references/production.md)。
 - 资源与审核登记读 [审核记录格式](references/review-schema.md)，运行 `scripts/check_episode.py`；它核对声明资源和记录，不证明听感、笔顺或完整对象覆盖。
 - 第6步先查镜头表，第8/9步再对无字幕视频运行 `scripts/check_timing.py`。对象在提及后1.5秒内可辨、本句结束前画完，画面静止不超过3秒；缺数据是未完成，不能写通过。字幕变化或悬空手部运动不能代替画板节奏。
