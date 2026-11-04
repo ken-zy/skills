@@ -30,6 +30,13 @@ def check(folder, stage):
         errors.append('定稿已冻结；修订须新建同级版本，不可继续覆盖本集')
     if stage == 'final' and state not in {'final', 'provisional_final'}:
         errors.append('尚未记录用户定稿或暂定定稿决定')
+    # New handoffs must name the selected Voice Studio configuration; the
+    # initializer deliberately leaves it unset rather than falling back to B.
+    voice = data.get('voice', {})
+    if stage != 'plan' and isinstance(voice, dict) and voice.get('owner') == 'Voice Studio':
+        selected = voice.get('voice_config')
+        if not isinstance(selected, str) or not selected.strip():
+            errors.append('未明确 Voice Studio 声音配置；先记录实际选择，不得回退默认声线')
     required = set()
     if stage in {'sample', 'full', 'final'}:
         required |= {'narration_text', 'narration_audio', 'character', 'avatar_sample'}
@@ -50,15 +57,21 @@ def check(folder, stage):
     if not isinstance(resources, list):
         return ['resources 须为数组']
     ids = {}
+    duplicated = set()
     kinds = set()
     for item in resources:
         if not isinstance(item, dict):
             errors.append('资源须为对象')
             continue
         rid, kind = item.get('id'), item.get('kind')
-        if not isinstance(rid, str) or not rid or rid in ids:
-            errors.append(f'缺失或重复资源 ID: {rid}')
-        ids[rid] = kind
+        if not isinstance(rid, str) or not rid.strip():
+            errors.append(f'缺失或无效资源 ID: {rid!r}（不登记）')
+        elif rid in ids or rid in duplicated:
+            errors.append(f'重复资源 ID: {rid}（所有同名条目均不登记）')
+            ids.pop(rid, None)
+            duplicated.add(rid)
+        else:
+            ids[rid] = kind
         kinds.add(kind)
         if kind not in KINDS:
             errors.append(f'{rid}: 未知资源类型')
