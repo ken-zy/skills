@@ -11,6 +11,11 @@ test('Chrome survives launcher exit and cleanup of the launcher process group',
  {skip:!executable||process.platform==='win32',timeout:45000},async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'x-browser-lifecycle-'));
  const state=path.join(dir,'launch.json'),worker=path.join(dir,'launch.ts');
+ // Exercise the production launcher in CI without requiring a desktop session.
+ // This executable only adds fixture flags; production keeps its visible UI.
+ const fixtureChrome=path.join(dir,'chrome');
+ const quote=(value:string)=>"'"+value.replaceAll("'","'\"'\"'")+"'";
+ fs.writeFileSync(fixtureChrome,`#!/bin/sh\nexec ${quote(executable!)} --headless=new --disable-background-networking "$@"\n`,{mode:0o700});
  const utils=new URL('./x-utils.ts',import.meta.url).pathname;
  let chromePid:number|undefined,port:number|undefined;
  t.after(async()=>{
@@ -24,7 +29,7 @@ test('Chrome survives launcher exit and cleanup of the launcher process group',
  });
  fs.writeFileSync(worker,`import fs from 'node:fs';
  import {launchChrome,STABLE_CHROME} from ${JSON.stringify(utils)};
- const {chrome,port}=await launchChrome('about:blank',${JSON.stringify(path.join(dir,'profile'))},STABLE_CHROME);
+ const {chrome,port}=await launchChrome('about:blank',${JSON.stringify(path.join(dir,'profile'))},STABLE_CHROME,${JSON.stringify(fixtureChrome)});
  fs.writeFileSync(${JSON.stringify(state)},JSON.stringify({pid:chrome.pid,port}));
  chrome.unref();
  `);
