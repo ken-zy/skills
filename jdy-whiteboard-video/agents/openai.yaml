@@ -1,4 +1,4 @@
 interface:
   display_name: "手绘白板故事视频"
-  short_description: "从文章到带手白板视频，保留内容、声音、角色、关键镜头和定稿审核节点"
-  default_prompt: "使用 $jdy-whiteboard-video，按已确认的手绘白板风格制作这篇内容，先整理旁白和画面表给我审核。"
+  short_description: "从确认图稿到逐笔白板视频，调用Voice Studio音轨并对齐字幕和画面"
+  default_prompt: "使用 $jdy-whiteboard-video，按确认图稿逐笔制作白板视频，声音调用Voice Studio交付；先整理旁白和画面规划供我审核。"
