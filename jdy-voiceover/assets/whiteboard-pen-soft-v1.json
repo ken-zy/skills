@@ -1,0 +1,15 @@
+{
+  "id": "whiteboard-pen-soft-v1",
+  "texture_path": "/Users/jdy/Code/voice-studio/.local-voice/approved/whiteboard-pen-soft-v1/source-texture.wav",
+  "texture_sha256": "6aa9ebaa7122617586158185828b015f10ddc091dd6563e58a3e2343234118a8",
+  "texture_stage": "raw_before_this_profile",
+  "sample_rate": 48000,
+  "pen_only_lowpass_hz": 1800,
+  "pen_lowpass_order": 6,
+  "pen_gain_db_relative_to_texture": -6,
+  "minimum_audible_contact_ms": 40,
+  "attack_ms_max": 12,
+  "release_ms_max": 15,
+  "voice_gain": 1,
+  "music": false
+}
