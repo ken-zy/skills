@@ -104,6 +104,7 @@ export function assertComposerReady(r: PostReceipt, s: ComposerSnapshot, text: s
 export function readPostText(node:any, approvedLinks:string[] = []):string {
   let text=node?.innerText||'';
   if(!node||!approvedLinks.length)return text;
+  const recovered=new Map<any,string>();
   for(const anchor of node.querySelectorAll('a[href]')) {
     const display=anchor.innerText;
     if(!display||/^[@#]/.test(display)||!/^https?:\/\//.test(display)&&!/[a-z0-9-]+\.[a-z]/i.test(display))continue;
@@ -117,7 +118,23 @@ export function readPostText(node:any, approvedLinks:string[] = []):string {
     }));
     if(!expected||display===expected)continue;
     const first=text.indexOf(display);
-    if(first>=0&&first===text.lastIndexOf(display))text=text.slice(0,first)+expected+text.slice(first+display.length);
+    if(first>=0&&first===text.lastIndexOf(display)) {
+      text=text.slice(0,first)+expected+text.slice(first+display.length);
+      recovered.set(anchor,expected);
+    }
+  }
+  // innerText inserts layout newlines around X's hidden URL spans. Read the
+  // actual text nodes after verified link replacement, retaining authored
+  // newline text and explicit <br> elements instead of flattening whitespace.
+  if(recovered.size&&node.childNodes) {
+    const walk=(part:any):string=>{
+      if(recovered.has(part))return recovered.get(part)!;
+      if(part.nodeType===3)return part.nodeValue||'';
+      if(part.nodeType===1&&part.tagName==='BR')return '\n';
+      if(part.nodeType===1&&part.tagName==='A')return part.innerText||'';
+      return [...(part.childNodes||[])].map(walk).join('');
+    };
+    return walk(node);
   }
   return text;
 }

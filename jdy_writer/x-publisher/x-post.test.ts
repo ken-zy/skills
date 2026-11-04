@@ -181,4 +181,9 @@ test('X line-wrapped URLs use complete DOM text, never a guessed truncated suffi
  assert.equal(readPostText(node,['https://mp.weixin.qq.com/s/different']),node.innerText);
  const repeated={...node,innerText:display+' '+display};
  assert.equal(readPostText(repeated,[url]),repeated.innerText);
+ const textNode=(value:string)=>({nodeType:3,nodeValue:value});
+ const tree={...node,nodeType:1,childNodes:[textNode('全文：'),anchor,textNode('\n\n保留结尾。')]};
+ assert.equal(readPostText({...tree,innerText:'全文：\n'+display+'\n\n保留结尾。'},[url]),'全文：'+url+'\n\n保留结尾。');
+ const withBreak={...tree,childNodes:[textNode('全文：'),{nodeType:1,tagName:'BR'},anchor,textNode('\n\n保留结尾。')]};
+ assert.equal(readPostText(withBreak,[url]),'全文：\n'+url+'\n\n保留结尾。');
 });
