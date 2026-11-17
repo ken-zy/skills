@@ -15,7 +15,7 @@ Read these references as the workflow reaches each stage:
 
 - `references/xiaohongshu-research.md`: required before choosing slots. Covers search, candidate download, validation, evidence recording, and style-library fallback.
 - `references/note-assets.md`: required before creating note assets or prompt refs. Covers note skeletons, R2/local asset rules, style roles, and Git hygiene.
-- `references/prompt-candidates.md`: required before writing Pre/formal prompts or generating images. Also defines the **Generation Tool Routing** rule — Codex agents call `$imagegen` directly after `view_image` of refs in order; Claude Code agents must `Read` every `ref` image in the prompt JSON's exact order, then invoke `/ask-codex` for generation. Also defines **Anti-patterns From Past Sessions** — never feed failed candidates back as visual anchor (use Pre/series-anchor instead), pick product-refs whose drape matches the target, pick wearing-refs whose camera angle matches the target.
+- `references/prompt-candidates.md` covers Pre and formal prompts, ordered image references, the Codex image generation handoff, and reference selection for retries. Read it before writing prompts or generating images.
 - `references/review-scoring.md`: required before scoring drafts, selecting finals, or claiming a note is complete.
 
 ## Core Principle

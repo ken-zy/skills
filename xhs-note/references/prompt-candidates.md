@@ -40,27 +40,16 @@ Image generation always runs through Codex's built-in `$imagegen` / `image_gen` 
 
 - Use the `$imagegen` / `image_gen` built-in tool directly.
 - Open the prompt JSON and load each `ref` image with `view_image` in the exact order they appear in the `ref` array, so Image 1 / Image 2 / ... in the prompt text match the order Codex actually saw them.
-- Then call `$imagegen` with the prompt text, restating `Image 1 = ... only; Image 2 = ... only` at the top.
+- Then call `$imagegen` with the same reference files in order and restate `Image 1 = ... only; Image 2 = ... only` at the top of the prompt.
 - After generation, move the chosen output from `$CODEX_HOME/generated_images/...` into `style/pre-candidates/` (for Pre) or `drafts/<slot-id>/` (for formal slots), then run `python3 scripts/sync_review_csv.py <note-dir>`.
 
 ### When Claude Code is the executing agent
 
-Claude Code does not have `$imagegen` natively. Generation must go through Codex via `/ask-codex`, but the visual context still has to be primed first.
+Prepare the generation inputs in Claude Code and hand them off to a Codex session with access to the same workspace.
 
-Required sequence:
-
-1. **Load every `ref` image into the current Claude Code conversation context using the `Read` tool, in the exact order they appear in the prompt JSON's `ref` array.** This is the Claude-side equivalent of Codex's `view_image`. Order is non-negotiable: a wrong order silently re-binds Image 1 / Image 2 / ... to the wrong roles and the resulting picture will not match the prompt's role assignments.
-2. Confirm that the `ref` count, the `ref_roles` count, and the number of images you actually loaded all match. If any of the three diverge, fix the prompt JSON or reload the images before continuing.
-3. Build the prompt text by concatenating the prompt JSON's `prompt` field with an explicit role restatement matching the order of step 1 (`Image 1 = ... only; Image 2 = ... only; ...`).
-4. Invoke `/ask-codex` with that combined prompt text. Codex receives the prompt, but the local Claude Code session is the side that holds the freshly loaded ref images, so the role restatement must be self-contained text that describes each image's job; do not assume Codex can see the same loaded images.
-5. After Codex returns the generated image path(s), move the chosen output from `$CODEX_HOME/generated_images/...` (or wherever Codex saved it) into `style/pre-candidates/` (for Pre) or `drafts/<slot-id>/` (for formal slots), using the standard naming convention.
-6. Run `python3 scripts/sync_review_csv.py <note-dir>` to register the new draft, then continue with the normal scoring step.
-
-If any `ref` image cannot be loaded (missing file, broken path, unreadable format), stop and fix the asset or the JSON before invoking `/ask-codex`. Do not generate from an incomplete or wrongly-ordered visual context.
-
-### Hand-off note
-
-Whichever agent drives generation, the contract that "every `ref` image actually reaches the model in the order specified by the prompt" must be satisfied. The two routing modes above are equivalent in intent; only the local mechanism differs.
+1. Read each image in the prompt JSON's `ref` order. Confirm that the number of images read matches both the `ref` and `ref_roles` counts. Resolve any missing or unreadable file before handing off.
+2. Give the Codex session the note and prompt JSON paths, the Pre or slot ID, and the ordered reference paths with their roles. If the session is unavailable, give the user these inputs to continue in Codex.
+3. In Codex, follow the direct generation steps above. Reopen and supply every reference file in the saved order, then archive and register the output. Resume scoring once the draft is registered.
 
 ## Prompt Structure
 
