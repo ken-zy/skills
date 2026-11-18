@@ -55,5 +55,5 @@
 
 - 原始处理实现与参数：`/Users/jdy/Code/voice-studio/.local-voice/experiments/republic-v3-pen-soft-20261104-v1/soften_pen.py`及`manifest.json`，不直接复跑旧输出目录。
 - 原始纹理来源与裁切区间：Voice Studio `approved/whiteboard-pen-soft-v1/source.json`；素材是原始片段，不含任何人的参考录音。
-- 用户确认：`/Users/jdy/Code/ai-ip-business-plan/docs/videos/01-01-republic-v3/reviews/pen-soft-v1/pen-approval.json`及该集`FINAL.md`。生成清单里的`pending_user_pen_audition`是当时导出状态；后来确认记录独立保存，不改冻结文件来伪装当时已通过。
+- 用户确认：在 `ai-ip-business-plan` 项目根下打开 `docs/videos/01-01-republic-v3/FINAL.md`。生成清单里的`pending_user_pen_audition`是当时导出状态；后来确认记录独立保存，不改冻结文件来伪装当时已通过。
 - 已确认混音SHA256：`c10815d13ac513c9df70976bfa54629e58acb6868874f1e73f26d9d6432c3d6b`。该文件只用于回归验证，不将其整个旁白或笔声轨用作下一集的循环纹理。
