@@ -1,6 +1,6 @@
 # wechat
 
-本文件中的脚本、风格档案及资源相对路径，均以 Skill 根目录（上一级）为基准。仅执行本次请求的部分；沿用已给出的选择和授权，不重复确认。
+Skill 资源相对路径以 Skill 根目录（上一级）为基准。公众号文章、配图与 R2 上传脚本的相对路径，以保存文章的 Obsidian 项目根目录为基准。仅执行本次请求的部分；沿用已给出的选择和授权，不重复确认。
 
 ## Phase 6: 公众号后续操作（按需）
 
@@ -119,15 +119,15 @@ prompt 必须包含文章里的**具体词**或**判断**（"断更十天"、"�
 
 按当前执行环境选择已配置的生图入口：Codex 中优先使用原生 `image_gen` 工具；其他宿主使用其可用的生图技能。若宿主只有已配置的 companion，才按该宿主实际文档调用，不扫描硬编码的 Claude 插件缓存路径。
 
-只使用实际存在且已配置的工具，先读取所选生图技能的规则。缺少工具时说明具体阻塞，不自动安装依赖或索取凭据。输出保存到 Vault 外临时目录，再按下节上传 R2。
+只使用实际存在且已配置的工具，先读取所选生图技能的规则。缺少工具时说明具体阻塞，不自动安装依赖或索取凭据。把输出写入项目的 `.tmp/jdy-writer/<topic-slug>/`，再按下节上传 R2。
 
 #### 6.1.5 插入
 
-- 生成路径：codex 生成的 PNG 落 `/tmp/jdy-writer-illustrations/<topic-slug>/NN-<slug>.png`（不再落到 vault 内的 `illustrations/` 目录）
-- 使用现有已配置的 R2 上传脚本；先阅读 Vault 的 `docs/agents/media.md`，不读取或输出凭据：
+- 生成路径：`.tmp/jdy-writer/<topic-slug>/NN-<slug>.png`。
+- 从保存文章的 Obsidian 项目根目录运行上传脚本。先读取同一项目的 `docs/agents/media.md`，不读取或输出凭据：
   ```bash
-  R2_URL="$(bash /Users/jdy/Code/obsidian/scripts/r2-upload.sh \
-    "/tmp/jdy-writer-illustrations/<topic-slug>/NN-<slug>.png" \
+  R2_URL="$(bash scripts/r2-upload.sh \
+    ".tmp/jdy-writer/<topic-slug>/NN-<slug>.png" \
     "illustrations/<YYYYMMDD>-<topic-slug>-NN-<slug>")"
   ```
 - 文章内引用：直接用 `$R2_URL`（`https://img.jdy.systems/illustrations/<YYYYMMDD>-<topic-slug>-NN-<slug>.webp`）
@@ -148,21 +148,21 @@ prompt 必须包含文章里的**具体词**或**判断**（"断更十天"、"�
 
 #### 6.2.2 生成
 
-沿用 §6.1.4 当前环境的生图工具，prompt 参考 cover-design-framework.md 的相关要素；用户明确的风格和文字选择优先。生成文件放到 Vault 外临时目录，使用主题名和日期避免覆盖同日其他封面；核对实际图像后再上传。
+沿用 §6.1.4 当前环境的生图工具，prompt 参考 cover-design-framework.md 的相关要素；用户明确的风格和文字选择优先。生成文件放到同一项目的 `.tmp/jdy-writer/<topic-slug>/`，使用主题名和日期避免覆盖同日其他封面；核对实际图像后再上传。
 
 #### 6.2.3 R2 上传 + 正文嵌入
 
-以下本地路径为示例；调用时传入生图工具实际返回的文件路径，不假定工具已复制到某个固定位置。
+在保存文章的 Obsidian 项目根目录运行。调用时传入已定位的项目内文件相对路径。
 
 ```bash
 # 使用现有 R2 认证配置；不要读取或输出秘密（参考 6.1.5）
-COVER_URL="$(bash /Users/jdy/Code/obsidian/scripts/r2-upload.sh \
-  "/tmp/jdy-writer-cover/<YYYYMMDD>-cover.png" \
+COVER_URL="$(bash scripts/r2-upload.sh \
+  ".tmp/jdy-writer/<topic-slug>/<YYYYMMDD>-cover.png" \
   "illustrations/<YYYYMMDD>-cover")"
-# r2-upload.sh: cwebp q=90 + wrangler put + 删 /tmp/.../cover.png 本地副本
+# 上传成功后脚本删除输入 PNG。
 # stdout: https://img.jdy.systems/illustrations/<YYYYMMDD>-cover.webp（已捕获到 $COVER_URL）
 # 注意：r2-upload.sh 上传成功后会删本地 cover.png；如果后续 Phase 6.3 需要本地路径，
-#       必须从 R2 重新下载到 /tmp/jdy-writer-cover/<YYYYMMDD>-cover.webp
+#       从 R2 重新下载到 .tmp/jdy-writer/<topic-slug>/<YYYYMMDD>-cover.webp
 ```
 
 R2 公网 URL：`$COVER_URL`（已由 r2-upload.sh stdout 捕获，格式为 `https://img.jdy.systems/illustrations/<YYYYMMDD>-cover.webp`）
